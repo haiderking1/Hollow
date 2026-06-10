@@ -463,40 +463,6 @@ func (a *App) buildLines() []string {
 		}
 	}
 
-	var statusLine string
-	if a.session != nil {
-		cfg, err := config.Load()
-		enabled := true
-		if err == nil && cfg.Compaction != nil {
-			enabled = cfg.Compaction.Enabled
-		}
-
-		contextWindow := agent.ModelContextWindow(config.DefaultModel, 0)
-		if runCfg, runErr := config.LoadRuntime(); runErr == nil {
-			contextWindow = agent.ModelContextWindow(runCfg.Model, runCfg.Compaction.ContextWindow)
-		} else if err == nil && cfg.Compaction != nil && cfg.Compaction.ContextWindow > 0 {
-			contextWindow = agent.ModelContextWindow(cfg.Model, cfg.Compaction.ContextWindow)
-		}
-
-		sessionMsgs := a.session.BuildSessionContext().Messages
-		tokens := session.EstimateContextTokens(sessionMsgs).Tokens
-		percent := 0
-		if contextWindow > 0 {
-			percent = (tokens * 100) / contextWindow
-		}
-		statusLine = fmt.Sprintf("  tokens: %d / %d (%d%%)", tokens, contextWindow, percent)
-		if !enabled {
-			statusLine += " · auto-compact off"
-		}
-	}
-
-	if statusLine != "" {
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, a.styles.LogDim.Render(statusLine))
-	}
-
 	if loader := a.renderCompactionLoader(); loader != "" {
 		if len(lines) > 0 {
 			lines = append(lines, "")
@@ -509,7 +475,11 @@ func (a *App) buildLines() []string {
 		Render(a.renderTaskInput())
 	lines = append(lines, strings.Split(composer, "\n")...)
 
-	// Pad top so composer stays at bottom when content is short (Flame-style).
+	if footer := a.renderFooter(w); len(footer) > 0 {
+		lines = append(lines, footer...)
+	}
+
+	// Pad top so composer + footer stay at bottom when content is short (Flame-style).
 	h := a.height
 	if h <= 0 {
 		h = 24

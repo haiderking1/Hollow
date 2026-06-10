@@ -37,6 +37,8 @@ type Styles struct {
 	SlashDim    lipgloss.Style
 	CompactionSpinner lipgloss.Style
 	CompactionText    lipgloss.Style
+	FooterWarn        lipgloss.Style
+	FooterErr         lipgloss.Style
 }
 
 func NewStyles() Styles {
@@ -174,6 +176,12 @@ func NewStyles() Styles {
 
 		CompactionText: base.Copy().
 			Foreground(textDim),
+
+		FooterWarn: base.Copy().
+			Foreground(amber),
+
+		FooterErr: base.Copy().
+			Foreground(red),
 	}
 }
 
