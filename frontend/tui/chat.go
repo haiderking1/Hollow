@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/enough/enough/frontend/tui/highlight"
 )
 
 type chatMsg struct {
@@ -242,19 +244,30 @@ func renderThinkingBody(styles Styles, thinking string, width int) string {
 }
 
 func renderAssistantText(styles Styles, text string, width int) string {
-	wrapped := wrapText(text, width)
-	lines := strings.Split(wrapped, "\n")
-	if len(lines) == 0 {
+	body := highlight.Render(text, width, highlight.TextStyle{
+		Plain: func(line string) string {
+			return styles.AssistText.Render(line)
+		},
+		Bold: func(line string) string {
+			return styles.AssistText.Copy().Bold(true).Render(line)
+		},
+		Italic: func(line string) string {
+			return styles.AssistText.Copy().Italic(true).Render(line)
+		},
+	})
+	if body == "" {
 		return ""
 	}
 
+	lines := strings.Split(body, "\n")
 	var out strings.Builder
 	out.WriteString(styles.AssistBullet.Render("● "))
-	out.WriteString(styles.AssistText.Render(lines[0]))
+	out.WriteString(lines[0])
 
 	for _, line := range lines[1:] {
 		out.WriteString("\n")
-		out.WriteString(styles.AssistText.Render("  " + line))
+		out.WriteString("  ")
+		out.WriteString(line)
 	}
 	return out.String()
 }
