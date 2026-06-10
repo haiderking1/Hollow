@@ -215,16 +215,6 @@ func (a *App) initSession() error {
 		})
 	}
 
-	nComp := 0
-	for _, entry := range sm.GetBranch(sm.LeafID()) {
-		if entry.Type == session.TypeCompaction {
-			nComp++
-		}
-	}
-	if nComp > 0 {
-		a.appendMessage("system", fmt.Sprintf("Session compacted %d times", nComp))
-	}
-
 	return nil
 }
 

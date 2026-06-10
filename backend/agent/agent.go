@@ -14,8 +14,6 @@ import (
 	"github.com/enough/enough/backend/session"
 )
 
-const maxRounds = 32
-
 // Agent holds a persistent transcript and runs the tool loop on each prompt,
 // matching Flame's Agent.state.messages + prompt() pattern.
 type Agent struct {
@@ -152,7 +150,7 @@ func (a *Agent) SetEmit(emit func(core.Event)) {
 }
 
 // Prompt appends a user message and runs the agent loop until the model stops
-// calling tools or maxRounds is hit.
+// calling tools or the context is cancelled.
 func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string, emit func(core.Event)) error {
 	a.mu.Lock()
 	if a.busy {
@@ -228,7 +226,7 @@ func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string,
 func (a *Agent) runLoop(ctx context.Context) error {
 	tools := nativeTools()
 
-	for round := 0; round < maxRounds; round++ {
+	for {
 		if err := ctx.Err(); err != nil {
 			if errors.Is(err, context.Canceled) {
 				a.interrupted()
@@ -293,7 +291,6 @@ func (a *Agent) runLoop(ctx context.Context) error {
 
 					compacted, compErr := a.RunAutoCompaction(ctx, "overflow", true)
 					if compErr == nil && compacted {
-						round--
 						continue
 					}
 				} else {
@@ -423,10 +420,6 @@ func (a *Agent) runLoop(ctx context.Context) error {
 			a.persist(toolMsg)
 		}
 	}
-
-	err := fmt.Errorf("agent stopped after %d tool rounds", maxRounds)
-	a.err(err.Error())
-	return err
 }
 
 func (a *Agent) streamStart() {
