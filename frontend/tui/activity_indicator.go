@@ -1,5 +1,10 @@
 package tui
 
+import (
+	"fmt"
+	"time"
+)
+
 type activityPhase int
 
 const (
@@ -42,6 +47,7 @@ func (a *App) beginAgentActivity() {
 	a.activityPhase = activityConnecting
 	a.activityFrame = 0
 	a.activityStreamSegments = 0
+	a.activityStartedAt = time.Now()
 	a.activityWordIndex = a.nextActivityWord()
 }
 
@@ -49,6 +55,7 @@ func (a *App) stopAgentActivity() {
 	a.activityPhase = activityIdle
 	a.activityFrame = 0
 	a.activityStreamSegments = 0
+	a.activityStartedAt = time.Time{}
 }
 
 func (a *App) onAssistantStreamStart() {
@@ -123,6 +130,24 @@ func activityBreatheFrameAt(tick int) string {
 	return activityBreatheFrames[(tick/activityFrameHoldTicks)%len(activityBreatheFrames)]
 }
 
+func formatActivityElapsed(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	total := int(d.Seconds())
+	if total < 60 {
+		return fmt.Sprintf("%ds", total)
+	}
+	minutes := total / 60
+	seconds := total % 60
+	if minutes < 60 {
+		return fmt.Sprintf("%dm%02ds", minutes, seconds)
+	}
+	hours := minutes / 60
+	minutes %= 60
+	return fmt.Sprintf("%dh%02dm", hours, minutes)
+}
+
 func (a *App) activityLabel() string {
 	switch a.activityPhase {
 	case activityConnecting:
@@ -141,5 +166,10 @@ func (a *App) renderAgentActivityLoader() string {
 	}
 	bullet := a.styles.ActivityBullet.Render(activityBreatheFrameAt(a.activityFrame))
 	text := a.styles.ActivityText.Render(label)
-	return bullet + " " + text
+	elapsed := "0s"
+	if !a.activityStartedAt.IsZero() {
+		elapsed = formatActivityElapsed(time.Since(a.activityStartedAt))
+	}
+	timer := a.styles.LogDim.Render("(" + elapsed + ")")
+	return bullet + " " + text + " " + timer
 }

@@ -53,6 +53,7 @@ type App struct {
 	nextActivityWordIndex    int
 	lastActivityWordIndex    int
 	activityStreamSegments   int
+	activityStartedAt        time.Time
 	toolSpinnerFrame         int
 	compactionQueuedMessages []string
 	agentCh                  <-chan core.Event
