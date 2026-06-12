@@ -247,7 +247,9 @@ func TestRunningMutatedScriptCompletesTurnDirectly(t *testing.T) {
 		t.Fatalf("open obligations after running the script: %+v", a.obligations.Open())
 	}
 	for _, m := range a.messages {
-		if m.Role == "user" && strings.HasPrefix(opencode.ContentString(m), core.RuntimeNoticePrefix) {
+		text := opencode.ContentString(m)
+		if m.Role == "user" && strings.HasPrefix(text, core.RuntimeNoticePrefix) &&
+			strings.Contains(text, "TURN INCOMPLETE") {
 			t.Fatal("incomplete notice injected despite direct verification")
 		}
 	}

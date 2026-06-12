@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -21,7 +22,7 @@ func bashTool() opencode.Tool {
 		Type: "function",
 		Function: opencode.ToolFunction{
 			Name:        "bash",
-			Description: "Run a shell command in the project workspace",
+			Description: "Run a shell command in the project workspace. Do NOT run mpv, sixel, blessed, or full-screen TUI apps — they break the Enough terminal. Use curl, tests, and plain-text commands only.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
@@ -41,15 +42,28 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 		return toolResult{output: err.Error(), isErr: true}
 	}
 
+	if blocked := bashCommandBlocked(args.Command); blocked != "" {
+		return toolResult{output: blocked, isErr: true}
+	}
+
 	// CommandContext + the platform Cancel hook means an aborted context (ESC)
 	// actually kills the running process (and its group on unix), instead of
 	// the command running to completion after cancellation.
 	cmd := exec.CommandContext(ctx, "bash", "-lc", args.Command)
 	cmd.Dir = a.workDir
+	cmd.Env = append(os.Environ(),
+		"TERM=dumb",
+		"NO_COLOR=1",
+		"CLICOLOR=0",
+		"FORCE_COLOR=0",
+	)
 	configureProcGroup(cmd)
 
 	sw := &bashStreamWriter{max: maxBashOutput, onChunk: func(chunk string) {
-		a.toolDelta(id, chunk)
+		clean, _ := SanitizeBashOutput(chunk)
+		if clean != "" {
+			a.toolDelta(id, clean)
+		}
 	}}
 
 	stdout, err := cmd.StdoutPipe()
@@ -78,7 +92,7 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 	err = cmd.Wait()
 	wg.Wait()
 	duration := time.Since(started)
-	text := sw.String()
+	text, _ := SanitizeBashOutput(sw.String())
 
 	// Interrupted: report whatever was captured plus a clear marker rather than
 	// a raw "signal: killed" error. No evidence — an interrupted run proves nothing.
@@ -129,13 +143,15 @@ func (w *bashStreamWriter) Write(p []byte) (int, error) {
 			w.buf.WriteString(truncMarker)
 			emit = truncMarker
 		case len(p) <= room:
-			w.buf.Write(p)
-			emit = string(p)
+			clean, _ := SanitizeBashOutput(string(p))
+			w.buf.WriteString(clean)
+			emit = clean
 		default:
-			w.buf.Write(p[:room])
+			clean, _ := SanitizeBashOutput(string(p[:room]))
+			w.buf.WriteString(clean)
 			w.buf.WriteString(truncMarker)
 			w.truncated = true
-			emit = string(p[:room]) + truncMarker
+			emit = clean + truncMarker
 		}
 	}
 	w.mu.Unlock()

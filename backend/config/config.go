@@ -42,6 +42,19 @@ type EvidenceConfig struct {
 	// files whose on-disk hash still matches the last recorded mutation.
 	// Pointer so configs written before this field existed default to true.
 	ContinuityReads *bool `json:"continuity_reads,omitempty"`
+
+	// GoalLock when true (default) freezes the user task for the turn.
+	GoalLock *bool `json:"goal_lock_enabled,omitempty"`
+
+	// StepScorer when true (default) rejects tool paths that repeat failures
+	// or edit away from the failure site after a verify run fails.
+	StepScorer *bool `json:"step_scorer_enabled,omitempty"`
+
+	// ParallelForks when true (default) spawns parallel same-model workers in
+	// git worktrees after repeated verify failures (same locked goal).
+	ParallelForks *bool `json:"parallel_forks_enabled,omitempty"`
+	StuckAfterFailures int `json:"stuck_after_failures,omitempty"`
+	ParallelForkCount  int `json:"parallel_fork_count,omitempty"`
 }
 
 // ContinuityEnabled resolves the default-true tri-state.
@@ -50,12 +63,47 @@ func (e EvidenceConfig) ContinuityEnabled() bool {
 }
 
 func DefaultEvidence() EvidenceConfig {
+	trueVal := true
 	return EvidenceConfig{
-		Enabled:             true,
-		StrictVerifyReset:   true,
-		MaxCompletionRounds: 12,
-		VerifierEnabled:     true,
+		Enabled:              true,
+		StrictVerifyReset:    true,
+		MaxCompletionRounds:  12,
+		VerifierEnabled:      true,
+		GoalLock:             &trueVal,
+		StepScorer:           &trueVal,
+		ParallelForks:        &trueVal,
+		StuckAfterFailures:   2,
+		ParallelForkCount:    4,
 	}
+}
+
+func (e EvidenceConfig) GoalLockEnabled() bool {
+	return e.GoalLock == nil || *e.GoalLock
+}
+
+func (e EvidenceConfig) StepScorerEnabled() bool {
+	return e.StepScorer == nil || *e.StepScorer
+}
+
+func (e EvidenceConfig) ParallelForksEnabled() bool {
+	return e.ParallelForks == nil || *e.ParallelForks
+}
+
+func (e EvidenceConfig) StuckThreshold() int {
+	if e.StuckAfterFailures <= 0 {
+		return 2
+	}
+	return e.StuckAfterFailures
+}
+
+func (e EvidenceConfig) ForkCount() int {
+	if e.ParallelForkCount <= 0 {
+		return 4
+	}
+	if e.ParallelForkCount > 8 {
+		return 8
+	}
+	return e.ParallelForkCount
 }
 
 type SkillsSettings struct {

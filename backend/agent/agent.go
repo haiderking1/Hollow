@@ -54,6 +54,13 @@ type Agent struct {
 	// verifier as context.
 	lastUserPrompt string
 
+	lockedGoal string
+
+	verifyFailures           int
+	parallelForksAttempted   bool
+	turnCtx                  context.Context
+	step                     stepTracker
+
 	// completionRounds counts worker/verifier cycles this turn, capped by
 	// cfg.Evidence.MaxCompletionRounds.
 	completionRounds int
@@ -371,10 +378,15 @@ func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string,
 
 	a.mu.Lock()
 	a.lastUserPrompt = userText
+	a.lockedGoal = userText
+	a.verifyFailures = 0
+	a.parallelForksAttempted = false
+	a.step = stepTracker{}
 	a.completionRounds = 0
 	if a.cfg.Evidence.Enabled {
 		verifyCmd := obligations.DetectVerifyCommand(a.workDir)
-		a.obligations = obligations.NewRegistry(turnID, verifyCmd,
+		taskVerify := obligations.ExtractTaskVerifyCommands(userText)
+		a.obligations = obligations.NewRegistry(turnID, verifyCmd, taskVerify,
 			a.cfg.Evidence.StrictVerifyReset, a.cfg.Evidence.VerifierEnabled)
 	} else {
 		a.obligations = nil
@@ -431,6 +443,17 @@ func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string,
 
 	a.persist(userMsg)
 
+	if a.cfg.Evidence.Enabled && a.cfg.Evidence.GoalLockEnabled() {
+		lockMsg := opencode.Message{
+			Role:    "user",
+			Content: opencode.StringContent(goalLockNotice(userText)),
+		}
+		a.mu.Lock()
+		a.messages = append(a.messages, lockMsg)
+		a.mu.Unlock()
+		a.persist(lockMsg)
+	}
+
 	defer func() {
 		cancel()
 		a.mu.Lock()
@@ -476,6 +499,10 @@ func (a *Agent) hydrateNudgeCountersLocked() {
 }
 
 func (a *Agent) runLoop(ctx context.Context) error {
+	a.mu.Lock()
+	a.turnCtx = ctx
+	a.mu.Unlock()
+
 	tools := a.toolMenu()
 
 	iterations := 0

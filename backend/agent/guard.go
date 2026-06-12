@@ -196,7 +196,13 @@ func (a *Agent) recordCommandRun(command string, exitCode int, output string, du
 	if reg := a.obligationRegistry(); reg != nil {
 		touches := commandTouchesMutation(command, a.evidenceLedger().MutatedPaths())
 		if reg.NoteCommandRun(command, exitCode, entry.ID, touches) {
+			a.noteVerifySuccess()
 			a.emitObligations()
+		} else if obligations.IsVerifyCommand(command, reg.VerifyCommand(), reg.ExtraVerifyCommands()) {
+			pytestNoTests := exitCode == 5 && strings.Contains(command, "pytest")
+			if exitCode != 0 && !pytestNoTests {
+				a.noteVerifyFailure()
+			}
 		}
 	}
 }

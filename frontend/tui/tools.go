@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/enough/enough/backend/core"
+import (
+	"github.com/enough/enough/backend/agent"
+	"github.com/enough/enough/backend/core"
+)
 
 func (a *App) handleToolStart(ev core.ToolCallEvent) {
 	msg := chatMsg{
@@ -24,15 +27,19 @@ func (a *App) handleToolStart(ev core.ToolCallEvent) {
 // handleToolDelta appends a chunk of live tool output to the matching pending
 // tool message so long-running tools (bash) show progress as it streams.
 func (a *App) handleToolDelta(ev core.ToolCallEvent) {
+	clean, _ := sanitizeToolOutput(ev.Name, ev.Result)
+	if clean == "" {
+		return
+	}
 	for i := len(a.messages) - 1; i >= 0; i-- {
 		msg := &a.messages[i]
-		if msg.role != "tool" {
+		if msg.role != "tool" || !msg.toolPending {
 			continue
 		}
 		if ev.ID != "" && msg.toolID != ev.ID {
 			continue
 		}
-		msg.toolResult += ev.Result
+		msg.toolResult += clean
 		a.bumpChat()
 		return
 	}
@@ -51,7 +58,8 @@ func (a *App) handleToolResult(ev core.ToolCallEvent) {
 			continue
 		}
 		msg.toolPending = false
-		msg.toolResult = ev.Result
+		clean, _ := sanitizeToolOutput(msg.toolName, ev.Result)
+		msg.toolResult = clean
 		msg.toolError = ev.Error
 		switch msg.toolName {
 		case "write_file", "edit_file":
@@ -65,13 +73,30 @@ func (a *App) handleToolResult(ev core.ToolCallEvent) {
 		return
 	}
 
+	clean, _ := sanitizeToolOutput(ev.Name, ev.Result)
 	a.messages = append(a.messages, chatMsg{
 		role:       "tool",
 		toolID:     ev.ID,
-		toolResult: ev.Result,
+		toolName:   ev.Name,
+		toolResult: clean,
 		toolError:  ev.Error,
 	})
 	a.bumpChat()
+}
+
+func sanitizeToolOutput(toolName, text string) (string, bool) {
+	if text == "" {
+		return "", false
+	}
+	if toolName == "bash" || toolName == "" {
+		return agent.SanitizeBashOutput(text)
+	}
+	return text, false
+}
+
+func sanitizeLoadedToolResult(toolName, text string) string {
+	clean, _ := sanitizeToolOutput(toolName, text)
+	return clean
 }
 
 func (a *App) toggleToolsExpanded() {

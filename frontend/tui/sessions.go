@@ -231,7 +231,7 @@ func (a *App) resumeSession(path string) {
 			thinking:     line.Thinking,
 			toolName:     line.ToolName,
 			toolArgs:     line.ToolArgs,
-			toolResult:   line.ToolResult,
+			toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
 			toolError:    line.ToolError,
 			tokensBefore: line.TokensBefore,
 		})

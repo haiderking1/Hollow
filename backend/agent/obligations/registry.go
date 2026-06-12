@@ -44,18 +44,26 @@ type Registry struct {
 	turnID          string
 	items           []*Obligation
 	seq             int
-	verifyCmd       string // detected project verify command ("" = manual)
-	strictReset     bool   // reopen must_run_verify on later mutations
+	verifyCmd       string
+	extraVerifyCmds []string
+	strictReset     bool
 	verifierEnabled bool
 }
 
-func NewRegistry(turnID, verifyCmd string, strictReset, verifierEnabled bool) *Registry {
+func NewRegistry(turnID, verifyCmd string, extraVerifyCmds []string, strictReset, verifierEnabled bool) *Registry {
 	return &Registry{
 		turnID:          turnID,
 		verifyCmd:       verifyCmd,
+		extraVerifyCmds: append([]string(nil), extraVerifyCmds...),
 		strictReset:     strictReset,
 		verifierEnabled: verifierEnabled,
 	}
+}
+
+func (r *Registry) ExtraVerifyCommands() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.extraVerifyCmds...)
 }
 
 func (r *Registry) VerifyCommand() string {
@@ -104,6 +112,9 @@ func (r *Registry) NoteMutation() bool {
 		} else {
 			desc = "no auto-verify detected — run an explicit verification command via bash (exit 0)"
 		}
+		if len(r.extraVerifyCmds) > 0 {
+			desc += "; task checks: " + strings.Join(r.extraVerifyCmds, "; ")
+		}
 		ob = r.add(KindMustRunVerify, desc, r.verifyCmd)
 		changed = true
 	} else if r.strictReset && ob.Status == StatusClosed {
@@ -150,8 +161,10 @@ func (r *Registry) NoteCommandRun(command string, exitCode int, evidenceID strin
 		return false
 	}
 
-	matchesVerify := r.verifyCmd == "" || strings.Contains(command, r.verifyCmd)
-	pytestNoTests := exitCode == 5 && strings.Contains(command, "pytest") && matchesVerify
+	manualMode := r.verifyCmd == "" && len(r.extraVerifyCmds) == 0
+	matchesVerify := manualMode || commandMatchesAny(command, r.verifyCmd, r.extraVerifyCmds)
+	pytestNoTests := exitCode == 5 && strings.Contains(command, "pytest") &&
+		(manualMode || commandMatchesAny(command, r.verifyCmd, r.extraVerifyCmds))
 
 	passed := exitCode == 0 && (matchesVerify || touchesMutation)
 	if !passed && !pytestNoTests {

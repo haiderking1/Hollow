@@ -26,6 +26,10 @@ func (a *Agent) executeTool(ctx context.Context, id, name, argsJSON string) tool
 
 	result := a.dispatchTool(ctx, id, name, argsJSON)
 
+	if scored := a.scoreToolStep(name, argsJSON, result); scored != nil {
+		return *scored
+	}
+
 	if !result.isErr {
 		a.recordEvidence(name, argsJSON, beforeHash)
 		// Swarm workers edit in worktrees that merge back; treat a completed

@@ -1,12 +1,17 @@
 package flame
 
 import (
+	"os"
 	"strings"
 
 	"github.com/enough/enough/frontend/tui/term"
 )
 
-// Renderer implements Flame-style differential terminal rendering with native scrollback.
+func isTermuxSession() bool {
+	return os.Getenv("TERMUX_VERSION") != ""
+}
+
+// Renderer implements Flame packages/tui doRender() with native scrollback.
 type Renderer struct {
 	Terminal *term.Terminal
 
@@ -114,7 +119,8 @@ func (r *Renderer) Render(lines []string, stablePrefix int) {
 		return
 	}
 
-	if heightChanged {
+	// Flame: skip full redraw on height change in Termux (software keyboard).
+	if heightChanged && !isTermuxSession() {
 		fullRender(true)
 		return
 	}
@@ -257,6 +263,7 @@ func (r *Renderer) Render(lines []string, stablePrefix int) {
 
 	finalCursorRow := renderEnd
 
+	// Flame shrink path: \r\n\x1b[2K per removed line, then cursor up.
 	if len(r.previousLines) > len(newLines) {
 		if renderEnd < len(newLines)-1 {
 			moveDown := len(newLines) - 1 - renderEnd
@@ -264,14 +271,8 @@ func (r *Renderer) Render(lines []string, stablePrefix int) {
 			finalCursorRow = len(newLines) - 1
 		}
 		extraLines := len(r.previousLines) - len(newLines)
-		if extraLines > 0 {
-			buf.WriteString("\x1b[1B")
-		}
-		for i := 0; i < extraLines; i++ {
-			buf.WriteString("\r\x1b[2K")
-			if i < extraLines-1 {
-				buf.WriteString("\x1b[1B")
-			}
+		for i := len(newLines); i < len(r.previousLines); i++ {
+			buf.WriteString("\r\n\x1b[2K")
 		}
 		if extraLines > 0 {
 			buf.WriteString("\x1b[" + itoa(extraLines) + "A")

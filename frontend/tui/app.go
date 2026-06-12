@@ -121,6 +121,8 @@ type App struct {
 	writeApprovalQueue     []writeApprovalItem
 
 	approvalPromptCh chan writeApprovalItem
+
+	stdin *stdinBuffer
 }
 
 func newApp(t *term.Terminal) *App {
@@ -154,6 +156,7 @@ func (a *App) run() error {
 	a.height = a.term.Rows()
 
 	inputCh := make(chan []byte, 32)
+	a.stdin = newStdinBuffer(a.dispatchKeyInput)
 	if err := a.term.Start(func(b []byte) {
 		select {
 		case inputCh <- b:
@@ -169,6 +172,7 @@ func (a *App) run() error {
 		return err
 	}
 	defer func() {
+		a.shutdown()
 		a.stopRenderTimer()
 		a.renderer.Stop()
 		a.term.Stop()
@@ -318,7 +322,7 @@ func (a *App) initSession() error {
 			thinking:     line.Thinking,
 			toolName:     line.ToolName,
 			toolArgs:     line.ToolArgs,
-			toolResult:   line.ToolResult,
+			toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
 			toolError:    line.ToolError,
 			tokensBefore: line.TokensBefore,
 		})
@@ -359,7 +363,7 @@ func (a *App) reloadChatFromSession() {
 			thinking:     line.Thinking,
 			toolName:     line.ToolName,
 			toolArgs:     line.ToolArgs,
-			toolResult:   line.ToolResult,
+			toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
 			toolError:    line.ToolError,
 			tokensBefore: line.TokensBefore,
 		})
@@ -368,6 +372,10 @@ func (a *App) reloadChatFromSession() {
 }
 
 func (a *App) handleInput(data []byte) {
+	a.stdin.process(data)
+}
+
+func (a *App) dispatchKeyInput(data []byte) {
 	a.stopEscFlush()
 
 	keys, needsFlush := a.keys.feed(data)

@@ -14,7 +14,7 @@ import (
 )
 
 func newTestRegistry(cfg config.Runtime, turnID, verifyCmd string) *obligations.Registry {
-	return obligations.NewRegistry(turnID, verifyCmd, cfg.Evidence.StrictVerifyReset, cfg.Evidence.VerifierEnabled)
+	return obligations.NewRegistry(turnID, verifyCmd, nil, cfg.Evidence.StrictVerifyReset, cfg.Evidence.VerifierEnabled)
 }
 
 // The verifier's tool allowlist is enforced at the registry/guard level, not
@@ -137,6 +137,7 @@ func TestVerifierFailureFactsInjectedToWorker(t *testing.T) {
 	notice := incompleteNotice(
 		[]obligations.Obligation{{Kind: obligations.KindMustRunVerify, Description: "go test ./... must exit 0 (run via bash)"}},
 		[]string{"FAIL: TestFoo (0.01s) — expected 2, got 3"},
+		"fix the foo test",
 	)
 	if !strings.Contains(notice, "TURN INCOMPLETE") {
 		t.Fatalf("missing header: %q", notice)

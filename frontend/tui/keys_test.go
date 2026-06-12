@@ -19,6 +19,38 @@ func TestKeyReaderLoneEscape(t *testing.T) {
 	}
 }
 
+func TestKeyReaderDiscardsX10Mouse(t *testing.T) {
+	kr := newKeyReader()
+	// ESC [ M Cb Cx Cy
+	seq := []byte{27, '[', 'M', 'C', 'X', '0'}
+	keys, needsFlush := kr.feed(seq)
+	if needsFlush || len(keys) != 0 {
+		t.Fatalf("expected mouse discarded, keys=%v flush=%v", keys, needsFlush)
+	}
+	if len(kr.buf) != 0 {
+		t.Fatalf("buffer not drained: %q", kr.buf)
+	}
+}
+
+func TestKeyReaderDiscardsOrphanMouseWithoutESC(t *testing.T) {
+	kr := newKeyReader()
+	seq := []byte("[MCX0[MCY0")
+	keys, _ := kr.feed(seq)
+	if len(keys) != 0 {
+		t.Fatalf("expected orphan mouse discarded, got %v", keys)
+	}
+}
+
+func TestKeyReaderDiscardsSGRMouseWheel(t *testing.T) {
+	kr := newKeyReader()
+	// scroll-up wheel event
+	seq := []byte("\x1b[<64;12;5M")
+	keys, _ := kr.feed(seq)
+	if len(keys) != 0 {
+		t.Fatalf("expected wheel discarded, got %v", keys)
+	}
+}
+
 func TestKeyReaderEscapeAndArrow(t *testing.T) {
 	kr := newKeyReader()
 

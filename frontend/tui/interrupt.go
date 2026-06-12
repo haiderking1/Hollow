@@ -95,3 +95,20 @@ func (a *App) abortAgent() {
 		ag.Abort()
 	}
 }
+
+func (a *App) abortAgentAndWait() {
+	a.mu.Lock()
+	ag := a.agent
+	a.mu.Unlock()
+	if ag != nil {
+		ag.AbortAndWait()
+	}
+}
+
+// shutdown stops in-flight agent work and OAuth flows before the TUI tears down.
+func (a *App) shutdown() {
+	if a.codexOAuthCancel != nil {
+		a.codexOAuthCancel()
+	}
+	a.abortAgentAndWait()
+}

@@ -54,7 +54,10 @@ func (a *Agent) runVerifier(ctx context.Context) []string {
 	a.mu.Lock()
 	reg := a.obligations
 	ledger := a.ledger
-	task := a.lastUserPrompt
+	task := a.lockedGoal
+	if task == "" {
+		task = a.lastUserPrompt
+	}
 	a.mu.Unlock()
 	if reg == nil || ledger == nil {
 		return nil
@@ -106,6 +109,12 @@ func (a *Agent) verifierLoop(ctx context.Context, task string) (verifierReport, 
 	} else {
 		b.WriteString("Verification command: none detected — run the most appropriate explicit check via bash.\n")
 	}
+	if extras := reg.ExtraVerifyCommands(); len(extras) > 0 {
+		b.WriteString("Task-specific checks from the user:\n")
+		for _, c := range extras {
+			fmt.Fprintf(&b, "- %s\n", c)
+		}
+	}
 	if paths := a.ledger.MutatedPaths(); len(paths) > 0 {
 		fmt.Fprintf(&b, "Files changed this turn:\n%s\n", strings.Join(paths, "\n"))
 	}
@@ -144,7 +153,9 @@ func (a *Agent) verifierLoop(ctx context.Context, task string) (verifierReport, 
 			if id == "" {
 				id = fmt.Sprintf("verifier_call_%d", idx)
 			}
+			a.toolStart(id, call.Function.Name, call.Function.Arguments)
 			result := a.executeTool(ctx, id, call.Function.Name, call.Function.Arguments)
+			a.toolResult(id, result.output, result.isErr)
 			messages = append(messages, opencode.Message{
 				Role:       "tool",
 				ToolCallID: id,

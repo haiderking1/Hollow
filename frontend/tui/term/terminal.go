@@ -13,10 +13,10 @@ import (
 type Terminal struct {
 	mu sync.Mutex
 
-	fd     int
+	fd       int
 	oldState *term.State
-	width  int
-	height int
+	width    int
+	height   int
 
 	onInput  func([]byte)
 	onResize func()
@@ -67,7 +67,8 @@ func (t *Terminal) Start(onInput func([]byte), onResize func()) error {
 		t.height = h
 	}
 
-	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004h") // bracketed paste
+	// Flame ProcessTerminal.start: bracketed paste only — no alt-screen, no scrollback clear.
+	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004h")
 	t.hideCursor()
 
 	go t.readLoop()
@@ -122,6 +123,7 @@ func (t *Terminal) ShowCursor() {
 
 func (t *Terminal) Stop() {
 	t.ShowCursor()
+	// Flame ProcessTerminal.stop: disable bracketed paste, restore raw mode.
 	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004l")
 	if t.oldState != nil {
 		_ = term.Restore(t.fd, t.oldState)

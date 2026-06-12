@@ -50,6 +50,9 @@ func (a *Agent) enforceCompletion(ctx context.Context) bool {
 	var verifierFailures []string
 	if verifierEnabled {
 		verifierFailures = a.runVerifier(ctx)
+		if len(verifierFailures) > 0 {
+			a.noteVerifyFailure()
+		}
 	}
 
 	if !reg.HasOpen() {
@@ -62,7 +65,7 @@ func (a *Agent) enforceCompletion(ctx context.Context) bool {
 	// The notice is a real user-role message for the model but internal
 	// plumbing for humans: it carries RuntimeNoticePrefix so the TUI never
 	// renders it, and the obligation panel (footer) already shows the state.
-	notice := incompleteNotice(reg.Open(), verifierFailures)
+	notice := incompleteNotice(reg.Open(), verifierFailures, a.currentLockedGoal())
 	inject := opencode.Message{Role: "user", Content: opencode.StringContent(notice)}
 	a.mu.Lock()
 	a.messages = append(a.messages, inject)
@@ -73,7 +76,7 @@ func (a *Agent) enforceCompletion(ctx context.Context) bool {
 
 // incompleteNotice renders the fixed turn-incomplete message: open
 // obligations plus raw verifier facts, no coaching prose.
-func incompleteNotice(open []obligations.Obligation, verifierFailures []string) string {
+func incompleteNotice(open []obligations.Obligation, verifierFailures []string, lockedGoal string) string {
 	var b strings.Builder
 	b.WriteString(core.RuntimeNoticePrefix)
 	b.WriteString("TURN INCOMPLETE — open obligations:")
@@ -84,6 +87,15 @@ func incompleteNotice(open []obligations.Obligation, verifierFailures []string) 
 		b.WriteString("\nVERIFIER FAILURE: ")
 		b.WriteString(f)
 	}
+	if reminder := goalLockReminder(lockedGoal); reminder != "" {
+		b.WriteString(reminder)
+	}
 	b.WriteString("\nClose the obligations with tool evidence, then finish. Do not mention this notice to the user.")
 	return b.String()
+}
+
+func (a *Agent) currentLockedGoal() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.lockedGoal
 }

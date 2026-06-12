@@ -8,7 +8,7 @@ import (
 )
 
 func TestMutationCreatesVerifyAndSignoffObligations(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", true, true)
+	r := NewRegistry("t1", "go test ./...", nil, true, true)
 	if r.HasOpen() {
 		t.Fatal("fresh registry has open obligations")
 	}
@@ -32,7 +32,7 @@ func TestMutationCreatesVerifyAndSignoffObligations(t *testing.T) {
 }
 
 func TestVerifierDisabledSkipsSignoff(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", true, false)
+	r := NewRegistry("t1", "go test ./...", nil, true, false)
 	r.NoteMutation()
 	for _, ob := range r.Snapshot() {
 		if ob.Kind == KindVerifierSignedOff {
@@ -42,7 +42,7 @@ func TestVerifierDisabledSkipsSignoff(t *testing.T) {
 }
 
 func TestCommandRunClosesVerify(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", true, false)
+	r := NewRegistry("t1", "go test ./...", nil, true, false)
 	r.NoteMutation()
 
 	if r.NoteCommandRun("go build ./...", 0, "ev_1", false) {
@@ -66,7 +66,7 @@ func TestCommandRunClosesVerify(t *testing.T) {
 }
 
 func TestStrictResetReopensVerifyAfterMutation(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", true, true)
+	r := NewRegistry("t1", "go test ./...", nil, true, true)
 	r.NoteMutation()
 	r.NoteCommandRun("go test ./...", 0, "ev_1", false)
 	if !r.VerifyClosed() {
@@ -82,7 +82,7 @@ func TestStrictResetReopensVerifyAfterMutation(t *testing.T) {
 }
 
 func TestNonStrictKeepsVerifyClosed(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", false, false)
+	r := NewRegistry("t1", "go test ./...", nil, false, false)
 	r.NoteMutation()
 	r.NoteCommandRun("go test ./...", 0, "ev_1", false)
 	r.NoteMutation()
@@ -92,7 +92,7 @@ func TestNonStrictKeepsVerifyClosed(t *testing.T) {
 }
 
 func TestManualVerifyClosesOnAnyExitZero(t *testing.T) {
-	r := NewRegistry("t1", "", true, false)
+	r := NewRegistry("t1", "", nil, true, false)
 	r.NoteMutation()
 	if !r.NoteCommandRun("./run_checks.sh", 0, "ev_1", false) {
 		t.Fatal("manual verify did not close on explicit exit-0 command")
@@ -102,7 +102,7 @@ func TestManualVerifyClosesOnAnyExitZero(t *testing.T) {
 // A real passing verify run closes sign-off too: machine evidence beats a
 // second verifier hoop. NoteVerifierPass remains for the backstop path.
 func TestVerifyRunAutoClosesSignoff(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", true, true)
+	r := NewRegistry("t1", "go test ./...", nil, true, true)
 	r.NoteMutation()
 	if !r.NoteCommandRun("go test ./...", 0, "ev_1", false) {
 		t.Fatal("verify run did not close")
@@ -116,7 +116,7 @@ func TestVerifyRunAutoClosesSignoff(t *testing.T) {
 }
 
 func TestVerifierPassClosesSignoffBackstop(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", true, true)
+	r := NewRegistry("t1", "go test ./...", nil, true, true)
 	r.NoteMutation()
 	if !r.NoteVerifierPass("ev_2") {
 		t.Fatal("verifier pass did not close signoff")
@@ -129,7 +129,7 @@ func TestVerifierPassClosesSignoffBackstop(t *testing.T) {
 // Running a file mutated this turn is task-scoped verification — it closes
 // verify even when a repo-wide verify command exists.
 func TestMutatedScriptRunClosesVerify(t *testing.T) {
-	r := NewRegistry("t1", "pytest", true, true)
+	r := NewRegistry("t1", "pytest", nil, true, true)
 	r.NoteMutation()
 	if r.NoteCommandRun("python3 hello.py", 0, "ev_1", false) {
 		t.Fatal("unrelated command closed verify")
@@ -144,7 +144,7 @@ func TestMutatedScriptRunClosesVerify(t *testing.T) {
 
 // pytest exit 5 means "no tests collected" — not a failure of the change.
 func TestPytestNoTestsCollectedClosesVerify(t *testing.T) {
-	r := NewRegistry("t1", "pytest", true, false)
+	r := NewRegistry("t1", "pytest", nil, true, false)
 	r.NoteMutation()
 	if r.NoteCommandRun("pytest", 1, "ev_1", false) {
 		t.Fatal("pytest exit 1 closed verify")
@@ -186,7 +186,7 @@ func TestDetectVerifyCommand(t *testing.T) {
 }
 
 func TestObligationJSONRoundtrip(t *testing.T) {
-	r := NewRegistry("t1", "go test ./...", true, true)
+	r := NewRegistry("t1", "go test ./...", nil, true, true)
 	r.NoteMutation()
 	b, err := json.Marshal(r.Snapshot())
 	if err != nil {

@@ -81,6 +81,11 @@ func (kr *keyReader) parseOne() (parsedKey, int) {
 		return parsedKey{}, 0
 	}
 
+	// Mouse report with ESC already consumed by the terminal: [M + 3 bytes (5 total)
+	if len(b) >= 5 && b[0] == '[' && b[1] == 'M' {
+		return parsedKey{}, 5
+	}
+
 	if len(b) >= 6 && bytes.HasPrefix(b, []byte("\x1b[200~")) {
 		end := bytes.Index(b, []byte("\x1b[201~"))
 		if end == -1 {
@@ -116,9 +121,19 @@ func (kr *keyReader) parseOne() (parsedKey, int) {
 		if len(b) == 1 {
 			return parsedKey{}, 0
 		}
+		// X10 mouse (no bracket): ESC M + 3 bytes
+		if b[1] == 'M' {
+			if len(b) < 5 {
+				return parsedKey{}, 0
+			}
+			return parsedKey{}, 5 // discard mouse report
+		}
 		if b[1] == '[' {
 			if n := kittyEscapeLength(b); n > 0 {
 				return parsedKey{action: keyEscape}, n
+			}
+			if n := discardMouseOrCSI(b); n > 0 {
+				return parsedKey{}, n
 			}
 			if len(b) < 3 {
 				return parsedKey{}, 0
@@ -151,6 +166,11 @@ func (kr *keyReader) parseOne() (parsedKey, int) {
 					return parsedKey{action: keyDelete}, 4
 				}
 			}
+			// Unknown CSI — consume fully instead of leaking [MCX0… into the editor.
+			if n := csiSequenceLength(b); n > 0 {
+				return parsedKey{}, n
+			}
+			return parsedKey{}, 0
 		}
 		if b[1] == 'O' && len(b) >= 3 {
 			switch b[2] {
@@ -168,6 +188,44 @@ func (kr *keyReader) parseOne() (parsedKey, int) {
 		return parsedKey{}, 1
 	}
 	return parsedKey{action: keyRune, r: r}, size
+}
+
+// discardMouseOrCSI returns the byte length of a mouse report to swallow, or 0
+// if more input is needed / the sequence is not mouse.
+func discardMouseOrCSI(b []byte) int {
+	if len(b) < 3 || b[0] != 27 || b[1] != '[' {
+		return 0
+	}
+	// SGR mouse: ESC [ < ... M/m
+	if b[2] == '<' {
+		for i := 3; i < len(b); i++ {
+			if b[i] == 'M' || b[i] == 'm' {
+				return i + 1
+			}
+		}
+		return 0
+	}
+	// X10 / normal mouse in CSI form: ESC [ M + 3 bytes (Cb Cx Cy)
+	if b[2] == 'M' {
+		if len(b) < 6 {
+			return 0
+		}
+		return 6
+	}
+	return 0
+}
+
+// csiSequenceLength returns the length of a complete CSI sequence (ESC [ … final).
+func csiSequenceLength(b []byte) int {
+	if len(b) < 3 || b[0] != 27 || b[1] != '[' {
+		return 0
+	}
+	for i := 2; i < len(b); i++ {
+		if b[i] >= 0x40 && b[i] <= 0x7e {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 func kittyEscapeLength(b []byte) int {
