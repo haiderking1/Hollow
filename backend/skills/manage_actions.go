@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+
+	"github.com/enough/enough/backend/config"
 )
 
 func withFileLock(path string, f func() (SkillManageResult, error)) (SkillManageResult, error) {
@@ -123,17 +125,33 @@ func formatNumber(n int) string {
 }
 
 func FindSkillDirectory(name string) string {
-	skillsDir := SkillsDir()
-	if _, err := os.Stat(skillsDir); os.IsNotExist(err) {
-		return ""
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = ""
 	}
-
-	for _, skillFile := range IterSkillIndexFiles(skillsDir, "SKILL.md") {
-		if isExcludedSkillPath(skillFile) {
-			continue
-		}
-		if filepath.Base(filepath.Dir(skillFile)) == name {
-			return filepath.Dir(skillFile)
+	cfg, err := config.LoadRuntime()
+	if err != nil {
+		cfg = config.Runtime{}
+	}
+	dirs := SearchLocations(cwd, cfg, "")
+	for _, dir := range dirs {
+		for _, skillFile := range IterSkillIndexFiles(dir.Path, "SKILL.md") {
+			if isExcludedSkillPath(skillFile) {
+				continue
+			}
+			if filepath.Base(filepath.Dir(skillFile)) == name {
+				return filepath.Dir(skillFile)
+			}
+			// Check frontmatter name
+			data, err := os.ReadFile(skillFile)
+			if err == nil {
+				fm, _ := ParseFrontmatter(string(data))
+				if fm != nil {
+					if nameVal, ok := fm["name"].(string); ok && nameVal == name {
+						return filepath.Dir(skillFile)
+					}
+				}
+			}
 		}
 	}
 	return ""
@@ -506,12 +524,24 @@ func patchSkill(name, oldString, newString, filePath string, replaceAll bool, gu
 	})
 }
 
+func pinnedGuard(name string) string {
+	um := LoadUsage()
+	if rec, ok := um[name]; ok && rec.Pinned {
+		return fmt.Sprintf("Skill '%s' is pinned and cannot be deleted by skill_manage. Ask the user to run `enough curator unpin %s` if they want to delete it. Patches and edits are allowed on pinned skills; only deletion is blocked.", name, name)
+	}
+	return ""
+}
+
 // archiveDeleteSkill is the autonomous-pass variant of delete: the skill
 // directory is moved to .archive/ (recoverable) instead of removed, and the
 // curator-protected builtins are refused outright.
 func archiveDeleteSkill(name, absorbedInto string) (SkillManageResult, error) {
 	if IsProtectedBuiltin(name) {
 		return SkillManageResult{Success: false, Error: fmt.Sprintf("Skill '%s' is a protected built-in and cannot be archived or deleted by an autonomous pass.", name)}, nil
+	}
+
+	if pinErr := pinnedGuard(name); pinErr != "" {
+		return SkillManageResult{Success: false, Error: pinErr}, nil
 	}
 
 	trimmedAbsorbed := strings.TrimSpace(absorbedInto)
@@ -544,6 +574,10 @@ func deleteSkill(name, absorbedInto string, _guardEnabled bool) (SkillManageResu
 	skillDir := FindSkillDirectory(name)
 	if skillDir == "" {
 		return SkillManageResult{Success: false, Error: skillNotFoundError(name, "")}, nil
+	}
+
+	if pinErr := pinnedGuard(name); pinErr != "" {
+		return SkillManageResult{Success: false, Error: pinErr}, nil
 	}
 
 	trimmedAbsorbed := strings.TrimSpace(absorbedInto)

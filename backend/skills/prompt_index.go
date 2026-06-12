@@ -11,6 +11,7 @@ import (
 
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/enoughhome"
+	"github.com/enough/enough/backend/toolsets"
 )
 
 var (
@@ -131,6 +132,13 @@ func buildPromptCacheKey(workDir string, cfg config.Runtime, toolNames []string,
 	sort.Strings(tools)
 	sb.WriteString(strings.Join(tools, ","))
 	sb.WriteString("|")
+	activeToolsets := toolsets.GetAvailableToolsets(toolNames)
+	sb.WriteString(strings.Join(activeToolsets, ","))
+	sb.WriteString("|")
+	sb.WriteString(resolvePlatform())
+	sb.WriteString("|")
+	sb.WriteString(cfg.Agent.CodingContext)
+	sb.WriteString("|")
 	sb.WriteString(getManifestHashString(manifest))
 	return sb.String()
 }
@@ -248,8 +256,7 @@ func BuildIndexPrompt(workDir string, cfg config.Runtime, toolNames []string) st
 		skillsToRender = snapshot.Skills
 		categoryDescs = snapshot.CategoryDescriptions
 	} else {
-		// DiscoverAllSkills automatically extracts enough skill if missing
-		discovered, _ := DiscoverAllSkills(workDir, cfg.Skills.Paths, cfg.Skills.Disabled)
+		discovered, _ := DiscoverAllSkills(workDir, cfg)
 
 		var entries []SkillSnapshotEntry
 		for _, sk := range discovered {
@@ -261,12 +268,19 @@ func BuildIndexPrompt(workDir string, cfg config.Runtime, toolNames []string) st
 				Platforms:              sk.Platforms,
 				Conditions:             sk.Conditions,
 				DisableModelInvocation: sk.DisableModelInvocation,
+				Environments:           sk.Environments,
 			})
 		}
 
 		categoryDescs = readAllCategoryDescriptions(dirs)
 		writeSkillsSnapshot(manifest, entries, categoryDescs)
 		skillsToRender = entries
+	}
+
+	toolsetsList := toolsets.GetAvailableToolsets(toolNames)
+	toolsetsSet := make(map[string]bool)
+	for _, ts := range toolsetsList {
+		toolsetsSet[ts] = true
 	}
 
 	skillsByCategory := make(map[string]map[string]string)
@@ -276,11 +290,17 @@ func BuildIndexPrompt(workDir string, cfg config.Runtime, toolNames []string) st
 		if entry.DisableModelInvocation {
 			continue
 		}
-		fmDummy := map[string]interface{}{"platforms": entry.Platforms}
+		fmDummy := map[string]interface{}{
+			"platforms":    entry.Platforms,
+			"environments": entry.Environments,
+		}
 		if !skillMatchesPlatform(fmDummy) {
 			continue
 		}
-		if !skillShouldShow(entry.Conditions, toolsSet, nil) {
+		if !SkillMatchesEnvironment(fmDummy) {
+			continue
+		}
+		if !skillShouldShow(entry.Conditions, toolsSet, toolsetsSet) {
 			continue
 		}
 
@@ -309,6 +329,13 @@ func BuildIndexPrompt(workDir string, cfg config.Runtime, toolNames []string) st
 		return ""
 	}
 
+	isCoding := isCodingContext(workDir, cfg)
+	configMode := strings.TrimSpace(strings.ToLower(cfg.Agent.CodingContext))
+	if configMode == "" {
+		configMode = "auto"
+	}
+	hasDemoted := false
+
 	var indexLines []string
 	var categories []string
 	for cat := range skillsByCategory {
@@ -317,18 +344,24 @@ func BuildIndexPrompt(workDir string, cfg config.Runtime, toolNames []string) st
 	sort.Strings(categories)
 
 	for _, cat := range categories {
+		var skillNames []string
+		for name := range skillsByCategory[cat] {
+			skillNames = append(skillNames, name)
+		}
+		sort.Strings(skillNames)
+
+		if shouldDemoteCategory(cat, isCoding, configMode) {
+			hasDemoted = true
+			indexLines = append(indexLines, fmt.Sprintf("  %s [names only]: %s", cat, strings.Join(skillNames, ", ")))
+			continue
+		}
+
 		desc := categoryDescs[cat]
 		if desc != "" {
 			indexLines = append(indexLines, "  "+cat+": "+desc)
 		} else {
 			indexLines = append(indexLines, "  "+cat+":")
 		}
-
-		var skillNames []string
-		for name := range skillsByCategory[cat] {
-			skillNames = append(skillNames, name)
-		}
-		sort.Strings(skillNames)
 
 		for _, name := range skillNames {
 			desc := skillsByCategory[cat][name]
@@ -340,12 +373,135 @@ func BuildIndexPrompt(workDir string, cfg config.Runtime, toolNames []string) st
 		}
 	}
 
+	hiddenNote := ""
+	if hasDemoted {
+		hiddenNote = "\n(Categories marked [names only] are outside the current coding context, so their descriptions are omitted — the skills work normally and load with skill_view(name) as usual.)"
+	}
+
 	result := SkillsIndexHeader + "\n" +
 		"<available_skills>\n" +
 		strings.Join(indexLines, "\n") +
 		"\n</available_skills>\n" +
-		SkillsIndexFooter
+		SkillsIndexFooter + hiddenNote
 
 	setToCache(cacheKey, result)
 	return result
+}
+
+var projectMarkers = []string{
+	"pyproject.toml", "setup.py", "setup.cfg", "requirements.txt",
+	"package.json", "tsconfig.json", "deno.json",
+	"Cargo.toml", "go.mod", "pom.xml", "build.gradle", "build.gradle.kts",
+	"Gemfile", "composer.json", "mix.exs", "pubspec.yaml",
+	"CMakeLists.txt", "Makefile", "Dockerfile",
+	"AGENTS.md", "CLAUDE.md", ".cursorrules",
+}
+
+var interactiveCodingPlatforms = map[string]bool{
+	"cli":     true,
+	"tui":     true,
+	"acp":     true,
+	"desktop": true,
+	"":        true,
+}
+
+var NonCodingCategories = map[string]bool{
+	"apple":         true,
+	"communication": true,
+	"cooking":       true,
+	"creative":      true,
+	"email":         true,
+	"finance":       true,
+	"gaming":        true,
+	"gifs":          true,
+	"health":        true,
+	"media":         true,
+	"music":         true,
+	"note-taking":   true,
+	"productivity":  true,
+	"shopping":      true,
+	"smart-home":    true,
+	"social-media":  true,
+	"travel":        true,
+	"yuanbao":       true,
+}
+
+func isGitRoot(dir string) bool {
+	gitDir := filepath.Join(dir, ".git")
+	fi, err := os.Stat(gitDir)
+	return err == nil && fi.IsDir()
+}
+
+func findGitRoot(cwd string) string {
+	curr := filepath.Clean(cwd)
+	for {
+		if isGitRoot(curr) {
+			return curr
+		}
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		curr = parent
+	}
+	return ""
+}
+
+func findMarkerRoot(cwd string) string {
+	curr := filepath.Clean(cwd)
+	home, _ := os.UserHomeDir()
+	for depth := 0; depth <= 6; depth++ {
+		if curr == home {
+			break
+		}
+		for _, marker := range projectMarkers {
+			if _, err := os.Stat(filepath.Join(curr, marker)); err == nil {
+				return curr
+			}
+		}
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		curr = parent
+	}
+	return ""
+}
+
+func isCodingContext(workDir string, cfg config.Runtime) bool {
+	mode := strings.TrimSpace(strings.ToLower(cfg.Agent.CodingContext))
+	if mode == "" {
+		mode = "auto"
+	}
+	if mode == "off" || mode == "false" || mode == "never" {
+		return false
+	}
+	if mode == "on" || mode == "true" || mode == "always" {
+		return true
+	}
+
+	platform := resolvePlatform()
+	if !interactiveCodingPlatforms[strings.ToLower(platform)] {
+		return false
+	}
+
+	home, _ := os.UserHomeDir()
+	gitRoot := findGitRoot(workDir)
+	if gitRoot != "" && gitRoot == home {
+		gitRoot = ""
+	}
+
+	if gitRoot != "" || findMarkerRoot(workDir) != "" {
+		return true
+	}
+
+	return false
+}
+
+func shouldDemoteCategory(cat string, isCoding bool, configMode string) bool {
+	if !isCoding || configMode != "focus" {
+		return false
+	}
+	parts := strings.SplitN(cat, "/", 2)
+	return NonCodingCategories[parts[0]]
 }

@@ -26,6 +26,7 @@ type Skill struct {
 	RelatedSkills          []string        `json:"relatedSkills,omitempty"`
 	Conditions             SkillConditions `json:"conditions"`
 	DescriptionFull        string          `json:"descriptionFull"`
+	Environments           []string        `json:"environments,omitempty"`
 }
 
 type SkillSnapshotEntry struct {
@@ -36,6 +37,7 @@ type SkillSnapshotEntry struct {
 	Platforms              []string        `json:"platforms"`
 	Conditions             SkillConditions `json:"conditions"`
 	DisableModelInvocation bool            `json:"disable_model_invocation"`
+	Environments           []string        `json:"environments"`
 }
 
 type SkillsPromptSnapshot struct {
@@ -76,4 +78,7 @@ type SkillManageResult struct {
 	Hint           string              `json:"hint,omitempty"`
 	FilePreview    string              `json:"file_preview,omitempty"`
 	AvailableFiles []string            `json:"available_files,omitempty"`
+	Staged         bool                `json:"staged,omitempty"`
+	PendingID      string              `json:"pending_id,omitempty"`
+	Gist           string              `json:"gist,omitempty"`
 }

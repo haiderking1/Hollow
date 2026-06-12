@@ -8,6 +8,7 @@ import (
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/core"
 	"github.com/enough/enough/backend/session"
+	"github.com/enough/enough/backend/skills"
 )
 
 func (a *App) startAgent(task string) {
@@ -29,6 +30,20 @@ func (a *App) startAgent(task string) {
 		if err != nil {
 			emit(core.Event{Kind: core.EventError, Data: err.Error()})
 			return
+		}
+
+		if len(a.preloadedSkills) > 0 {
+			workDir := ""
+			if a.session != nil {
+				workDir = a.session.CWD()
+			}
+			sessionId := ""
+			if a.session != nil {
+				sessionId = a.session.SessionID()
+			}
+			promptText, loaded, _, _ := skills.BuildPreloadedSkillsPrompt(a.preloadedSkills, workDir, sessionId, cfg)
+			cfg.PreloadedSkillsPrompt = promptText
+			cfg.PreloadedSkills = loaded
 		}
 
 		a.mu.Lock()

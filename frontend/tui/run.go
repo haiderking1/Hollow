@@ -6,6 +6,10 @@ import (
 )
 
 func Run() error {
+	return RunWithPreloads(nil)
+}
+
+func RunWithPreloads(preloads []string) error {
 	defer web.Stop()
 
 	t, err := term.New()
@@ -14,5 +18,6 @@ func Run() error {
 	}
 
 	app := newApp(t)
+	app.preloadedSkills = preloads
 	return app.run()
 }

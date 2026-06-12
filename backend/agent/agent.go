@@ -781,11 +781,12 @@ func (a *Agent) buildSessionPrompt() string {
 		sessionID = a.session.SessionID()
 	}
 	return BuildSessionSystemPrompt(SystemPromptInputs{
-		WorkDir:   a.workDir,
-		Cfg:       a.cfg,
-		ToolNames: toolNames,
-		Store:     a.memStore,
-		SessionID: sessionID,
+		WorkDir:               a.workDir,
+		Cfg:                   a.cfg,
+		ToolNames:             toolNames,
+		Store:                 a.memStore,
+		SessionID:             sessionID,
+		PreloadedSkillsPrompt: a.cfg.PreloadedSkillsPrompt,
 	})
 }
 

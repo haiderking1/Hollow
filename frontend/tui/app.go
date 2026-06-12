@@ -102,6 +102,8 @@ type App struct {
 	// lastActiveAt is the end of the last agent activity, feeding the
 	// curator's min-idle gate.
 	lastActiveAt time.Time
+
+	preloadedSkills []string
 }
 
 func newApp(t *term.Terminal) *App {

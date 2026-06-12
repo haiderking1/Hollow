@@ -155,7 +155,7 @@ func TestSkillsCollisionPrecedence(t *testing.T) {
 	}
 
 	// Discover skills
-	skillsList, _ := DiscoverAllSkills(projectDir, nil, nil)
+	skillsList, _ := DiscoverAllSkills(projectDir, config.Runtime{})
 
 	// Check if only 1 is discovered and it's the project version (precedence: project beats global)
 	found := false
@@ -175,7 +175,7 @@ func TestSkillsCollisionPrecedence(t *testing.T) {
 func TestInlineBashPreprocessing(t *testing.T) {
 	tmpDir := t.TempDir()
 	rawContent := "Inline result is: !`echo 'preprocessed'`"
-	processed := PreprocessSkillContent(rawContent, tmpDir, "sess-1", true)
+	processed := PreprocessSkillContent(rawContent, tmpDir, "sess-1", true, 10)
 	expected := "Inline result is: preprocessed"
 	if !strings.Contains(processed, expected) {
 		t.Fatalf("expected preprocessing to execute bash cmd and produce: %q, got: %q", expected, processed)

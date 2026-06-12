@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/enough/enough/backend/config"
+	"github.com/enough/enough/backend/plugins"
 )
 
 type skillCandidate struct {
@@ -17,22 +18,27 @@ type skillCandidate struct {
 }
 
 type SkillViewResult struct {
-	Success       bool                `json:"success"`
-	Name          string              `json:"name,omitempty"`
-	Description   string              `json:"description,omitempty"`
-	Category      string              `json:"category,omitempty"`
-	Content       string              `json:"content,omitempty"`
-	RawContent    string              `json:"raw_content,omitempty"`
-	SkillDir      string              `json:"skill_dir,omitempty"`
-	LinkedFiles   map[string][]string `json:"linked_files,omitempty"`
-	Tags          []string            `json:"tags,omitempty"`
-	RelatedSkills []string            `json:"related_skills,omitempty"`
-	Warnings      []string            `json:"warnings,omitempty"`
-	UsageHint     string              `json:"usage_hint,omitempty"`
-	Error         string              `json:"error,omitempty"`
-	Matches       []string            `json:"matches,omitempty"`
-	Hint          string              `json:"hint,omitempty"`
-	File          string              `json:"file,omitempty"`
+	Success                             bool                 `json:"success"`
+	Name                                string               `json:"name,omitempty"`
+	Description                         string               `json:"description,omitempty"`
+	Category                            string               `json:"category,omitempty"`
+	Content                             string               `json:"content,omitempty"`
+	RawContent                          string               `json:"raw_content,omitempty"`
+	SkillDir                            string               `json:"skill_dir,omitempty"`
+	LinkedFiles                         map[string][]string  `json:"linked_files,omitempty"`
+	Tags                                []string             `json:"tags,omitempty"`
+	RelatedSkills                       []string             `json:"related_skills,omitempty"`
+	Warnings                            []string             `json:"warnings,omitempty"`
+	UsageHint                           string               `json:"usage_hint,omitempty"`
+	Error                               string               `json:"error,omitempty"`
+	Matches                             []string             `json:"matches,omitempty"`
+	Hint                                string               `json:"hint,omitempty"`
+	File                                string               `json:"file,omitempty"`
+	ReadinessStatus                     SkillReadinessStatus `json:"readiness_status,omitempty"`
+	RequiredEnvironmentVariables        []RequiredEnvVar     `json:"required_environment_variables,omitempty"`
+	MissingRequiredEnvironmentVariables []string             `json:"missing_required_environment_variables,omitempty"`
+	SetupNeeded                         bool                 `json:"setup_needed"`
+	Setup                               *SetupBlock          `json:"setup,omitempty"`
 }
 
 func findSkillCandidates(name, workDir string, cfg config.Runtime) []skillCandidate {
@@ -276,6 +282,154 @@ func executeSkillViewInternal(name, filePath, workDir string, cfg config.Runtime
 		return SkillViewResult{Success: false, Error: "Skill name is required."}
 	}
 
+	if strings.Contains(name, ":") {
+		ns, bare := plugins.ParseQualifiedName(name)
+		if plugins.IsValidNamespace(ns) {
+			if plugins.IsPluginDisabled(ns, cfg) {
+				return SkillViewResult{
+					Success: false,
+					Error:   fmt.Sprintf("Plugin '%s' is disabled. Re-enable with: enough plugins enable %s", ns, ns),
+				}
+			}
+
+			available, _ := plugins.ListPluginSkills(ns)
+			pluginSkillMd, err := plugins.FindPluginSkill(name)
+
+			if err == nil || len(available) > 0 {
+				if err != nil {
+					var qualified []string
+					for _, s := range available {
+						qualified = append(qualified, ns+":"+s)
+					}
+					return SkillViewResult{
+						Success: false,
+						Error:   fmt.Sprintf("Skill '%s' not found in plugin '%s'.", bare, ns),
+						Matches: qualified,
+						Hint:    fmt.Sprintf("The '%s' plugin provides %d skill(s).", ns, len(available)),
+					}
+				}
+
+				dataBytes, err := os.ReadFile(pluginSkillMd)
+				if err != nil {
+					return SkillViewResult{
+						Success: false,
+						Error:   fmt.Sprintf("Failed to read skill '%s': %v", name, err),
+					}
+				}
+				content := string(dataBytes)
+
+				var warnings []string
+				contentLower := strings.ToLower(content)
+				injectionDetected := false
+				for _, p := range SkillGuardThreatPatterns {
+					if p.Regex.MatchString(contentLower) {
+						injectionDetected = true
+						break
+					}
+				}
+				if injectionDetected {
+					warnings = append(warnings, "skill content contains patterns that may indicate prompt injection")
+				}
+
+				fm, body := ParseFrontmatter(content)
+				if fm == nil {
+					fm = make(map[string]interface{})
+				}
+
+				if !skillMatchesPlatform(fm) {
+					return SkillViewResult{
+						Success:         false,
+						Error:           fmt.Sprintf("Skill '%s' is not supported on this platform.", name),
+						ReadinessStatus: ReadinessUnsupported,
+					}
+				}
+
+				desc, _ := fm["description"].(string)
+
+				pluginSkillDir := filepath.Dir(pluginSkillMd)
+				processedBody := body
+				if preprocess {
+					processedBody = PreprocessSkillContent(body, pluginSkillDir, sessionId, cfg.Skills.InlineShell, cfg.Skills.InlineShellTimeout)
+				}
+
+				banner := plugins.GetPluginSiblingBanner(ns, bare)
+
+				requiredEnvVars := getRequiredEnvironmentVariables(fm)
+				envMap := LoadEnoughEnv()
+
+				var missingRequiredEnvVars []string
+				for _, envVar := range requiredEnvVars {
+					if !envVar.Optional && !isEnvVarSet(envVar.Name, envMap) {
+						missingRequiredEnvVars = append(missingRequiredEnvVars, envVar.Name)
+					}
+				}
+
+				setupNeeded := len(missingRequiredEnvVars) > 0
+				readinessStatus := ReadinessAvailable
+				if setupNeeded {
+					readinessStatus = ReadinessSetupNeeded
+				}
+
+				setupObj := normalizeSetupMetadata(fm)
+
+				tags := extractSkillTags(fm)
+				related := extractRelatedSkills(fm)
+
+				if filePath != "" {
+					if hasTraversalComponent(filePath) {
+						return SkillViewResult{Success: false, Error: "Path traversal ('..') is not allowed.", Hint: "Use a relative path within the skill directory"}
+					}
+					travErr := validateWithinDir(filePath, pluginSkillDir)
+					if travErr != "" {
+						return SkillViewResult{Success: false, Error: travErr, Hint: "Use a relative path within the skill directory"}
+					}
+
+					targetFile := filepath.Join(pluginSkillDir, filePath)
+					if _, err := os.Stat(targetFile); os.IsNotExist(err) {
+						return SkillViewResult{
+							Success:     false,
+							Error:       fmt.Sprintf("File '%s' not found in skill '%s'.", filePath, name),
+							LinkedFiles: scanLinkedFiles(pluginSkillDir),
+						}
+					}
+
+					fileData, err := os.ReadFile(targetFile)
+					if err != nil {
+						return SkillViewResult{Success: false, Error: fmt.Sprintf("Failed to read file: %v", err)}
+					}
+
+					return SkillViewResult{
+						Success:  true,
+						Name:     name,
+						File:     filePath,
+						Content:  string(fileData),
+						SkillDir: pluginSkillDir,
+						Warnings: warnings,
+					}
+				}
+
+				return SkillViewResult{
+					Success:                             true,
+					Name:                                name,
+					Description:                         desc,
+					Category:                            ns,
+					Content:                             banner + processedBody,
+					RawContent:                          body,
+					SkillDir:                            pluginSkillDir,
+					LinkedFiles:                         scanLinkedFiles(pluginSkillDir),
+					Tags:                                tags,
+					RelatedSkills:                       related,
+					Warnings:                            warnings,
+					ReadinessStatus:                     readinessStatus,
+					RequiredEnvironmentVariables:        requiredEnvVars,
+					MissingRequiredEnvironmentVariables: missingRequiredEnvVars,
+					SetupNeeded:                         setupNeeded,
+					Setup:                               &setupObj,
+				}
+			}
+		}
+	}
+
 	candidates := findSkillCandidates(name, workDir, cfg)
 
 	if len(candidates) > 1 {
@@ -347,7 +501,11 @@ func executeSkillViewInternal(name, filePath, workDir string, cfg config.Runtime
 	}
 
 	if !skillMatchesPlatform(fm) {
-		return SkillViewResult{Success: false, Error: fmt.Sprintf("Skill '%s' is not supported on this platform.", name)}
+		return SkillViewResult{
+			Success:         false,
+			Error:           fmt.Sprintf("Skill '%s' is not supported on this platform.", name),
+			ReadinessStatus: ReadinessUnsupported,
+		}
 	}
 
 	resolvedName, _ := fm["name"].(string)
@@ -355,12 +513,8 @@ func executeSkillViewInternal(name, filePath, workDir string, cfg config.Runtime
 		resolvedName = filepath.Base(resolvedSkillDir)
 	}
 
-	if cfg.Skills.Disabled != nil {
-		for _, d := range cfg.Skills.Disabled {
-			if d == resolvedName {
-				return SkillViewResult{Success: false, Error: fmt.Sprintf("Skill '%s' is disabled.", resolvedName)}
-			}
-		}
+	if IsSkillDisabled(resolvedName, cfg) {
+		return SkillViewResult{Success: false, Error: fmt.Sprintf("Skill '%s' is disabled.", resolvedName)}
 	}
 
 	// Read supporting file if file_path is specified
@@ -399,7 +553,7 @@ func executeSkillViewInternal(name, filePath, workDir string, cfg config.Runtime
 
 	processedBody := body
 	if preprocess {
-		processedBody = PreprocessSkillContent(body, resolvedSkillDir, sessionId, true)
+		processedBody = PreprocessSkillContent(body, resolvedSkillDir, sessionId, cfg.Skills.InlineShell, cfg.Skills.InlineShellTimeout)
 	}
 
 	linkedFiles := scanLinkedFiles(resolvedSkillDir)
@@ -413,19 +567,42 @@ func executeSkillViewInternal(name, filePath, workDir string, cfg config.Runtime
 		usageHint = "To view linked files, call skill_view(name, file_path) where file_path is e.g. 'references/api.md'"
 	}
 
+	requiredEnvVars := getRequiredEnvironmentVariables(fm)
+	envMap := LoadEnoughEnv()
+
+	var missingRequiredEnvVars []string
+	for _, envVar := range requiredEnvVars {
+		if !envVar.Optional && !isEnvVarSet(envVar.Name, envMap) {
+			missingRequiredEnvVars = append(missingRequiredEnvVars, envVar.Name)
+		}
+	}
+
+	setupNeeded := len(missingRequiredEnvVars) > 0
+	readinessStatus := ReadinessAvailable
+	if setupNeeded {
+		readinessStatus = ReadinessSetupNeeded
+	}
+
+	setupObj := normalizeSetupMetadata(fm)
+
 	return SkillViewResult{
-		Success:       true,
-		Name:          resolvedName,
-		Description:   desc,
-		Category:      computeSkillCategory(skillMd, SkillsDir()),
-		Content:       processedBody,
-		RawContent:    body,
-		SkillDir:      resolvedSkillDir,
-		LinkedFiles:   linkedFiles,
-		Tags:          tags,
-		RelatedSkills: related,
-		Warnings:      warnings,
-		UsageHint:     usageHint,
+		Success:                             true,
+		Name:                                resolvedName,
+		Description:                         desc,
+		Category:                            computeSkillCategory(skillMd, SkillsDir()),
+		Content:                             processedBody,
+		RawContent:                          body,
+		SkillDir:                            resolvedSkillDir,
+		LinkedFiles:                         linkedFiles,
+		Tags:                                tags,
+		RelatedSkills:                       related,
+		Warnings:                            warnings,
+		UsageHint:                           usageHint,
+		ReadinessStatus:                     readinessStatus,
+		RequiredEnvironmentVariables:        requiredEnvVars,
+		MissingRequiredEnvironmentVariables: missingRequiredEnvVars,
+		SetupNeeded:                         setupNeeded,
+		Setup:                               &setupObj,
 	}
 }
 

@@ -42,18 +42,49 @@ func (a *App) filteredSlashCommands() []slashCommand {
 		return out
 	}
 
-	discovered, _ := skills.DiscoverAllSkills(workDir, cfg.Skills.Paths, cfg.Skills.Disabled)
+	discovered, _ := skills.DiscoverAllSkills(workDir, cfg)
 	for _, sk := range discovered {
-		slug := "skill:" + skills.SkillNameToSlashSlug(sk.Name)
-		if filter == "" || strings.HasPrefix(slug, filter) {
-			desc := sk.Description
-			if len(desc) > 50 {
-				desc = desc[:47] + "..."
-			}
+		if skills.IsSkillDisabled(sk.Name, cfg) {
+			continue
+		}
+		fmDummy := map[string]interface{}{
+			"platforms":    sk.Platforms,
+			"environments": sk.Environments,
+		}
+		if !skills.SkillMatchesPlatform(fmDummy) || !skills.SkillMatchesEnvironment(fmDummy) {
+			continue
+		}
+
+		slug := skills.SkillNameToSlashSlug(sk.Name)
+		desc := sk.Description
+		if len(desc) > 50 {
+			desc = desc[:47] + "..."
+		}
+
+		// 1. /skill:<name> form
+		skillPrefixed := "skill:" + slug
+		if filter == "" || strings.HasPrefix(skillPrefixed, filter) {
 			out = append(out, slashCommand{
-				name: slug,
+				name: skillPrefixed,
 				desc: fmt.Sprintf("run skill: %s (%s)", sk.Name, desc),
 			})
+		}
+
+		// 2. /<hyphen-slug> form
+		if filter == "" || strings.HasPrefix(slug, filter) {
+			collides := false
+			for _, cmd := range slashCommands {
+				if cmd.name == slug {
+					collides = true
+					break
+				}
+			}
+			if !collides {
+				out = append(out, slashCommand{
+					name: slug,
+					desc: fmt.Sprintf("run skill: %s (%s)", sk.Name, desc),
+				})
+			}
 		}
 	}
 

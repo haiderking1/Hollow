@@ -53,7 +53,7 @@ func BuildSystemPrompt(workDir string, cfg config.Runtime, toolNames []string) s
 				base += "\n\n" + skills.GuidanceBlock
 			}
 		} else {
-			sks, _ := skills.DiscoverAllSkills(workDir, cfg.Skills.Paths, cfg.Skills.Disabled)
+			sks, _ := skills.DiscoverAllSkills(workDir, cfg)
 			if len(sks) > 0 {
 				base += skills.FormatSkillsForPrompt(sks)
 			}

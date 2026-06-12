@@ -53,7 +53,7 @@ func LoadSkills(opts LoadSkillsOptions) LoadSkillsResult {
 		}
 	}
 
-	skillsList, diags := LoadSkillsFromDirs(opts.Cwd, dirs, opts.SkillPaths, nil)
+	skillsList, diags := LoadSkillsFromDirs(opts.Cwd, dirs, cfg)
 	return LoadSkillsResult{
 		Skills:      skillsList,
 		Diagnostics: diags,

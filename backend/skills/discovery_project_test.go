@@ -57,7 +57,7 @@ func TestDiscoveryProjectGitRoot(t *testing.T) {
 	}
 
 	dirs := SearchLocations(nestedCwd, cfg, "")
-	skills, _ := LoadSkillsFromDirs(nestedCwd, dirs, nil, nil)
+	skills, _ := LoadSkillsFromDirs(nestedCwd, dirs, config.Runtime{})
 
 	foundRepoRoot := false
 	foundNested := false
@@ -123,7 +123,7 @@ func TestDiscoveryProjectNoGitFSWalk(t *testing.T) {
 	}
 
 	dirs := SearchLocations(nestedCwd, cfg, "")
-	skills, _ := LoadSkillsFromDirs(nestedCwd, dirs, nil, nil)
+	skills, _ := LoadSkillsFromDirs(nestedCwd, dirs, config.Runtime{})
 
 	foundRoot := false
 	foundMiddle := false
@@ -171,7 +171,7 @@ func TestDiscoveryIgnoreRootMarkdownInAgentsSkills(t *testing.T) {
 		{Path: agentsSkillsDir, Source: "project", IncludeRootMD: false},
 	}
 
-	skills, _ := LoadSkillsFromDirs(tempHome, dirs, nil, nil)
+	skills, _ := LoadSkillsFromDirs(tempHome, dirs, config.Runtime{})
 
 	foundRootFile := false
 	foundNested := false
@@ -226,7 +226,7 @@ func TestDiscoverySymlinkDeduplication(t *testing.T) {
 	}
 
 	dirs := SearchLocations(tempHome, cfg, "")
-	skills, _ := LoadSkillsFromDirs(tempHome, dirs, nil, nil)
+	skills, _ := LoadSkillsFromDirs(tempHome, dirs, config.Runtime{})
 
 	fooCount := 0
 	for _, sk := range skills {
@@ -280,7 +280,7 @@ func TestDiscoveryGitignoreDeduplicationAndIgnoring(t *testing.T) {
 	}
 
 	dirs := SearchLocations(tempHome, cfg, "")
-	skills, _ := LoadSkillsFromDirs(tempHome, dirs, nil, nil)
+	skills, _ := LoadSkillsFromDirs(tempHome, dirs, config.Runtime{})
 
 	foundGood := false
 	foundBad := false

@@ -69,6 +69,7 @@ type SystemPromptInputs struct {
 	SessionID string
 	// Now anchors the volatile date line. Zero value means time.Now().
 	Now time.Time
+	PreloadedSkillsPrompt string
 }
 
 // BuildSessionSystemPrompt assembles the full session system prompt from the
@@ -129,11 +130,14 @@ func buildStableTier(in SystemPromptInputs) string {
 				parts = append(parts, idx)
 			}
 		} else {
-			sks, _ := skills.DiscoverAllSkills(in.WorkDir, in.Cfg.Skills.Paths, in.Cfg.Skills.Disabled)
+			sks, _ := skills.DiscoverAllSkills(in.WorkDir, in.Cfg)
 			if len(sks) > 0 {
 				parts = append(parts, strings.TrimSpace(skills.FormatSkillsForPrompt(sks)))
 			}
 		}
+	}
+	if in.PreloadedSkillsPrompt != "" {
+		parts = append(parts, in.PreloadedSkillsPrompt)
 	}
 
 	return strings.Join(parts, "\n\n")

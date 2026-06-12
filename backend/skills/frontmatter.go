@@ -4,103 +4,17 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 func parseFrontmatterYAML(yamlStr string) map[string]interface{} {
-	result := make(map[string]interface{})
-	lines := strings.Split(yamlStr, "\n")
-
-	var lastKey string
-	var lastIndent int
-	var metadata = make(map[string]interface{})
-	var hermes = make(map[string]interface{})
-	metadata["hermes"] = hermes
-
-	for _, line := range lines {
-		// remove comments
-		if idx := strings.Index(line, "#"); idx >= 0 {
-			line = line[:idx]
-		}
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-
-		indent := len(line) - len(strings.TrimLeft(line, " \t"))
-
-		if strings.Contains(trimmed, ":") {
-			parts := strings.SplitN(trimmed, ":", 2)
-			key := strings.TrimSpace(parts[0])
-			val := strings.TrimSpace(parts[1])
-
-			lastKey = key
-			lastIndent = indent
-
-			var target = result
-			if indent >= 4 {
-				target = hermes
-			} else if indent >= 2 {
-				target = metadata
-			}
-
-			if val == "" {
-				continue
-			}
-
-			var parsedVal interface{} = val
-			if val == "true" {
-				parsedVal = true
-			} else if val == "false" {
-				parsedVal = false
-			} else if strings.HasPrefix(val, "[") && strings.HasSuffix(val, "]") {
-				inner := val[1 : len(val)-1]
-				var list []string
-				for _, item := range strings.Split(inner, ",") {
-					item = strings.Trim(strings.TrimSpace(item), `"'`)
-					if item != "" {
-						list = append(list, item)
-					}
-				}
-				parsedVal = list
-			} else {
-				parsedVal = strings.Trim(val, `"'`)
-			}
-
-			target[key] = parsedVal
-		} else if strings.HasPrefix(trimmed, "-") {
-			itemVal := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
-			itemVal = strings.Trim(itemVal, `"'`)
-
-			var target = result
-			if lastIndent >= 4 {
-				target = hermes
-			} else if lastIndent >= 2 {
-				target = metadata
-			}
-
-			if lastKey != "" {
-				existing, ok := target[lastKey]
-				if !ok {
-					target[lastKey] = []string{itemVal}
-				} else {
-					if list, ok := existing.([]string); ok {
-						target[lastKey] = append(list, itemVal)
-					} else if str, ok := existing.(string); ok && str == "" {
-						target[lastKey] = []string{itemVal}
-					}
-				}
-			}
-		}
+	var m map[string]interface{}
+	err := yaml.Unmarshal([]byte(yamlStr), &m)
+	if err != nil {
+		return make(map[string]interface{})
 	}
-
-	if len(hermes) > 0 {
-		metadata["hermes"] = hermes
-		result["metadata"] = metadata
-	} else if len(metadata) > 1 {
-		result["metadata"] = metadata
-	}
-
-	return result
+	return m
 }
 
 func ParseFrontmatter(content string) (map[string]interface{}, string) {
@@ -117,6 +31,10 @@ func ParseFrontmatter(content string) (map[string]interface{}, string) {
 	fm := parseFrontmatterYAML(parts[1])
 	body := parts[2]
 	return fm, body
+}
+
+func SkillMatchesPlatform(fm map[string]interface{}) bool {
+	return skillMatchesPlatform(fm)
 }
 
 func skillMatchesPlatform(fm map[string]interface{}) bool {
@@ -368,6 +286,11 @@ func buildSnapshotEntry(skillFile, skillsDir string, fm map[string]interface{}, 
 		platforms = []string{}
 	}
 
+	envs := toStringList(fm["environments"])
+	if envs == nil {
+		envs = []string{}
+	}
+
 	return SkillSnapshotEntry{
 		SkillName:       skillName,
 		Category:        category,
@@ -375,5 +298,6 @@ func buildSnapshotEntry(skillFile, skillsDir string, fm map[string]interface{}, 
 		Description:     description,
 		Platforms:       platforms,
 		Conditions:      extractSkillConditions(fm),
+		Environments:    envs,
 	}
 }

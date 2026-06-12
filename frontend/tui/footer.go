@@ -77,14 +77,11 @@ func (a *App) renderFooter(width int) []string {
 	}
 
 	skillsEnabled := false
-	var skillsPaths []string
-	var skillsDisabled []string
 	if err == nil {
 		skillsEnabled = cfg.Skills.Enabled
-		skillsPaths = cfg.Skills.Paths
-		skillsDisabled = cfg.Skills.Disabled
 	}
-	if runCfg, runErr := config.LoadRuntime(); runErr == nil {
+	runCfg, runErr := config.LoadRuntime()
+	if runErr == nil {
 		if runCfg.Model != "" {
 			model = runCfg.Model
 		}
@@ -95,8 +92,6 @@ func (a *App) renderFooter(width int) []string {
 			thinking = runCfg.ThinkingLevel
 		}
 		skillsEnabled = runCfg.Skills.Enabled
-		skillsPaths = runCfg.Skills.Paths
-		skillsDisabled = runCfg.Skills.Disabled
 	}
 
 	contextWindow := agent.ModelContextWindow(model, 0)
@@ -145,7 +140,7 @@ func (a *App) renderFooter(width int) []string {
 	}
 
 	if skillsEnabled {
-		discovered, _ := skills.DiscoverAllSkills(a.session.CWD(), skillsPaths, skillsDisabled)
+		discovered, _ := skills.DiscoverAllSkills(a.session.CWD(), runCfg)
 		statsLeft += a.styles.LogDim.Render(fmt.Sprintf(" · skills %d", len(discovered)))
 	}
 

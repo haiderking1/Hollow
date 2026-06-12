@@ -35,7 +35,7 @@ func ExecuteSkillsList(argsJSON string, workDir string, cfg config.Runtime) (str
 		_ = os.MkdirAll(skillsDir, 0o700)
 	}
 
-	allSkills, _ := DiscoverAllSkills(workDir, cfg.Skills.Paths, cfg.Skills.Disabled)
+	allSkills, _ := DiscoverAllSkills(workDir, cfg)
 
 	categoryFilter := strings.TrimSpace(args.Category)
 	var filtered []Skill

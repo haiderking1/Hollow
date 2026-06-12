@@ -275,6 +275,10 @@ func loadSkillFromFile(filePath, source, skillsRoot string) (*Skill, []string) {
 		return nil, warnings
 	}
 
+	if !SkillMatchesEnvironment(fm) {
+		return nil, warnings
+	}
+
 	disableModelInvocation, _ := fm["disable-model-invocation"].(bool)
 
 	category := computeSkillCategory(filePath, skillsRoot)
@@ -286,6 +290,11 @@ func loadSkillFromFile(filePath, source, skillsRoot string) (*Skill, []string) {
 	scope := "project"
 	if strings.Contains(skillsRoot, ".enough/skills") || strings.Contains(skillsRoot, ".enough/agent/skills") {
 		scope = "user"
+	}
+
+	envs := toStringList(fm["environments"])
+	if envs == nil {
+		envs = []string{}
 	}
 
 	return &Skill{
@@ -305,6 +314,7 @@ func loadSkillFromFile(filePath, source, skillsRoot string) (*Skill, []string) {
 		Tags:                   tags,
 		RelatedSkills:          related,
 		Conditions:             conditions,
+		Environments:           envs,
 	}, warnings
 }
 
@@ -386,33 +396,54 @@ func loadSkillsFromDirInternal(dir, source string, includeRootFiles bool, ig *Gi
 	return skills, diagnostics
 }
 
-func DiscoverAllSkills(cwd string, explicitPaths []string, disabledNames []string) ([]Skill, []string) {
-	_ = ExtractEnoughSkillIfMissing()
-	cfg := config.Runtime{
-		Skills: config.SkillsSettings{
-			Enabled:             true,
-			EnableSkillCommands: true,
-			Paths:               explicitPaths,
-			Disabled:            disabledNames,
-		},
+func resolvePlatform() string {
+	if p := os.Getenv("ENOUGH_PLATFORM"); p != "" {
+		return p
 	}
-	dirs := SearchLocations(cwd, cfg, "")
-	return LoadSkillsFromDirs(cwd, dirs, explicitPaths, disabledNames)
+	if p := os.Getenv("HERMES_PLATFORM"); p != "" {
+		return p
+	}
+	if p := os.Getenv("ENOUGH_SESSION_PLATFORM"); p != "" {
+		return p
+	}
+	if p := os.Getenv("HERMES_SESSION_PLATFORM"); p != "" {
+		return p
+	}
+	return "cli"
 }
 
-func LoadSkillsFromDirs(cwd string, dirs []SearchDir, explicitPaths []string, disabledNames []string) ([]Skill, []string) {
+func IsSkillDisabled(name string, cfg config.Runtime) bool {
+	platform := resolvePlatform()
+	if cfg.Skills.PlatformDisabled != nil {
+		if list, ok := cfg.Skills.PlatformDisabled[platform]; ok {
+			for _, d := range list {
+				if d == name {
+					return true
+				}
+			}
+		}
+	}
+	for _, d := range cfg.Skills.Disabled {
+		if d == name {
+			return true
+		}
+	}
+	return false
+}
+
+func DiscoverAllSkills(cwd string, cfg config.Runtime) ([]Skill, []string) {
+	dirs := SearchLocations(cwd, cfg, "")
+	return LoadSkillsFromDirs(cwd, dirs, cfg)
+}
+
+func LoadSkillsFromDirs(cwd string, dirs []SearchDir, cfg config.Runtime) ([]Skill, []string) {
 	var allSkills []Skill
 	var allDiagnostics []string
 	skillMap := make(map[string]Skill)
 	canonicalSet := make(map[string]bool)
 
-	disabledMap := make(map[string]bool)
-	for _, n := range disabledNames {
-		disabledMap[n] = true
-	}
-
 	var exclusionRegexes []*regexp.Regexp
-	for _, p := range explicitPaths {
+	for _, p := range cfg.Skills.Paths {
 		if strings.HasPrefix(p, "!") {
 			pat := strings.TrimPrefix(p, "!")
 			rx := gitIgnoreToRegex(pat)
@@ -425,7 +456,7 @@ func LoadSkillsFromDirs(cwd string, dirs []SearchDir, explicitPaths []string, di
 	addSkills := func(skills []Skill, diags []string) {
 		allDiagnostics = append(allDiagnostics, diags...)
 		for _, sk := range skills {
-			if disabledMap[sk.Name] {
+			if IsSkillDisabled(sk.Name, cfg) {
 				continue
 			}
 

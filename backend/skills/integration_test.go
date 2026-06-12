@@ -59,7 +59,7 @@ Use ${ENOUGH_SKILL_DIR}/scripts/foo.sh
 	}
 
 	// 3. XML Fallback (without skill tools enabled: FormatSkillsForPrompt)
-	sks, diags := DiscoverAllSkills(tempHome, cfg.Skills.Paths, cfg.Skills.Disabled)
+	sks, diags := DiscoverAllSkills(tempHome, cfg)
 	if len(diags) > 0 {
 		t.Logf("discovery diagnostics: %v", diags)
 	}

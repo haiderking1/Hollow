@@ -3,9 +3,11 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/enough/enough/backend/agent"
+	"github.com/enough/enough/backend/approval"
 	"github.com/enough/enough/backend/auth"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/core"
@@ -108,13 +110,127 @@ func (a *App) handleSlash(input string) {
 		a.editor.SetValue("")
 		a.requestRender()
 	case "skills":
+		sub, subArg, _ := strings.Cut(arg, " ")
+		sub = strings.ToLower(strings.TrimSpace(sub))
+		subArg = strings.TrimSpace(subArg)
+
+		switch sub {
+		case "pending":
+			records, err := approval.ListPending(approval.SubsystemSkills)
+			if err != nil {
+				a.appendMessage("error", err.Error())
+				return
+			}
+			if len(records) == 0 {
+				a.appendMessage("system", "No pending skills updates.")
+				return
+			}
+			var lines []string
+			lines = append(lines, "Pending skills updates:")
+			for _, r := range records {
+				lines = append(lines, fmt.Sprintf("  - %s: %s (origin: %s)", r.ID, r.Summary, r.Origin))
+			}
+			a.appendMessage("system", strings.Join(lines, "\n"))
+			a.requestRender()
+			return
+		case "diff":
+			if subArg == "" {
+				a.appendMessage("error", "Usage: /skills diff <id>")
+				return
+			}
+			r, err := approval.GetPending(approval.SubsystemSkills, subArg)
+			if err != nil || r == nil {
+				a.appendMessage("error", fmt.Sprintf("Staged update '%s' not found.", subArg))
+				return
+			}
+			diff := approval.SkillPendingDiff(*r)
+			a.appendMessage("system", fmt.Sprintf("Staged update %s:\n%s", subArg, diff))
+			a.requestRender()
+			return
+		case "approve":
+			if subArg == "" {
+				a.appendMessage("error", "Usage: /skills approve <id>")
+				return
+			}
+			r, err := approval.GetPending(approval.SubsystemSkills, subArg)
+			if err != nil || r == nil {
+				a.appendMessage("error", fmt.Sprintf("Staged update '%s' not found.", subArg))
+				return
+			}
+			opts := skills.SkillManageOptions{
+				GuardEnabled:       true,
+				MarkCreatedAsAgent: r.Origin == "agent",
+			}
+			res, err := skills.ApplySkillPending(r.Payload, opts)
+			if err != nil || !res.Success {
+				errMsg := "Unknown error"
+				if err != nil {
+					errMsg = err.Error()
+				} else if res.Error != "" {
+					errMsg = res.Error
+				}
+				a.appendMessage("error", fmt.Sprintf("Failed to apply staged update: %s", errMsg))
+				return
+			}
+			_, _ = approval.DiscardPending(approval.SubsystemSkills, subArg)
+			a.appendMessage("system", fmt.Sprintf("Staged update %s approved and applied: %s", subArg, res.Message))
+			a.requestRender()
+			return
+		case "reject":
+			if subArg == "" {
+				a.appendMessage("error", "Usage: /skills reject <id>")
+				return
+			}
+			ok, err := approval.DiscardPending(approval.SubsystemSkills, subArg)
+			if err != nil || !ok {
+				a.appendMessage("error", fmt.Sprintf("Staged update '%s' not found.", subArg))
+				return
+			}
+			a.appendMessage("system", fmt.Sprintf("Staged update %s rejected.", subArg))
+			a.requestRender()
+			return
+		case "approval":
+			if subArg == "" {
+				a.appendMessage("error", "Usage: /skills approval on|off")
+				return
+			}
+			cfg, err := config.Load()
+			if err != nil {
+				a.appendMessage("error", err.Error())
+				return
+			}
+			if subArg == "on" {
+				cfg.Skills.WriteApproval = true
+				a.appendMessage("system", "Skills write approval enabled")
+			} else if subArg == "off" {
+				cfg.Skills.WriteApproval = false
+				a.appendMessage("system", "Skills write approval disabled")
+			} else {
+				a.appendMessage("error", "Usage: /skills approval on|off")
+				return
+			}
+			if err := config.Save(cfg); err != nil {
+				a.appendMessage("error", err.Error())
+				return
+			}
+			if runCfg, err := config.LoadRuntime(); err == nil {
+				a.mu.Lock()
+				if a.agent != nil {
+					a.agent.UpdateConfig(runCfg)
+				}
+				a.mu.Unlock()
+			}
+			a.requestRender()
+			return
+		}
+
 		cfg, err := config.LoadRuntime()
 		if err != nil {
 			a.appendMessage("error", err.Error())
 			return
 		}
 		ag := a.ensureAgent(cfg)
-		discovered, _ := skills.DiscoverAllSkills(ag.WorkDir(), cfg.Skills.Paths, cfg.Skills.Disabled)
+		discovered, _ := skills.DiscoverAllSkills(ag.WorkDir(), cfg)
 		if len(discovered) == 0 {
 			a.appendMessage("system", "No skills discovered. Skills live in ~/.enough/skills/")
 			return
@@ -213,7 +329,110 @@ func (a *App) handleSlash(input string) {
 			a.appendMessage("error", msg)
 		}
 		a.requestRender()
+	case "reload-skills":
+		cfg, err := config.LoadRuntime()
+		if err != nil {
+			a.appendMessage("error", err.Error())
+			return
+		}
+		workDir := ""
+		if a.session != nil {
+			workDir = a.session.CWD()
+		}
+		if workDir == "" {
+			workDir, _ = os.Getwd()
+		}
+		diff, err := skills.ReloadSkills(workDir, cfg)
+		if err != nil {
+			a.appendMessage("error", fmt.Sprintf("Failed to reload skills: %v", err))
+			return
+		}
+
+		var lines []string
+		lines = append(lines, fmt.Sprintf("Reloaded skills: total %d skills, %d slash commands.", diff.Total, diff.Commands))
+		if len(diff.Added) > 0 {
+			lines = append(lines, fmt.Sprintf("  Added (%d):", len(diff.Added)))
+			for _, sk := range diff.Added {
+				lines = append(lines, fmt.Sprintf("    - %s: %s", sk["name"], sk["description"]))
+			}
+		}
+		if len(diff.Removed) > 0 {
+			lines = append(lines, fmt.Sprintf("  Removed (%d):", len(diff.Removed)))
+			for _, sk := range diff.Removed {
+				lines = append(lines, fmt.Sprintf("    - %s: %s", sk["name"], sk["description"]))
+			}
+		}
+		a.appendMessage("system", strings.Join(lines, "\n"))
+		a.requestRender()
 	case "memory":
+		sub, subArg, _ := strings.Cut(arg, " ")
+		sub = strings.ToLower(strings.TrimSpace(sub))
+		subArg = strings.TrimSpace(subArg)
+
+		switch sub {
+		case "pending":
+			records, err := approval.ListPending(approval.SubsystemMemory)
+			if err != nil {
+				a.appendMessage("error", err.Error())
+				return
+			}
+			if len(records) == 0 {
+				a.appendMessage("system", "No pending memory updates.")
+				return
+			}
+			var lines []string
+			lines = append(lines, "Pending memory updates:")
+			for _, r := range records {
+				lines = append(lines, fmt.Sprintf("  - %s: %s (origin: %s)", r.ID, r.Summary, r.Origin))
+			}
+			a.appendMessage("system", strings.Join(lines, "\n"))
+			a.requestRender()
+			return
+		case "approve":
+			if subArg == "" {
+				a.appendMessage("error", "Usage: /memory approve <id>")
+				return
+			}
+			r, err := approval.GetPending(approval.SubsystemMemory, subArg)
+			if err != nil || r == nil {
+				a.appendMessage("error", fmt.Sprintf("Staged update '%s' not found.", subArg))
+				return
+			}
+			cfg, err := config.LoadRuntime()
+			if err != nil {
+				a.appendMessage("error", err.Error())
+				return
+			}
+			ag := a.ensureAgent(cfg)
+			store := ag.MemoryStore()
+			if store == nil {
+				a.appendMessage("error", "Memory store is not initialized or disabled.")
+				return
+			}
+			res := memory.ApplyMemoryPending(r.Payload, store)
+			if !res.Success {
+				a.appendMessage("error", fmt.Sprintf("Failed to apply memory update: %s", res.Error))
+				return
+			}
+			_, _ = approval.DiscardPending(approval.SubsystemMemory, subArg)
+			a.appendMessage("system", fmt.Sprintf("Staged update %s approved and applied: %s", subArg, r.Summary))
+			a.requestRender()
+			return
+		case "reject":
+			if subArg == "" {
+				a.appendMessage("error", "Usage: /memory reject <id>")
+				return
+			}
+			ok, err := approval.DiscardPending(approval.SubsystemMemory, subArg)
+			if err != nil || !ok {
+				a.appendMessage("error", fmt.Sprintf("Staged update '%s' not found.", subArg))
+				return
+			}
+			a.appendMessage("system", fmt.Sprintf("Staged update %s rejected.", subArg))
+			a.requestRender()
+			return
+		}
+
 		a.showMemory()
 	case "curator-run":
 		a.runCurator(arg)
@@ -255,8 +474,34 @@ func (a *App) handleSlash(input string) {
 		}
 		a.requestRender()
 	default:
+		isSkillCmd := false
+		skillName := ""
 		if strings.HasPrefix(name, "skill:") {
-			skillName := strings.TrimPrefix(name, "skill:")
+			isSkillCmd = true
+			skillName = strings.TrimPrefix(name, "skill:")
+		} else {
+			cfg, workDir := a.slashSkillsContext()
+			if cfg.Skills.Enabled && cfg.Skills.EnableSkillCommands {
+				discovered, _ := skills.DiscoverAllSkills(workDir, cfg)
+				for _, sk := range discovered {
+					if !skills.IsSkillDisabled(sk.Name, cfg) {
+						fmDummy := map[string]interface{}{
+							"platforms":    sk.Platforms,
+							"environments": sk.Environments,
+						}
+						if skills.SkillMatchesPlatform(fmDummy) && skills.SkillMatchesEnvironment(fmDummy) {
+							if skills.SkillNameToSlashSlug(sk.Name) == name {
+								isSkillCmd = true
+								skillName = sk.Name
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if isSkillCmd {
 			if !auth.Connected() {
 				a.appendMessage("error", "not connected — type / and pick connect")
 				return

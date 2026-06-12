@@ -67,7 +67,7 @@ func TestSkillsCollisionPrecedenceOrder(t *testing.T) {
 	}
 
 	dirs := SearchLocations(projectDir, cfg, "")
-	skills, diags := LoadSkillsFromDirs(projectDir, dirs, cfg.Skills.Paths, nil)
+	skills, diags := LoadSkillsFromDirs(projectDir, dirs, cfg)
 
 	// We expect exactly 1 skill named colliding-skill, and its description should be "Project version"
 	var colliding *Skill

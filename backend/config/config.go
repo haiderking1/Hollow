@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/enough/enough/backend/enoughhome"
 	"github.com/enough/enough/backend/secrets"
@@ -52,10 +53,24 @@ func DefaultEvidence() EvidenceConfig {
 }
 
 type SkillsSettings struct {
-	Enabled             bool     `json:"enabled"`
-	EnableSkillCommands bool     `json:"enable_skill_commands"`
-	Paths               []string `json:"paths"`
-	Disabled            []string `json:"disabled"`
+	Enabled             bool                `json:"enabled"`
+	EnableSkillCommands bool                `json:"enable_skill_commands"`
+	Paths               []string            `json:"paths"`
+	Disabled            []string            `json:"disabled"`
+	ExternalDirs        []string            `json:"external_dirs"`
+	PlatformDisabled    map[string][]string `json:"platform_disabled"`
+	GuardAgentCreated   bool                `json:"guard_agent_created"`
+	WriteApproval       bool                `json:"write_approval"`
+	InlineShell         bool                `json:"inline_shell"`
+	InlineShellTimeout  int                 `json:"inline_shell_timeout"`
+}
+
+type AgentSettings struct {
+	CodingContext string `json:"coding_context"`
+}
+
+type PluginsSettings struct {
+	Disabled []string `json:"disabled"`
 }
 
 // MemorySettings controls the built-in persistent memory (MEMORY.md/USER.md)
@@ -72,6 +87,7 @@ type MemorySettings struct {
 	SkillNudgeInterval int `json:"skill_nudge_interval"`
 	MemoryCharLimit    int `json:"memory_char_limit"`
 	UserCharLimit      int `json:"user_char_limit"`
+	WriteApproval      bool `json:"write_approval"`
 }
 
 func DefaultMemory() MemorySettings {
@@ -82,6 +98,7 @@ func DefaultMemory() MemorySettings {
 		SkillNudgeInterval: 10,
 		MemoryCharLimit:    2200,
 		UserCharLimit:      1375,
+		WriteApproval:      false,
 	}
 }
 
@@ -119,6 +136,8 @@ type Config struct {
 	Skills        *SkillsSettings     `json:"skills,omitempty"`
 	Memory        *MemorySettings     `json:"memory,omitempty"`
 	Curator       *CuratorSettings    `json:"curator,omitempty"`
+	Agent         *AgentSettings      `json:"agent,omitempty"`
+	Plugins       *PluginsSettings    `json:"plugins,omitempty"`
 
 	// legacy field — migrated to secrets store on load, never written back
 	apiKeyLegacy string `json:"-"`
@@ -136,6 +155,17 @@ type Runtime struct {
 	Skills        SkillsSettings
 	Memory        MemorySettings
 	Curator       CuratorSettings
+	Agent         AgentSettings
+	Plugins       PluginsSettings
+	PreloadedSkills       []string
+	PreloadedSkillsPrompt string
+}
+
+func DefaultInlineShellEnabled() bool {
+	if runtime.GOOS == "windows" {
+		return os.Getenv("WSL_DISTRO_NAME") != ""
+	}
+	return runtime.GOOS == "linux"
 }
 
 func Default() Config {
@@ -150,9 +180,23 @@ func Default() Config {
 		Skills: &SkillsSettings{
 			Enabled:             true,
 			EnableSkillCommands: true,
+			Paths:               []string{},
+			Disabled:            []string{},
+			ExternalDirs:        []string{},
+			PlatformDisabled:    map[string][]string{"cli": {}, "tui": {}},
+			GuardAgentCreated:   false,
+			WriteApproval:       false,
+			InlineShell:         DefaultInlineShellEnabled(),
+			InlineShellTimeout:  10,
 		},
 		Memory:  func() *MemorySettings { m := DefaultMemory(); return &m }(),
 		Curator: func() *CuratorSettings { c := DefaultCurator(); return &c }(),
+		Agent: &AgentSettings{
+			CodingContext: "auto",
+		},
+		Plugins: &PluginsSettings{
+			Disabled: []string{},
+		},
 	}
 }
 
@@ -179,6 +223,8 @@ type fileConfig struct {
 	Skills        *SkillsSettings     `json:"skills,omitempty"`
 	Memory        *MemorySettings     `json:"memory,omitempty"`
 	Curator       *CuratorSettings    `json:"curator,omitempty"`
+	Agent         *AgentSettings      `json:"agent,omitempty"`
+	Plugins       *PluginsSettings    `json:"plugins,omitempty"`
 }
 
 func Load() (Config, error) {
@@ -219,6 +265,9 @@ func Load() (Config, error) {
 					if raw.Curator != nil {
 						cfg.Curator = raw.Curator
 					}
+					if raw.Agent != nil {
+						cfg.Agent = raw.Agent
+					}
 					if cfg.Endpoint == "" {
 						cfg.Endpoint = DefaultEndpoint
 					}
@@ -236,6 +285,19 @@ func Load() (Config, error) {
 						cfg.Skills = &SkillsSettings{
 							Enabled:             true,
 							EnableSkillCommands: true,
+							Paths:               []string{},
+							Disabled:            []string{},
+							ExternalDirs:        []string{},
+							PlatformDisabled:    map[string][]string{"cli": {}, "tui": {}},
+							GuardAgentCreated:   false,
+							WriteApproval:       false,
+							InlineShell:         DefaultInlineShellEnabled(),
+							InlineShellTimeout:  10,
+						}
+					}
+					if cfg.Agent == nil {
+						cfg.Agent = &AgentSettings{
+							CodingContext: "auto",
 						}
 					}
 					_ = Save(cfg)
@@ -274,6 +336,12 @@ func Load() (Config, error) {
 	if raw.Curator != nil {
 		cfg.Curator = raw.Curator
 	}
+	if raw.Agent != nil {
+		cfg.Agent = raw.Agent
+	}
+	if raw.Plugins != nil {
+		cfg.Plugins = raw.Plugins
+	}
 
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = DefaultEndpoint
@@ -292,6 +360,45 @@ func Load() (Config, error) {
 		cfg.Skills = &SkillsSettings{
 			Enabled:             true,
 			EnableSkillCommands: true,
+			Paths:               []string{},
+			Disabled:            []string{},
+			ExternalDirs:        []string{},
+			PlatformDisabled:    map[string][]string{"cli": {}, "tui": {}},
+			GuardAgentCreated:   false,
+			WriteApproval:       false,
+			InlineShell:         DefaultInlineShellEnabled(),
+			InlineShellTimeout:  10,
+		}
+	} else {
+		// Ensure fields inside Skills are defaulted if missing from older files
+		if cfg.Skills.PlatformDisabled == nil {
+			cfg.Skills.PlatformDisabled = map[string][]string{"cli": {}, "tui": {}}
+		}
+		if cfg.Skills.Paths == nil {
+			cfg.Skills.Paths = []string{}
+		}
+		if cfg.Skills.Disabled == nil {
+			cfg.Skills.Disabled = []string{}
+		}
+		if cfg.Skills.ExternalDirs == nil {
+			cfg.Skills.ExternalDirs = []string{}
+		}
+		if cfg.Skills.InlineShellTimeout <= 0 {
+			cfg.Skills.InlineShellTimeout = 10
+		}
+	}
+	if cfg.Agent == nil {
+		cfg.Agent = &AgentSettings{
+			CodingContext: "auto",
+		}
+	}
+	if cfg.Plugins == nil {
+		cfg.Plugins = &PluginsSettings{
+			Disabled: []string{},
+		}
+	} else {
+		if cfg.Plugins.Disabled == nil {
+			cfg.Plugins.Disabled = []string{}
 		}
 	}
 
@@ -323,6 +430,14 @@ func Save(cfg Config) error {
 		cfg.Skills = &SkillsSettings{
 			Enabled:             true,
 			EnableSkillCommands: true,
+			Paths:               []string{},
+			Disabled:            []string{},
+			ExternalDirs:        []string{},
+			PlatformDisabled:    map[string][]string{"cli": {}, "tui": {}},
+			GuardAgentCreated:   false,
+			WriteApproval:       false,
+			InlineShell:         DefaultInlineShellEnabled(),
+			InlineShellTimeout:  10,
 		}
 	}
 	if cfg.Memory == nil {
@@ -332,6 +447,16 @@ func Save(cfg Config) error {
 	if cfg.Curator == nil {
 		c := DefaultCurator()
 		cfg.Curator = &c
+	}
+	if cfg.Agent == nil {
+		cfg.Agent = &AgentSettings{
+			CodingContext: "auto",
+		}
+	}
+	if cfg.Plugins == nil {
+		cfg.Plugins = &PluginsSettings{
+			Disabled: []string{},
+		}
 	}
 
 	dir, err := Dir()
@@ -358,6 +483,7 @@ func Save(cfg Config) error {
 		Skills:        cfg.Skills,
 		Memory:        cfg.Memory,
 		Curator:       cfg.Curator,
+		Agent:         cfg.Agent,
 	}
 
 	data, err := json.MarshalIndent(raw, "", "  ")
@@ -402,6 +528,14 @@ func LoadRuntime() (Runtime, error) {
 		sk = SkillsSettings{
 			Enabled:             true,
 			EnableSkillCommands: true,
+			Paths:               []string{},
+			Disabled:            []string{},
+			ExternalDirs:        []string{},
+			PlatformDisabled:    map[string][]string{"cli": {}, "tui": {}},
+			GuardAgentCreated:   false,
+			WriteApproval:       false,
+			InlineShell:         DefaultInlineShellEnabled(),
+			InlineShellTimeout:  10,
 		}
 	}
 
@@ -415,6 +549,20 @@ func LoadRuntime() (Runtime, error) {
 		cur = *cfg.Curator
 	}
 
+	ag := AgentSettings{
+		CodingContext: "auto",
+	}
+	if cfg.Agent != nil {
+		ag = *cfg.Agent
+	}
+
+	pl := PluginsSettings{
+		Disabled: []string{},
+	}
+	if cfg.Plugins != nil {
+		pl = *cfg.Plugins
+	}
+
 	return Runtime{
 		Endpoint:      cfg.Endpoint,
 		Model:         cfg.Model,
@@ -426,6 +574,8 @@ func LoadRuntime() (Runtime, error) {
 		Skills:        sk,
 		Memory:        mem,
 		Curator:       cur,
+		Agent:         ag,
+		Plugins:       pl,
 	}, nil
 }
 

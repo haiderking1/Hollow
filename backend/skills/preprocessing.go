@@ -38,10 +38,12 @@ func DefaultPreprocessingConfig() PreprocessingConfig {
 func substituteTemplateVars(content, skillDir, sessionId string) string {
 	if skillDir != "" {
 		content = strings.ReplaceAll(content, "${ENOUGH_SKILL_DIR}", skillDir)
+		content = strings.ReplaceAll(content, "${HERMES_SKILL_DIR}", skillDir)
 		content = strings.ReplaceAll(content, "${FLAME_SKILL_DIR}", skillDir)
 	}
 	if sessionId != "" {
 		content = strings.ReplaceAll(content, "${ENOUGH_SESSION_ID}", sessionId)
+		content = strings.ReplaceAll(content, "${HERMES_SESSION_ID}", sessionId)
 		content = strings.ReplaceAll(content, "${FLAME_SESSION_ID}", sessionId)
 	}
 	return content
@@ -114,14 +116,17 @@ func expandInlineShell(content, skillDir string, timeoutSec int) string {
 	})
 }
 
-func PreprocessSkillContent(content, skillDir, sessionId string, inlineShellEnabled bool) string {
+func PreprocessSkillContent(content, skillDir, sessionId string, inlineShellEnabled bool, timeoutSec int) string {
 	if content == "" {
 		return content
 	}
 
 	result := substituteTemplateVars(content, skillDir, sessionId)
 	if inlineShellEnabled {
-		result = expandInlineShell(result, skillDir, 10)
+		if timeoutSec <= 0 {
+			timeoutSec = 10
+		}
+		result = expandInlineShell(result, skillDir, timeoutSec)
 	}
 	return result
 }

@@ -7,16 +7,16 @@ import (
 )
 
 func TestSubstituteTemplateVars(t *testing.T) {
-	// 1. substitutes FLAME_SKILL_DIR and ENOUGH_SKILL_DIR when skill dir provided
-	res1 := substituteTemplateVars("Path: ${FLAME_SKILL_DIR} / ${ENOUGH_SKILL_DIR}", "/tmp/skill", "")
-	if res1 != "Path: /tmp/skill / /tmp/skill" {
-		t.Fatalf("expected Path: /tmp/skill / /tmp/skill, got %q", res1)
+	// 1. substitutes FLAME_SKILL_DIR, HERMES_SKILL_DIR and ENOUGH_SKILL_DIR when skill dir provided
+	res1 := substituteTemplateVars("Path: ${FLAME_SKILL_DIR} / ${ENOUGH_SKILL_DIR} / ${HERMES_SKILL_DIR}", "/tmp/skill", "")
+	if res1 != "Path: /tmp/skill / /tmp/skill / /tmp/skill" {
+		t.Fatalf("expected Path: /tmp/skill / /tmp/skill / /tmp/skill, got %q", res1)
 	}
 
-	// 2. substitutes FLAME_SESSION_ID and ENOUGH_SESSION_ID when session id provided
-	res2 := substituteTemplateVars("Session: ${FLAME_SESSION_ID} / ${ENOUGH_SESSION_ID}", "", "sess-123")
-	if res2 != "Session: sess-123 / sess-123" {
-		t.Fatalf("expected Session: sess-123 / sess-123, got %q", res2)
+	// 2. substitutes FLAME_SESSION_ID, HERMES_SESSION_ID and ENOUGH_SESSION_ID when session id provided
+	res2 := substituteTemplateVars("Session: ${FLAME_SESSION_ID} / ${ENOUGH_SESSION_ID} / ${HERMES_SESSION_ID}", "", "sess-123")
+	if res2 != "Session: sess-123 / sess-123 / sess-123" {
+		t.Fatalf("expected Session: sess-123 / sess-123 / sess-123, got %q", res2)
 	}
 
 	// 3. leaves unresolved tokens in place
@@ -41,7 +41,7 @@ func TestExpandInlineShell(t *testing.T) {
 
 func TestPreprocessSkillContentFlags(t *testing.T) {
 	// preprocess applies template vars before optional shell
-	result := PreprocessSkillContent("Dir=${FLAME_SKILL_DIR} shell=!`echo test`", "/my/skill", "", false)
+	result := PreprocessSkillContent("Dir=${FLAME_SKILL_DIR} shell=!`echo test`", "/my/skill", "", false, 10)
 	if !strings.Contains(result, "Dir=/my/skill") {
 		t.Fatalf("expected template substitution, got %q", result)
 	}

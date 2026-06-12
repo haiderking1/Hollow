@@ -40,4 +40,5 @@ var slashCommands = []slashCommand{
 	{name: "curator-pin", desc: "pin a skill so the curator never archives it"},
 	{name: "curator-unpin", desc: "unpin a skill"},
 	{name: "curator-pause", desc: "pause or resume the curator (on|off)"},
+	{name: "reload-skills", desc: "rescan procedural skills and reload changes"},
 }

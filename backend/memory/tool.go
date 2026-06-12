@@ -113,6 +113,43 @@ func ExecuteMemoryTool(argsJSON string, store *Store) (string, bool) {
 	}
 }
 
+func ApplyMemoryPending(payload map[string]interface{}, store *Store) Result {
+	action := getStringField(payload, "action")
+	target := getStringField(payload, "target")
+	if target == "" {
+		target = TargetMemory
+	}
+	content := getStringField(payload, "content")
+	match := getStringField(payload, "match")
+	if match == "" {
+		match = getStringField(payload, "old_text")
+	}
+	replacement := getStringField(payload, "replacement")
+
+	switch action {
+	case "add":
+		return store.Add(target, content)
+	case "replace":
+		return store.Replace(target, match, replacement)
+	case "remove":
+		return store.Remove(target, match)
+	default:
+		return Result{Success: false, Error: "Unknown staged action '" + action + "'"}
+	}
+}
+
+func getStringField(m map[string]interface{}, key string) string {
+	if m == nil {
+		return ""
+	}
+	if val, ok := m[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
 // IsMutatingAction reports whether the given tool-call args describe a write.
 // Used by the agent to reset the memory-review nudge counter on direct
 // foreground memory writes.

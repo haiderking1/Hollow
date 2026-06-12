@@ -60,7 +60,7 @@ func TestSlashCommandsExpand(t *testing.T) {
 		"name":    "hinted",
 		"content": "Body text",
 	}
-	msgHinted := BuildSkillInvocationMessage(loadedSkill, filepath.Join(tempHome, "skills", "hinted"), "", "")
+	msgHinted := BuildSkillInvocationMessage(loadedSkill, filepath.Join(tempHome, "skills", "hinted"), "", "", config.Runtime{})
 	if !strings.Contains(msgHinted, "[Skill directory:") {
 		t.Errorf("expected directory hint, got %q", msgHinted)
 	}

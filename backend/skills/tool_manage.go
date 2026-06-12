@@ -2,6 +2,9 @@ package skills
 
 import (
 	"encoding/json"
+	"fmt"
+
+	"github.com/enough/enough/backend/approval"
 )
 
 type SkillManageOptions struct {
@@ -12,6 +15,9 @@ type SkillManageOptions struct {
 	// never destroy data; archives are recoverable. It also hard-protects
 	// the curator-protected builtins from autonomous removal.
 	ArchiveOnDelete bool
+	WriteApproval   bool
+	BypassGate      bool
+	Origin          string
 }
 
 type skillManageArgs struct {
@@ -33,6 +39,47 @@ func ExecuteSkillManage(argsJSON string, opts SkillManageOptions) (string, bool)
 
 	var result SkillManageResult
 	var err error
+
+	if opts.WriteApproval && !opts.BypassGate {
+		payload := map[string]interface{}{
+			"action":        args.Action,
+			"name":          args.Name,
+			"content":       args.Content,
+			"old_string":    args.OldString,
+			"new_string":    args.NewString,
+			"replace_all":   args.ReplaceAll,
+			"category":      args.Category,
+			"file_path":     args.FilePath,
+			"file_content":  args.FileContent,
+			"absorbed_into": args.AbsorbedInto,
+		}
+
+		gist := approval.SkillGist(args.Action, args.Name, args.Content, args.FilePath, args.OldString, args.NewString)
+		origin := opts.Origin
+		if origin == "" {
+			origin = "agent"
+		}
+
+		record, err := approval.StageWrite(approval.SubsystemSkills, payload, gist, origin)
+		if err != nil {
+			result = SkillManageResult{
+				Success: false,
+				Error:   "Staging failed: " + err.Error(),
+			}
+			outBytes, _ := json.MarshalIndent(result, "", "  ")
+			return string(outBytes), true
+		}
+
+		result = SkillManageResult{
+			Success:   true,
+			Staged:    true,
+			PendingID: record.ID,
+			Gist:      gist,
+			Message:   fmt.Sprintf("Staged for approval (skills.write_approval is on). Not yet saved — review with /skills pending."),
+		}
+		outBytes, _ := json.MarshalIndent(result, "", "  ")
+		return string(outBytes), false
+	}
 
 	switch args.Action {
 	case "create":
@@ -88,3 +135,21 @@ func ExecuteSkillManage(argsJSON string, opts SkillManageOptions) (string, bool)
 	}
 	return string(outBytes), !result.Success
 }
+
+func ApplySkillPending(payload map[string]interface{}, opts SkillManageOptions) (SkillManageResult, error) {
+	argsBytes, err := json.Marshal(payload)
+	if err != nil {
+		return SkillManageResult{Success: false, Error: err.Error()}, err
+	}
+	opts.BypassGate = true
+	resJSON, isErr := ExecuteSkillManage(string(argsBytes), opts)
+	var res SkillManageResult
+	if err := json.Unmarshal([]byte(resJSON), &res); err != nil {
+		return SkillManageResult{Success: false, Error: err.Error()}, err
+	}
+	if isErr && res.Error == "" {
+		res.Error = "Action failed"
+	}
+	return res, nil
+}
+

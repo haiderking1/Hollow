@@ -130,5 +130,57 @@ func SearchLocations(workDir string, cfg config.Runtime, agentDirOverride string
 		addDir(absPath, "path", true)
 	}
 
+	// 6. External directories from config (Hermes semantics)
+	for _, extDir := range getExternalSkillsDirs(cfg) {
+		addDir(extDir, "user", true)
+	}
+
 	return dirs
+}
+
+func getExternalSkillsDirs(cfg config.Runtime) []string {
+	userHome, _ := os.UserHomeDir()
+	home := enoughhome.HomeDir()
+	localSkills, _ := filepath.Abs(filepath.Join(home, "skills"))
+
+	var out []string
+	seen := make(map[string]bool)
+
+	for _, entry := range cfg.Skills.ExternalDirs {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+
+		// Expand env variables
+		expanded := os.ExpandEnv(entry)
+		// Expand ~
+		if strings.HasPrefix(expanded, "~") && userHome != "" {
+			expanded = filepath.Join(userHome, expanded[1:])
+		}
+
+		// Resolve relative paths against ENOUGH_HOME (home)
+		abs := expanded
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(home, abs)
+		}
+		abs, err := filepath.Abs(abs)
+		if err != nil {
+			abs = filepath.Clean(abs)
+		}
+
+		if abs == localSkills {
+			continue
+		}
+		if seen[abs] {
+			continue
+		}
+
+		fi, err := os.Stat(abs)
+		if err == nil && fi.IsDir() {
+			seen[abs] = true
+			out = append(out, abs)
+		}
+	}
+	return out
 }

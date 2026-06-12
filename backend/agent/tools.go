@@ -96,10 +96,13 @@ func (a *Agent) toolSkillManage(argsJSON string) toolResult {
 	// agent-created (curator-eligible). Foreground user-directed creations
 	// belong to the user and are never auto-curated.
 	output, isErr := skills.ExecuteSkillManage(argsJSON, skills.SkillManageOptions{
-		GuardEnabled:       true,
+		GuardEnabled:       a.cfg.Skills.GuardAgentCreated,
 		MarkCreatedAsAgent: a.writeOrigin == WriteOriginBackgroundReview,
 		// Autonomous passes never destroy data: delete becomes archive.
 		ArchiveOnDelete: a.writeOrigin == WriteOriginBackgroundReview,
+		WriteApproval:      a.cfg.Skills.WriteApproval,
+		BypassGate:         false,
+		Origin:             a.writeOrigin,
 	})
 	return toolResult{output: output, isErr: isErr}
 }

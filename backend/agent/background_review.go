@@ -3,8 +3,10 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
+	"github.com/enough/enough/backend/approval"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/memory"
 	"github.com/enough/enough/backend/opencode"
@@ -278,6 +280,56 @@ func memoryNativeTool() opencode.Tool {
 }
 
 func (a *Agent) toolMemory(argsJSON string) toolResult {
+	if a.cfg.Memory.WriteApproval && memory.IsMutatingAction(argsJSON) {
+		var args struct {
+			Action      string `json:"action"`
+			Target      string `json:"target"`
+			Content     string `json:"content"`
+			Match       string `json:"match"`
+			Replacement string `json:"replacement"`
+		}
+		_ = json.Unmarshal([]byte(argsJSON), &args)
+
+		if args.Target == "" {
+			args.Target = "memory"
+		}
+
+		payload := map[string]interface{}{
+			"action":      args.Action,
+			"target":      args.Target,
+			"content":     args.Content,
+			"match":       args.Match,
+			"replacement": args.Replacement,
+		}
+
+		summary := ""
+		label := "memory"
+		if args.Target == "user" {
+			label = "user profile"
+		}
+		if args.Action == "add" {
+			summary = fmt.Sprintf("add to %s: %s", label, args.Content)
+		} else if args.Action == "replace" {
+			summary = fmt.Sprintf("replace in %s: %q with %q", label, args.Match, args.Replacement)
+		} else if args.Action == "remove" {
+			summary = fmt.Sprintf("remove from %s: %q", label, args.Match)
+		}
+
+		record, err := approval.StageWrite(approval.SubsystemMemory, payload, summary, a.writeOrigin)
+		if err != nil {
+			return toolResult{output: fmt.Sprintf(`{"success": false, "error": "Staging failed: %v"}`, err), isErr: true}
+		}
+
+		output := fmt.Sprintf(`{
+  "success": true,
+  "staged": true,
+  "pending_id": %q,
+  "gist": %q,
+  "message": "Staged for approval (memory.write_approval is on). Not yet saved — review with /memory pending."
+}`, record.ID, summary)
+		return toolResult{output: output, isErr: false}
+	}
+
 	output, isErr := memory.ExecuteMemoryTool(argsJSON, a.memStore)
 	// A direct foreground memory write means the model just reviewed its
 	// memory — reset the nudge countdown.
