@@ -60,7 +60,9 @@ func TestCompactionTUIEventsAndQueue(t *testing.T) {
 		t.Fatalf("expected queued message, got %v", app.compactionQueuedMessages)
 	}
 
-	// 3. Test compaction end resets compacting
+	// 3. Test compaction end resets compacting (queue already verified above;
+	// clear it so we don't spawn a background agent mid-test).
+	app.compactionQueuedMessages = nil
 	app.handleAgentEvent(core.Event{
 		Kind: core.EventCompactionEnd,
 		Data: core.CompactionEndEvent{
@@ -74,7 +76,9 @@ func TestCompactionTUIEventsAndQueue(t *testing.T) {
 
 	// 4. Test escape cancellation routing
 	cfg := config.Runtime{}
+	app.mu.Lock()
 	app.agent = agent.New(cfg, "", nil)
+	app.mu.Unlock()
 
 	// Trigger compaction again
 	app.setCompacting(true, "Compacting context...")

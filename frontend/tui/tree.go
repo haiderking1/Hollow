@@ -179,10 +179,8 @@ func (a *App) handleTreePickerKey(k parsedKey) bool {
 					emit(core.Event{Kind: core.EventError, Data: err.Error()})
 					return
 				}
-				a.mu.Lock()
 				ag := a.ensureAgent(cfg)
 				ag.SetEmit(emit)
-				a.mu.Unlock()
 
 				_, _ = ag.NavigateToEntry(context.Background(), targetID, agent.NavigateOptions{
 					Summarize:          wantsSummary,

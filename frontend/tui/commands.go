@@ -669,10 +669,8 @@ func (a *App) startCompact(customInstructions string) {
 	a.requestRender()
 
 	a.runAgentTask(func(emit func(core.Event)) {
-		a.mu.Lock()
 		ag := a.ensureAgent(cfg)
 		ag.SetEmit(emit)
-		a.mu.Unlock()
 
 		_, _ = ag.Compact(context.Background(), customInstructions)
 	})

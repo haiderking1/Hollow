@@ -46,9 +46,7 @@ func (a *App) startAgent(task string) {
 			cfg.PreloadedSkills = loaded
 		}
 
-		a.mu.Lock()
 		ag := a.ensureAgent(cfg)
-		a.mu.Unlock()
 
 		_ = ag.Prompt(context.Background(), cfg, task, emit)
 	}()

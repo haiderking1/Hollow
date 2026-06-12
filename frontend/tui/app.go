@@ -321,6 +321,8 @@ func (a *App) initSession() error {
 }
 
 func (a *App) ensureAgent(cfg config.Runtime) *agent.Agent {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.agent == nil {
 		a.agent = agent.New(cfg, "", a.session)
 		a.agent.SetNotify(a.notifyAsync)
