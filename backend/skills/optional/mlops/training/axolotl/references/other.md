@@ -928,7 +928,7 @@ Make sure the main machine is reachable by other machines.
 
 You will need to create a configuration for accelerate, either by using accelerate config and follow the instructions or you can use one of the preset below:
 
-~/.cache/huggingface/accelerate/default_config.yaml
+~/.cache/huggingface/accelerate/default_config.json
 
 Configure your model to use FSDP in the Axolotl yaml. For example:
 
@@ -991,7 +991,7 @@ export NCCL_BUFFSIZE=2097152
 
 Example 4 (bash):
 ```bash
-axolotl train config.yaml --launcher torchrun -- --nnodes $num_nodes --nproc_per_node $gpu_per_node --rdzv_id $rdzv_id --rdzv_backend c10d --rdzv_endpoint "$head_node_ip:$head_node_port"
+axolotl train config.json --launcher torchrun -- --nnodes $num_nodes --nproc_per_node $gpu_per_node --rdzv_id $rdzv_id --rdzv_backend c10d --rdzv_endpoint "$head_node_ip:$head_node_port"
 ```
 
 ---

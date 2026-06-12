@@ -2,7 +2,7 @@
 name: parallel-cli
 description: Optional vendor skill for Parallel CLI — agent-native web search, extraction, deep research, enrichment, FindAll, and monitoring. Prefer JSON output and non-interactive flows.
 version: 1.1.0
-author: Hermes Agent
+author: Enough
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -251,7 +251,7 @@ parallel-cli enrich suggest "Find the CEO and annual revenue" --json
 ### Plan a config
 
 ```bash
-parallel-cli enrich plan -o config.yaml
+parallel-cli enrich plan -o config.json
 ```
 
 ### Inline data
@@ -277,7 +277,7 @@ parallel-cli enrich run \
 ### YAML config run
 
 ```bash
-parallel-cli enrich run config.yaml
+parallel-cli enrich run config.json
 ```
 
 ### Status / polling

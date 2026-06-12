@@ -88,7 +88,7 @@ accelerate launch --multi_gpu --num_processes 2 \
 
 ### Configuration with `accelerate config`
 
-Create `~/.cache/huggingface/accelerate/default_config.yaml`:
+Create `~/.cache/huggingface/accelerate/default_config.json`:
 ```yaml
 compute_environment: LOCAL_MACHINE
 distributed_type: MULTI_GPU

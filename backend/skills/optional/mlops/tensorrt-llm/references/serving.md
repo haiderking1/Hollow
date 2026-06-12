@@ -209,7 +209,7 @@ readinessProbe:
 FROM nvidia/tensorrt_llm:latest
 
 # Copy any custom configs
-COPY config.yaml /app/config.yaml
+COPY config.json /app/config.json
 
 # Expose ports
 EXPOSE 8000 9090

@@ -1,68 +1,97 @@
 ---
 name: enough
-description: Commands, config paths, slash commands, skills, and evidence runtime settings for Enough.
-disable-model-invocation: true
+description: Commands, config paths, slash commands, skills hub, memory, and evidence settings for Enough.
+version: 2.0.0
+author: Enough
+license: MIT
 platforms: [linux, darwin, windows]
+disable-model-invocation: true
+metadata:
+  hermes:
+    tags: [enough, setup, configuration, cli, skills, memory]
+    related_skills: [claude-code, codex, opencode]
 ---
 
 # Enough Agent Reference
 
-Use this skill to view paths, configuration settings, slash commands, and control structures for Enough.
+Use this skill whenever the user asks to configure, install, extend, or troubleshoot **Enough** itself.
 
-## Path Conventions
-All Enough settings and files reside under the home root `~/.enough/` (or overridden by the `ENOUGH_HOME` environment variable):
-- Config file: `~/.enough/config.json`
-- Global skills library: `~/.enough/skills/`
-- Telemetry usage stats: `~/.enough/skills/.usage.json`
-- Archived skills: `~/.enough/skills/.archive/`
-- Legacy read-only skills: `~/.enough/agent/skills/`
-- Prompt snapshot cache: `~/.enough/.skills_prompt_snapshot.json`
-- Session database: `~/.enough/agent/sessions/`
+## Home & Paths
 
-## TUI Slash Commands
-Enter these commands in the chat input area:
-- `/connect <api_key>` or `/connect`: Link your OpenCode API key securely.
-- `/new`: Reset the current conversation and start a fresh session.
-- `/sessions`: Display the list of saved sessions for this project.
-- `/resume`: Open the picker to select and load a saved session.
-- `/compact <instructions>`: Manually compact history using optional guidance.
-- `/auto-compact on|off`: Toggle automatic token-limit context compaction.
-- `/tree`: Visualize branching session history and jump to any historical node.
-- `/skills`: Print a categorized list of all discovered procedural skills.
-- `/skills-toggle on|off`: Enable or disable the skills system.
-- `/skill-commands on|off`: Toggle autocomplete menu entries for `/skill:<name>`.
-- `/skill:<name> <args>`: Execute a specific skill, injecting its instructions as a synthetic user prompt.
-- `/skill-archive <name>`: Move a global skill to `~/.enough/skills/.archive/`.
-- `/skill-restore <name>`: Restore an archived global skill from `.archive/`.
+All state lives under `~/.enough/` (override with `ENOUGH_HOME`):
 
-## Skills Configuration (`config.json`)
-The skills config block under `skills` supports:
-- `enabled` (boolean): Global toggle for the skills system.
-- `enable_skill_commands` (boolean): Toggles `/skill:<name>` autocomplete registration.
-- `paths` (string array): Extra folders/files to scan for skills.
-- `disabled` (string array): List of skill names to ignore.
+| Path | Purpose |
+|------|---------|
+| `~/.enough/config.json` | Models, skills, memory, curator, evidence |
+| `~/.enough/.env` | API keys / secrets for skill scripts |
+| `~/.enough/skills/` | Global skill library (sync + hub installs) |
+| `~/.enough/skills/.hub/` | Hub lock file, quarantine, audit log |
+| `~/.enough/skills/.archive/` | Curator / manual archives |
+| `~/.enough/skills/.usage.json` | Skill usage telemetry |
+| `~/.enough/.skills_prompt_snapshot.json` | Prompt index disk cache |
+| `~/.enough/pending/skills/` | Staged skill writes (write-approval gate) |
+| `~/.enough/SOUL.md` | Agent identity |
+| `~/.enough/MEMORY.md` / `USER.md` | Persistent memory |
+| `~/.enough/agent/sessions/` | Session JSONL history |
 
-Example:
-```json
-{
-  "skills": {
-    "enabled": true,
-    "enable_skill_commands": true,
-    "paths": ["/extra/skills", "~/custom-skills"],
-    "disabled": ["unsafe-skill"]
-  }
-}
+Project-local skills: `.enough/skills/`, `.agents/skills/`, `.cursor/skills/` (see discovery order in code).
+
+## CLI
+
+```bash
+enough                          # Interactive TUI (default)
+enough -q "summarize this repo" # Single query, stdout = answer, stderr = thinking
+enough --skills enough -q "…"  # Preload skills for one shot
+enough skills sync              # Seed/update bundled skills from embed
+enough skills list              # Installed skills
+enough skills search "review"   # Hub search
+enough skills install ID -y     # Hub install
+enough skills configure         # Enable/disable skills
 ```
 
-## Evidence Runtime Configuration (`config.json`)
-Controls for the proof obligation and verification ledger runtime:
-- `evidence.enabled` (boolean): Toggles the v2 evidence runtime and tool guard.
-- `evidence.strict_verify_reset` (boolean): Strict verification resetting behavior.
-- `evidence.verifier_enabled` (boolean): Toggles automated verification commands.
-- `evidence.continuity_reads` (boolean): Seeds read credit on unchanged agent-authored files.
+Agent tools (not shell commands): `skills_list`, `skill_view`, `skill_manage`, `bash`, file tools, `web_search`, `agent_swarm`.
 
-## Model and Thinking Settings (`config.json`)
-- `endpoint` (string): Target API endpoint for OpenCode agent calls.
-- `model` (string): Selected LLM.
-- `thinking_level` (string): Model thinking level.
-- `hide_thinking` (boolean): Toggles visibility of model thinking blocks.
+## TUI Slash Commands
+
+| Command | Action |
+|---------|--------|
+| `/connect` | Store OpenCode API key |
+| `/model` | Pick model + thinking level |
+| `/new` | Fresh session |
+| `/sessions`, `/resume` | Session picker |
+| `/compact`, `/auto-compact` | Context compaction |
+| `/tree` | Branch navigation |
+| `/skills` | List skills (+ hub / approval subcommands when enabled) |
+| `/skills-toggle`, `/skill-commands` | Skills system toggles |
+| `/skill:<name>` | Invoke a skill |
+| `/reload-skills` | Rescan skill dirs |
+| `/skill-archive`, `/skill-restore` | Manual archive |
+| `/memory` | MEMORY.md / USER.md + pending writes |
+| `/curator-run`, `/curator-status`, `/curator-pin`, … | Skill curator |
+
+## Config (`config.json`)
+
+Key blocks:
+- `endpoint`, `model`, `thinking_level`, `hide_thinking`
+- `skills.enabled`, `skills.write_approval`, `skills.guard_agent_created`, `skills.external_dirs`, `skills.disabled`
+- `memory.*` — MEMORY/USER, background review intervals
+- `curator.*` — stale/archive LLM curator
+- `evidence.*` — proof obligation runtime
+- `agent.coding_context` — `auto` \| `focus` \| `on` \| `off` (compact non-coding skills in index when `focus`)
+
+## Skills Workflow
+
+1. **Bundled** — shipped inside the binary; `enough skills sync` copies to `~/.enough/skills/`
+2. **Hub** — `enough skills install <id>` from skills.sh / GitHub / etc.
+3. **Agent-created** — `skill_manage(action='create')` → `~/.enough/skills/`
+4. **Load** — `skill_view(name)` or `/skill:<name>`
+
+Python/bash scripts under a skill dir are **not linked into Go** — the agent runs them via `bash` when the skill says so. Requires system `python3` / deps on the user's machine.
+
+## Not in Enough (Hermes-only — do not invent)
+
+Gateway (Telegram, Discord, …), profiles, plugins runtime, Honcho/mem0, kanban dispatcher, `hermes` CLI, Docker/Modal/SSH sandbox backends. Skills tagged `environments: [kanban]` are hidden unless that env exists.
+
+## Deprecated alias
+
+The bundled skill **`hermes-agent`** is a stub — always prefer **`enough`** (this skill).

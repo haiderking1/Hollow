@@ -2,7 +2,7 @@
 name: obliteratus
 description: "OBLITERATUS: abliterate LLM refusals (diff-in-means)."
 version: 2.0.0
-author: Hermes Agent
+author: Enough
 license: MIT
 dependencies: [obliteratus, torch, transformers, bitsandbytes, accelerate, safetensors]
 platforms: [linux, macos]
@@ -20,7 +20,7 @@ metadata:
 
 Remove refusal behaviors (guardrails) from open-weight LLMs without retraining or fine-tuning. Uses mechanistic interpretability techniques — including diff-in-means, SVD, whitened SVD, LEACE concept erasure, SAE decomposition, Bayesian kernel projection, and more — to identify and surgically excise refusal directions from model weights while preserving reasoning capabilities.
 
-**License warning:** OBLITERATUS is AGPL-3.0. NEVER import it as a Python library. Always invoke via CLI (`obliteratus` command) or subprocess. This keeps Hermes Agent's MIT license clean.
+**License warning:** OBLITERATUS is AGPL-3.0. NEVER import it as a Python library. Always invoke via CLI (`obliteratus` command) or subprocess. This keeps Enough's MIT license clean.
 
 ## Video Guide
 
@@ -191,7 +191,7 @@ obliteratus interactive
 obliteratus ui --port 7860
 
 # Run a full ablation study from YAML config
-obliteratus run config.yaml --preset quick
+obliteratus run config.json --preset quick
 
 # Tournament: pit all methods against each other
 obliteratus tourney <model_name>
@@ -252,7 +252,7 @@ vllm serve ./abliterated-models/<model>
 | `obliteratus recommend <model>` | Telemetry-driven method/param suggestion |
 | `obliteratus interactive` | Guided setup wizard |
 | `obliteratus tourney <model>` | Tournament: all methods head-to-head |
-| `obliteratus run <config.yaml>` | Execute ablation study from YAML |
+| `obliteratus run <config.json>` | Execute ablation study from YAML |
 | `obliteratus strategies` | List all registered ablation strategies |
 | `obliteratus report <results.json>` | Regenerate visual reports |
 | `obliteratus ui` | Launch Gradio web interface |
@@ -266,7 +266,7 @@ See `skill_view(name="obliteratus", file_path="references/analysis-modules.md")`
 ### Quick analysis commands
 ```bash
 # Run specific analysis modules
-obliteratus run analysis-config.yaml --preset quick
+obliteratus run analysis-config.json --preset quick
 
 # Key modules to run first:
 # - alignment_imprint: Fingerprint DPO/RLHF/CAI/SFT alignment method
@@ -311,7 +311,7 @@ OBLITERATUS includes built-in evaluation tools:
 ## YAML Config Templates
 
 Load templates for reproducible runs via `skill_view`:
-- `templates/abliteration-config.yaml` — Standard single-model config
+- `templates/abliteration-config.json` — Standard single-model config
 - `templates/analysis-study.yaml` — Pre-abliteration analysis study
 - `templates/batch-abliteration.yaml` — Multi-model batch processing
 

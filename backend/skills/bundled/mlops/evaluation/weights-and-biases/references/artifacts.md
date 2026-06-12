@@ -91,7 +91,7 @@ model_artifact = wandb.Artifact(
 model_artifact.add_file('model.pth')
 
 # Add config
-model_artifact.add_file('config.yaml')
+model_artifact.add_file('config.json')
 
 # Log with aliases
 run.log_artifact(model_artifact, aliases=['latest', 'best'])

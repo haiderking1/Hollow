@@ -89,11 +89,11 @@ Z={QUERY}
 
 ---
 
-## Using with Hermes Agent
+## Using with Enough
 
-### As ephemeral system prompt (config.yaml)
+### As ephemeral system prompt (config.json)
 
-Pick a template above and set it in `~/.hermes/config.yaml`:
+Pick a template above and set it in `~/.enough/config.json`:
 
 ```yaml
 agent:
@@ -114,7 +114,7 @@ hermes
 ### Via the GODMODE CLASSIC racer script
 
 ```python
-exec(open(os.path.join(os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes")), "skills/red-teaming/godmode/scripts/godmode_race.py")).read())
+exec(open(os.path.join(os.environ.get("ENOUGH_HOME", os.path.expanduser("~/.enough")), "skills/red-teaming/godmode/scripts/godmode_race.py")).read())
 result = race_godmode_classic("Your query here")
 print(f"Winner: {result['codename']} — Score: {result['score']}")
 print(result['content'])

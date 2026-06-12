@@ -308,7 +308,7 @@ trainer.train()
 ### With Axolotl (YAML config)
 
 ```yaml
-# axolotl config.yaml
+# axolotl config.json
 adapter: lora
 lora_r: 16
 lora_alpha: 32

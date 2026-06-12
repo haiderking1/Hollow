@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Google Workspace API CLI for Hermes Agent.
+"""Google Workspace API CLI for Enough.
 
 Uses the Google Workspace CLI (`gws`) when available, but preserves the
-existing Hermes-facing JSON contract and falls back to the Python client
+existing Enough-facing JSON contract and falls back to the Python client
 libraries if `gws` is not installed.
 
 Usage:
@@ -36,11 +36,11 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from _hermes_home import get_hermes_home
+from _enough_home import get_enough_home
 
-HERMES_HOME = get_hermes_home()
-TOKEN_PATH = HERMES_HOME / "google_token.json"
-CLIENT_SECRET_PATH = HERMES_HOME / "google_client_secret.json"
+ENOUGH_HOME = get_enough_home()
+TOKEN_PATH = ENOUGH_HOME / "google_token.json"
+CLIENT_SECRET_PATH = ENOUGH_HOME / "google_client_secret.json"
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -1052,7 +1052,7 @@ def _docs_insert_text(doc_id: str, text: str, index: int) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Google Workspace API for Hermes Agent")
+    parser = argparse.ArgumentParser(description="Google Workspace API for Enough")
     sub = parser.add_subparsers(dest="service", required=True)
 
     # --- Gmail ---

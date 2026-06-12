@@ -1,12 +1,12 @@
 ---
 name: teams-meeting-pipeline
-description: "Operate the Teams meeting summary pipeline via Hermes CLI — summarize meetings, inspect pipeline status, replay jobs, manage Microsoft Graph subscriptions."
+description: "Operate the Teams meeting summary pipeline via Enough CLI — summarize meetings, inspect pipeline status, replay jobs, manage Microsoft Graph subscriptions."
 version: 1.1.0
-author: Hermes Agent + Teknium
+author: Enough + Teknium
 license: MIT
 prerequisites:
   env_vars: [MSGRAPH_TENANT_ID, MSGRAPH_CLIENT_ID, MSGRAPH_CLIENT_SECRET]
-  commands: [hermes]
+  commands: [enough]
 metadata:
   hermes:
     tags: [Teams, Microsoft Graph, Meetings, Productivity, Operations]
@@ -18,9 +18,11 @@ metadata:
 
 # Teams Meeting Pipeline
 
+> **Not available in Enough:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Enough does not ship). Load the **`enough`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
+
 Use this skill whenever the user asks about Microsoft Teams meeting summaries, transcripts, recordings, action items, Graph subscriptions, or any operational question about the Teams meeting pipeline. Works in any language — the triggers below are examples, not an exhaustive list.
 
-Everything operator-facing is a `hermes teams-pipeline` subcommand run via the terminal tool. There are no new model tools for this pipeline — the CLI is the surface.
+Everything operator-facing is a `enough teams-pipeline` subcommand run via the terminal tool. There are no new model tools for this pipeline — the CLI is the surface.
 
 ## When to use this skill
 
@@ -39,7 +41,7 @@ Multilingual trigger examples (not exhaustive):
 
 ## Prerequisites
 
-Before using the pipeline, verify these are set in `${HERMES_HOME:-~/.hermes}/.env`:
+Before using the pipeline, verify these are set in `${ENOUGH_HOME:-~/.enough}/.env`:
 
 ```bash
 MSGRAPH_TENANT_ID=...
@@ -51,39 +53,9 @@ If any are missing, direct the user to the Azure app registration guide at `/doc
 
 ## Command reference
 
-### Status and inspection (start here)
+**This skill requires the Hermes-only `hermes teams-pipeline` CLI. Enough does not ship that command.** Use Microsoft Graph API directly via `bash` if you must operate the pipeline from Enough, or run Hermes Agent separately.
 
-```bash
-hermes teams-pipeline validate              # config snapshot — run first after any change
-hermes teams-pipeline token-health          # Graph token status
-hermes teams-pipeline token-health --force-refresh   # force a fresh token acquisition
-hermes teams-pipeline list                  # recent meeting jobs
-hermes teams-pipeline list --status failed  # only failed jobs
-hermes teams-pipeline show <job-id>         # full detail of one job
-hermes teams-pipeline subscriptions         # current Graph webhook subscriptions
-```
-
-### Re-running / debugging
-
-```bash
-hermes teams-pipeline run <job-id>          # replay a stored job (re-summarize, re-deliver)
-hermes teams-pipeline fetch --meeting-id <id>   # dry-run: resolve meeting + transcript without persisting
-hermes teams-pipeline fetch --join-web-url "<url>"   # dry-run by join URL
-```
-
-### Subscription management
-
-```bash
-hermes teams-pipeline subscribe \
-  --resource communications/onlineMeetings/getAllTranscripts \
-  --notification-url https://<your-public-host>/msgraph/webhook \
-  --client-state "$MSGRAPH_WEBHOOK_CLIENT_STATE"
-
-hermes teams-pipeline renew-subscription <sub-id> --expiration <iso-8601>
-hermes teams-pipeline delete-subscription <sub-id>
-hermes teams-pipeline maintain-subscriptions            # renew near-expiry ones
-hermes teams-pipeline maintain-subscriptions --dry-run  # show what would be renewed
-```
+The original Hermes commands (`validate`, `token-health`, `list`, `show`, `run`, `fetch`, `subscribe`, …) are documented in the Enough repo for operators who use both products.
 
 ## Decision tree for common asks
 
@@ -97,14 +69,14 @@ hermes teams-pipeline maintain-subscriptions --dry-run  # show what would be ren
 Microsoft Graph caps webhook subscriptions at 72 hours and **will not auto-renew them**. If `maintain-subscriptions` is not scheduled, meeting notifications silently stop arriving 3 days after any manual subscription creation.
 
 When the user reports "the pipeline worked yesterday but nothing is arriving today":
-1. Run `hermes teams-pipeline subscriptions` — if it's empty or all entries show `expirationDateTime` in the past, that's the cause.
+1. Run `enough teams-pipeline subscriptions` — if it's empty or all entries show `expirationDateTime` in the past, that's the cause.
 2. Recreate with `subscribe` as shown above.
-3. **Set up automated renewal immediately** via `hermes cron add`, a systemd timer, or plain crontab. The operator runbook at `/docs/guides/operate-teams-meeting-pipeline#automating-subscription-renewal-required-for-production` has all three options. 12-hour interval is safe (6x headroom against the 72h limit).
+3. **Set up automated renewal immediately** via `enough cron add`, a systemd timer, or plain crontab. The operator runbook at `/docs/guides/operate-teams-meeting-pipeline#automating-subscription-renewal-required-for-production` has all three options. 12-hour interval is safe (6x headroom against the 72h limit).
 
 ## Other pitfalls
 
 - **Transcript not available yet.** Teams takes some time after a meeting ends to generate the transcript artifact. `fetch --meeting-id` on a just-ended meeting may return empty. Wait 2-5 minutes and retry, or let the Graph webhook drive ingestion naturally.
-- **Delivery mode mismatch.** If summaries are produced (`list` shows success) but nothing lands in Teams, check `platforms.teams.extra.delivery_mode` and the matching target config (`incoming_webhook_url` OR `chat_id` OR `team_id`+`channel_id`). The writer reads these from config.yaml or `TEAMS_*` env vars.
+- **Delivery mode mismatch.** If summaries are produced (`list` shows success) but nothing lands in Teams, check `platforms.teams.extra.delivery_mode` and the matching target config (`incoming_webhook_url` OR `chat_id` OR `team_id`+`channel_id`). The writer reads these from config.json or `TEAMS_*` env vars.
 - **Graph app permissions.** A token acquires cleanly (`token-health` passes) but Graph API calls return 401/403 when permissions were added but admin consent wasn't re-granted. Have the user revisit the app registration in the Azure portal and click "Grant admin consent" again.
 
 ## Related docs

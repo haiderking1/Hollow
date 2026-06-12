@@ -69,7 +69,7 @@ Where to perform activation partitioning? ['SEQUENTIAL', 'UNIFORM']
 > SEQUENTIAL
 ```
 
-**Generated config** (`~/.cache/huggingface/accelerate/default_config.yaml`):
+**Generated config** (`~/.cache/huggingface/accelerate/default_config.json`):
 ```yaml
 compute_environment: LOCAL_MACHINE
 distributed_type: MEGATRON_LM

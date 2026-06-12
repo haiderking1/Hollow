@@ -3,11 +3,11 @@
 Auto-Jailbreak Pipeline
 
 Automatically tests jailbreak techniques against the current model,
-finds what works, and locks it in by writing config.yaml + prefill.json.
+finds what works, and locks it in by writing config.json + prefill.json.
 
 Usage in execute_code:
     exec(open(os.path.expanduser(
-        os.path.join(os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes")), "skills/red-teaming/godmode/scripts/auto_jailbreak.py")
+        os.path.join(os.environ.get("ENOUGH_HOME", os.path.expanduser("~/.enough")), "skills/red-teaming/godmode/scripts/auto_jailbreak.py")
     )).read())
     
     result = auto_jailbreak()  # Uses current model from config
@@ -35,7 +35,7 @@ try:
     _SKILL_DIR = Path(__file__).resolve().parent.parent
 except NameError:
     # __file__ not defined when loaded via exec() — search standard paths
-    _SKILL_DIR = Path(os.getenv("HERMES_HOME", Path.home() / ".hermes")) / "skills" / "red-teaming" / "godmode"
+    _SKILL_DIR = Path(os.getenv("ENOUGH_HOME", Path.home() / ".enough")) / "skills" / "red-teaming" / "godmode"
 
 _SCRIPTS_DIR = _SKILL_DIR / "scripts"
 _TEMPLATES_DIR = _SKILL_DIR / "templates"
@@ -54,12 +54,12 @@ if _race_path.exists():
     exec(compile(open(_race_path).read(), str(_race_path), 'exec'), _caller_globals)
 
 # ═══════════════════════════════════════════════════════════════════
-# Hermes config paths
+# Enough config paths
 # ═══════════════════════════════════════════════════════════════════
 
-HERMES_HOME = Path(os.getenv("HERMES_HOME", Path.home() / ".hermes"))
-CONFIG_PATH = HERMES_HOME / "config.yaml"
-PREFILL_PATH = HERMES_HOME / "prefill.json"
+ENOUGH_HOME = Path(os.getenv("ENOUGH_HOME", Path.home() / ".enough"))
+CONFIG_PATH = ENOUGH_HOME / "config.json"
+PREFILL_PATH = ENOUGH_HOME / "prefill.json"
 
 # ═══════════════════════════════════════════════════════════════════
 # Canary queries — questions that typically trigger safety filters
@@ -319,7 +319,7 @@ def _detect_model_family(model: str) -> str:
 
 
 def _get_current_model() -> tuple:
-    """Read current model and provider from Hermes config.yaml.
+    """Read current model and provider from Enough config.json.
     Returns (model_str, base_url)."""
     if not CONFIG_PATH.exists():
         return None, None
@@ -381,7 +381,7 @@ def _build_messages(system_prompt=None, prefill=None, query=None):
 
 
 def _write_config(system_prompt: str = None, prefill_file: str = None):
-    """Write jailbreak settings to config.yaml (merges, doesn't overwrite)."""
+    """Write jailbreak settings to config.json (merges, doesn't overwrite)."""
     cfg = {}
     if CONFIG_PATH.exists():
         try:
@@ -408,7 +408,7 @@ def _write_config(system_prompt: str = None, prefill_file: str = None):
 
 
 def _write_prefill(prefill_messages: list):
-    """Write prefill messages to ~/.hermes/prefill.json."""
+    """Write prefill messages to ~/.enough/prefill.json."""
     with open(PREFILL_PATH, "w") as f:
         json.dump(prefill_messages, f, indent=2, ensure_ascii=False)
     return str(PREFILL_PATH)
@@ -425,7 +425,7 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
     1. Detects model family
     2. Tries strategies in order (model-specific → generic)
     3. Tests each with a canary query
-    4. Locks in the winning combo (writes config.yaml + prefill.json)
+    4. Locks in the winning combo (writes config.json + prefill.json)
     
     Args:
         model: Model ID (e.g. "anthropic/claude-sonnet-4"). Auto-detected if None.
@@ -448,7 +448,7 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
         if not base_url:
             base_url = base_url_detected
     if not model:
-        return {"success": False, "error": "No model specified and couldn't read config.yaml"}
+        return {"success": False, "error": "No model specified and couldn't read config.json"}
     if not base_url:
         base_url = "https://openrouter.ai/api/v1"
     if not api_key:
@@ -661,7 +661,7 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             if verbose:
                 print(f"[LOCKED] Prefill written to: {prefill_written}")
 
-            # Write config.yaml
+            # Write config.json
             config_written = _write_config(
                 system_prompt=winning_system if winning_system else "",
                 prefill_file="prefill.json",
@@ -669,7 +669,7 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             if verbose:
                 print(f"[LOCKED] Config written to: {config_written}")
                 print()
-                print("[DONE] Jailbreak locked in. Restart Hermes for changes to take effect.")
+                print("[DONE] Jailbreak locked in. Restart Enough for changes to take effect.")
         else:
             if verbose:
                 print("[DRY RUN] Would write config + prefill but dry_run=True")
@@ -714,7 +714,7 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
 
 
 def undo_jailbreak(verbose=True):
-    """Remove jailbreak settings from config.yaml and delete prefill.json."""
+    """Remove jailbreak settings from config.json and delete prefill.json."""
     if CONFIG_PATH.exists():
         try:
             with open(CONFIG_PATH) as f:
@@ -738,7 +738,7 @@ def undo_jailbreak(verbose=True):
             print(f"[UNDO] Deleted {PREFILL_PATH}")
 
     if verbose:
-        print("[UNDO] Jailbreak removed. Restart Hermes for changes to take effect.")
+        print("[UNDO] Jailbreak removed. Restart Enough for changes to take effect.")
 
 
 # ═══════════════════════════════════════════════════════════════════

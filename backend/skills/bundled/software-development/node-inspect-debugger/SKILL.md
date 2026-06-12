@@ -2,13 +2,13 @@
 name: node-inspect-debugger
 description: "Debug Node.js via --inspect + Chrome DevTools Protocol CLI."
 version: 1.0.0
-author: Hermes Agent
+author: Enough
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [debugging, nodejs, node-inspect, cdp, breakpoints, ui-tui]
-    related_skills: [systematic-debugging, python-debugpy, debugging-hermes-tui-commands]
+    related_skills: [systematic-debugging, python-debugpy, enough]
 ---
 
 # Node.js Inspect Debugger
@@ -28,7 +28,7 @@ Two tools, pick one:
 
 - A Node test fails and you need to see intermediate state
 - ui-tui crashes or behaves wrong and you want to inspect React/Ink state pre-render
-- tui_gateway child processes (`_SlashWorker`, PTY bridge workers) misbehave
+- Enough TUI child processes (`_SlashWorker`, PTY bridge workers) misbehave
 - You need to inspect a value in a closure that `console.log` can't reach without patching
 - Perf: attach to a running process to capture a CPU profile or heap snapshot
 
@@ -167,14 +167,14 @@ Run it:
 node /tmp/cdp-debug.js
 ```
 
-Hermes-specific note: `chrome-remote-interface` is NOT in `ui-tui/package.json`. Install it to a throwaway location if you don't want to dirty the project:
+Enough-specific note: `chrome-remote-interface` is NOT in `ui-tui/package.json`. Install it to a throwaway location if you don't want to dirty the project:
 
 ```bash
 mkdir -p /tmp/cdp-tools && cd /tmp/cdp-tools && npm i chrome-remote-interface
 NODE_PATH=/tmp/cdp-tools/node_modules node /tmp/cdp-debug.js
 ```
 
-## Debugging Hermes ui-tui
+## Debugging Enough ui-tui
 
 The TUI is built Ink + tsx. Two common scenarios:
 
@@ -183,7 +183,7 @@ The TUI is built Ink + tsx. Two common scenarios:
 `ui-tui/package.json` has `npm run dev` (tsx --watch). Add `--inspect-brk` by running tsx directly:
 
 ```bash
-cd /home/bb/hermes-agent/ui-tui
+cd the Enough project/ui-tui
 npm run build    # produce dist/ once so transpile isn't needed on first load
 node --inspect-brk dist/entry.js
 # In another terminal:
@@ -199,13 +199,13 @@ cont
 
 When it pauses, `repl` → inspect `props`, state refs, `useInput` handler values, etc.
 
-### Debugging a running `hermes --tui`
+### Debugging a running `enough`
 
 The TUI spawns Node from the Python CLI. Easiest path:
 
 ```bash
 # 1. Launch TUI
-hermes --tui &
+enough &
 TUI_PID=$(pgrep -f 'ui-tui/dist/entry' | head -1)
 
 # 2. Enable inspector on that Node PID
@@ -222,12 +222,12 @@ Interacting with the TUI (typing in its window) continues to advance execution; 
 
 ### Debugging `_SlashWorker` / PTY child processes
 
-Those are Python, not Node — use the `python-debugpy` skill for them. Only Node portions (Ink UI, tui_gateway client, tsx-run tests under `ui-tui/`) use this skill.
+Those are Python, not Node — use the `python-debugpy` skill for them. Only Node portions (Ink UI, Enough TUI client, tsx-run tests under `ui-tui/`) use this skill.
 
 ## Running Vitest Tests Under the Debugger
 
 ```bash
-cd /home/bb/hermes-agent/ui-tui
+cd the Enough project/ui-tui
 # Run a single test file paused on entry
 node --inspect-brk ./node_modules/vitest/vitest.mjs run --no-file-parallelism src/app/foo.test.tsx
 ```
@@ -274,7 +274,7 @@ require('fs').writeFileSync('/tmp/heap.heapsnapshot', chunks.join(''));
 
 5. **Background kills.** If you `Ctrl+C` out of `node inspect` while the target is paused, the target stays paused. Either `cont` first, or `kill` the target explicitly.
 
-6. **Running `node inspect` through an agent terminal.** It's a PTY-friendly REPL. In Hermes, launch it with `terminal(pty=true)` or `background=true` + `process(action='submit', data='...')`. Non-PTY foreground mode will work for one-shot commands but not for interactive stepping.
+6. **Running `node inspect` through an agent terminal.** It's a PTY-friendly REPL. In Enough, launch it with `terminal(pty=true)` or `background=true` + `process(action='submit', data='...')`. Non-PTY foreground mode will work for one-shot commands but not for interactive stepping.
 
 7. **Security.** `--inspect=0.0.0.0:9229` exposes arbitrary code execution. Always bind to `127.0.0.1` (the default) unless you have an isolated network.
 

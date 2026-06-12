@@ -181,7 +181,7 @@ As chat_templates may use hardcoded EOS/EOT tokens that are different from the t
 
 Once all the above steps are completed, you could combine all these configs together to form a bespoke configuration for your custom dataset.
 
-If this config were to be applied to the sample dataset above, the output would look as such (which can be retrieved via axolotl preprocess config.yaml --debug):
+If this config were to be applied to the sample dataset above, the output would look as such (which can be retrieved via axolotl preprocess config.json --debug):
 
 The first number refers to the label, the second refers to the token_id. For example, -100 labels appear on non-assistant portions, meaning that they are masked during. For assistant portions, the label is the same as the token_id.
 
@@ -649,7 +649,7 @@ As chat_templates may use hardcoded EOS/EOT tokens that are different from the t
 
 Once all the above steps are completed, you could combine all these configs together to form a bespoke configuration for your custom dataset.
 
-If this config were to be applied to the sample dataset above, the output would look as such (which can be retrieved via axolotl preprocess config.yaml --debug):
+If this config were to be applied to the sample dataset above, the output would look as such (which can be retrieved via axolotl preprocess config.json --debug):
 
 The first number refers to the label, the second refers to the token_id. For example, -100 labels appear on non-assistant portions, meaning that they are masked during. For assistant portions, the label is the same as the token_id.
 
@@ -862,7 +862,7 @@ As chat_templates may use hardcoded EOS/EOT tokens that are different from the t
 
 Once all the above steps are completed, you could combine all these configs together to form a bespoke configuration for your custom dataset.
 
-If this config were to be applied to the sample dataset above, the output would look as such (which can be retrieved via axolotl preprocess config.yaml --debug):
+If this config were to be applied to the sample dataset above, the output would look as such (which can be retrieved via axolotl preprocess config.json --debug):
 
 The first number refers to the label, the second refers to the token_id. For example, -100 labels appear on non-assistant portions, meaning that they are masked during. For assistant portions, the label is the same as the token_id.
 

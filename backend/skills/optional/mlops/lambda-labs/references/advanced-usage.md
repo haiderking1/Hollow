@@ -301,7 +301,7 @@ srun torchrun \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     train.py \
-    --config config.yaml
+    --config config.json
 ```
 
 ### Interactive cluster session

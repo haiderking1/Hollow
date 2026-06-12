@@ -410,7 +410,7 @@ docker run -m 8g -p 6333:6333 qdrant/qdrant
 
 4. **Configure Qdrant storage**:
 ```yaml
-# config.yaml
+# config.json
 storage:
   performance:
     max_search_threads: 2

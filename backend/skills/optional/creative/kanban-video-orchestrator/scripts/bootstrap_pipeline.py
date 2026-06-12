@@ -7,7 +7,7 @@ Reads a plan.json describing the team + brief, expands templates from
 initial kanban task.
 
 Profile-config patching, SOUL.md-per-profile, TEAM.md task-graph convention,
-and the `hermes kanban create --workspace dir:` initial-task pattern are
+and the `enough kanban create --workspace dir:` initial-task pattern are
 adapted from alt-glitch's NousResearch/kanban-video-pipeline.
 
 Usage:
@@ -361,7 +361,7 @@ def render_setup_sh(plan: dict, brief_md: str, team_md: str) -> str:
     soul_writes = []
     for t in plan["team"]:
         soul_writes.append(
-            f'cat > "$HOME/.hermes/profiles/{t["profile"]}/SOUL.md" <<\'SOUL_EOF\'\n'
+            f'cat > "$HOME/.enough/profiles/{t["profile"]}/SOUL.md" <<\'SOUL_EOF\'\n'
             f"{render_soul_md(t, plan)}\n"
             f"SOUL_EOF\n"
             f'echo "  ✓ SOUL.md for {t["profile"]}"'

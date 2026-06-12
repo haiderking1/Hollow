@@ -9,7 +9,7 @@ bulk download:
 
 ~70 MB, ~6 CSVs inside (nodes-entities, nodes-officers, nodes-intermediaries,
 nodes-addresses, relationships, ...). We cache it under
-$HERMES_OSINT_CACHE/icij/ (default: ~/.cache/hermes-osint/icij/) and search
+$ENOUGH_OSINT_CACHE/icij/ (default: ~/.cache/enough-osint/icij/) and search
 locally so the agent doesn't re-download for every query.
 
 Output CSV columns match the original `fetch_icij_offshore.py` contract.
@@ -207,7 +207,7 @@ def main() -> int:
         "--cache-dir",
         type=Path,
         default=None,
-        help="Override cache directory (default: $HERMES_OSINT_CACHE/icij or ~/.cache/hermes-osint/icij)",
+        help="Override cache directory (default: $ENOUGH_OSINT_CACHE/icij or ~/.cache/enough-osint/icij)",
     )
     p.add_argument(
         "--force-refresh",
