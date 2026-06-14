@@ -13,18 +13,31 @@ func webSearchTool() opencode.Tool {
 		Type: "function",
 		Function: opencode.ToolFunction{
 			Name: "web_search",
-			Description: "Search the web via bundled SearXNG and return full readable page content for each result (not snippets). " +
-				"Pass a search query, or a full http(s) URL to fetch a single page directly.",
+			Description: "Search the web via bundled SearXNG. Returns numbered results with title, URL, engine, and snippet — does NOT fetch full pages. " +
+				"Use web_fetch on URLs you want to read in full. Pass a full http(s) URL to list that URL only (then web_fetch it).",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"query": {
 						"type": "string",
-						"description": "Search query or full URL to fetch"
+						"description": "Search query or full URL"
 					},
-					"max_pages": {
+					"max_results": {
 						"type": "integer",
-						"description": "Top results to fetch fully (default 3, max 5). Ignored for direct URLs."
+						"description": "Max search results (default 8, max 15)"
+					},
+					"site": {
+						"type": "string",
+						"description": "Restrict to a domain, e.g. reddit.com (adds site: operator)"
+					},
+					"exclude_sites": {
+						"type": "array",
+						"items": { "type": "string" },
+						"description": "Drop results from these domains, e.g. [\"fandom.com\"]"
+					},
+					"engines": {
+						"type": "string",
+						"description": "Comma-separated SearXNG engines, e.g. google,duckduckgo"
 					}
 				},
 				"required": ["query"]
@@ -35,16 +48,24 @@ func webSearchTool() opencode.Tool {
 
 func (a *Agent) toolWebSearch(argsJSON string) toolResult {
 	var args struct {
-		Query    string `json:"query"`
-		MaxPages int    `json:"max_pages"`
+		Query        string   `json:"query"`
+		MaxResults   int      `json:"max_results"`
+		Site         string   `json:"site"`
+		ExcludeSites []string `json:"exclude_sites"`
+		Engines      string   `json:"engines"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return toolResult{output: err.Error(), isErr: true}
 	}
 
-	hits, err := web.Search(context.Background(), args.Query, web.Options{MaxPages: args.MaxPages})
+	results, err := web.SearchWeb(context.Background(), args.Query, web.SearchOptions{
+		MaxResults:   args.MaxResults,
+		Site:         args.Site,
+		ExcludeSites: args.ExcludeSites,
+		Engines:      args.Engines,
+	})
 	if err != nil {
 		return toolResult{output: err.Error(), isErr: true}
 	}
-	return toolResult{output: web.Format(hits)}
+	return toolResult{output: web.FormatSearchResults(results)}
 }

@@ -13,6 +13,8 @@ var ToolToToolset = map[string]string{
 	"grep":          "file",
 	"bash":          "terminal",
 	"web_search":    "web",
+	"web_fetch":     "web",
+	"browser":       "web",
 	"agent_swarm":   "delegate",
 	"skills_list":   "skills",
 	"skill_view":    "skills",

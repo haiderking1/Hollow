@@ -33,6 +33,7 @@ type SessionEntry struct {
 
 	// message fields
 	Message       *opencode.Message `json:"message,omitempty"`
+	ToolDetails   string            `json:"toolDetails,omitempty"`
 
 	// thinking_level_change
 	ThinkingLevel string            `json:"thinkingLevel,omitempty"`
@@ -104,6 +105,7 @@ type ChatLine struct {
 	ToolName     string
 	ToolArgs     string
 	ToolResult   string
+	ToolDetails  string
 	ToolError    bool
 	TokensBefore int
 	Images       []ChatImage

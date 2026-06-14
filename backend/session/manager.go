@@ -171,6 +171,7 @@ func (m *Manager) ChatLines() []ChatLine {
 					tm := branch[j]
 					if tm.Type == TypeMessage && tm.Message != nil && tm.Message.Role == "tool" && tm.Message.ToolCallID == tc.ID {
 						line.ToolResult = strings.TrimSpace(opencode.ContentString(*tm.Message))
+						line.ToolDetails = tm.ToolDetails
 						break
 					}
 				}
@@ -230,8 +231,8 @@ func messageToChatLine(msg opencode.Message) (ChatLine, bool) {
 	}
 }
 
-// AppendMessage appends a message entry and persists it to JSONL.
-func (m *Manager) AppendMessage(msg opencode.Message) error {
+// AppendMessageWithDetails appends a message entry with optional tool details and persists it to JSONL.
+func (m *Manager) AppendMessageWithDetails(msg opencode.Message, toolDetails string) error {
 	if msg.Role == "system" {
 		return nil
 	}
@@ -240,11 +241,12 @@ func (m *Manager) AppendMessage(msg opencode.Message) error {
 	id := newID()
 	entry := FileEntry{
 		SessionEntry: SessionEntry{
-			Type:      TypeMessage,
-			ID:        id,
-			ParentID:  parent,
-			Timestamp: nowISO(),
-			Message:   &msg,
+			Type:        TypeMessage,
+			ID:          id,
+			ParentID:    parent,
+			Timestamp:   nowISO(),
+			Message:     &msg,
+			ToolDetails: toolDetails,
 		},
 	}
 
@@ -256,6 +258,11 @@ func (m *Manager) AppendMessage(msg opencode.Message) error {
 	m.entries = append(m.entries, raw)
 	m.leafID = &id
 	return m.persistEntry(raw, msg.Role == "assistant")
+}
+
+// AppendMessage appends a message entry and persists it to JSONL.
+func (m *Manager) AppendMessage(msg opencode.Message) error {
+	return m.AppendMessageWithDetails(msg, "")
 }
 
 // AppendCompaction appends a compaction entry and persists it to JSONL.

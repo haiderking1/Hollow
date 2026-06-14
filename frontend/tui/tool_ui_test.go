@@ -116,3 +116,19 @@ func TestSingleToolNoHeader(t *testing.T) {
 		t.Fatalf("single tool should not show group header: %q", out)
 	}
 }
+
+func TestRenderBrowserListUsesDetails(t *testing.T) {
+	styles := NewStyles()
+	row := toolRow{
+		Name:     "browser",
+		Action:   "list",
+		Output:   "TAB1 [page] Example - https://example.com",
+		Metadata: `{"action":"list","tabs":[{"id":"TAB1","title":"Example","url":"https://example.com","type":"page"}]}`,
+	}
+	lines := renderBrowserBlock(styles, row, 80, false)
+	plain := ansi.Strip(strings.Join(lines, "\n"))
+	if !strings.Contains(plain, "1 tab(s)") {
+		t.Errorf("expected output to contain '1 tab(s)', got:\n%s", plain)
+	}
+}
+

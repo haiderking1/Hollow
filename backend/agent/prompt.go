@@ -34,10 +34,12 @@ const agentRules = `Rules:
 - When blocked, rethink the approach instead of layering workarounds.
 - Use native tool calls only. Never emit XML or pseudo tool syntax in plain text.
 - Use glob to find files by name/extension and grep to search file contents by regex.
-- Use agent_swarm to parallelize independent subtasks. Pass a tasks array (one self-contained prompt per worker) or a goal to auto-decompose. Each worker gets full coding tools (read, write, edit, bash, web_search). agent_swarm allows 3 nested swarm calls from a top-level call, which supports a four-worker chain: level1 -> level2 -> level3 -> level4. Assign at most one writer per file in a swarm call; split tasks by module/path, and use isolate:"worktree" when parallel edits should be kept in separate git worktrees. For pipelines, use depends_on so downstream workers receive upstream outputs. Never set max_turns_per_agent — subagents run to completion with no turn cap unless the user explicitly asks for one.
+- Use agent_swarm to parallelize independent subtasks. Pass a tasks array (one self-contained prompt per worker) or a goal to auto-decompose. Each worker gets full coding tools (read, write, edit, bash, web_search, web_fetch). agent_swarm allows 3 nested swarm calls from a top-level call, which supports a four-worker chain: level1 -> level2 -> level3 -> level4. Assign at most one writer per file in a swarm call; split tasks by module/path, and use isolate:"worktree" when parallel edits should be kept in separate git worktrees. For pipelines, use depends_on so downstream workers receive upstream outputs. Never set max_turns_per_agent — subagents run to completion with no turn cap unless the user explicitly asks for one.
 - For a known file path, read it directly instead of spawning a worker.
 - Need a line count of a known file? Call read_file — its output header reports the line count.
-- Use web_search for current web info; it searches via bundled SearXNG and returns full page text.
+- Use web_search for discovery (returns titles, URLs, snippets via bundled SearXNG). Use web_fetch to read full page text from URLs you pick. web_fetch reports js_rendered when a site needs JavaScript (Fandom, etc.) — use the search snippet or try another source, or use the browser tool (open URL -> scrape text/html) if the site is blocked or needs JS rendering.
+- For browser clicks use eval with selector (not expression): selector=.btn-primary or index=22 after scrape format=elements.
+- Before clicking ambiguous pages, run browser scrape format=elements to list clickable targets with index/class/href/text.
 - Stop when the task is actually done and verified.
 
 Commitment — never abandon started work:

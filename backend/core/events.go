@@ -1,5 +1,7 @@
 package core
 
+import "encoding/json"
+
 // Event is emitted by the backend and consumed by any frontend.
 type Event struct {
 	Kind string
@@ -47,11 +49,12 @@ type LogEntry struct {
 
 // ToolCallEvent carries structured tool UI data to the frontend.
 type ToolCallEvent struct {
-	ID     string
-	Name   string
-	Args   string
-	Result string
-	Error  bool
+	ID      string
+	Name    string
+	Args    string
+	Result  string
+	Error   bool
+	Details json.RawMessage
 }
 
 // EvidenceEvent is a sanitized ledger entry for the UI: paths, kinds, and

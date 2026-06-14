@@ -24,10 +24,16 @@ func (p *SearXNGProvider) client() *http.Client {
 	return &http.Client{Timeout: 20 * time.Second}
 }
 
-func (p *SearXNGProvider) Search(ctx context.Context, query string, maxResults int) ([]SearchResult, error) {
+func (p *SearXNGProvider) Search(ctx context.Context, query string, opts SearchOptions) ([]SearchResult, error) {
+	maxResults := opts.MaxResults
 	if maxResults <= 0 {
-		maxResults = defaultMaxPages
+		maxResults = defaultMaxResults
 	}
+	if maxResults > maxResultsCap {
+		maxResults = maxResultsCap
+	}
+
+	query = buildSearchQuery(query, opts.Site)
 
 	base := strings.TrimRight(strings.TrimSpace(p.BaseURL), "/")
 	u, err := url.Parse(base + "/search")
@@ -37,6 +43,9 @@ func (p *SearXNGProvider) Search(ctx context.Context, query string, maxResults i
 	q := u.Query()
 	q.Set("q", query)
 	q.Set("format", "json")
+	if engines := strings.TrimSpace(opts.Engines); engines != "" {
+		q.Set("engines", engines)
+	}
 	u.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
@@ -47,7 +56,7 @@ func (p *SearXNGProvider) Search(ctx context.Context, query string, maxResults i
 
 	resp, err := p.client().Do(req)
 	if err != nil {
-		return nil, err
+		return nil, classifySearchError(err)
 	}
 	defer resp.Body.Close()
 
@@ -61,8 +70,10 @@ func (p *SearXNGProvider) Search(ctx context.Context, query string, maxResults i
 
 	var parsed struct {
 		Results []struct {
-			Title string `json:"title"`
-			URL   string `json:"url"`
+			Title   string `json:"title"`
+			URL     string `json:"url"`
+			Content string `json:"content"`
+			Engine  string `json:"engine"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
@@ -71,10 +82,15 @@ func (p *SearXNGProvider) Search(ctx context.Context, query string, maxResults i
 
 	var out []SearchResult
 	for _, r := range parsed.Results {
-		if r.URL == "" {
+		if r.URL == "" || urlExcluded(r.URL, opts.ExcludeSites) {
 			continue
 		}
-		out = append(out, SearchResult{Title: r.Title, URL: r.URL})
+		out = append(out, SearchResult{
+			Title:   strings.TrimSpace(r.Title),
+			URL:     r.URL,
+			Snippet: strings.TrimSpace(r.Content),
+			Engine:  strings.TrimSpace(r.Engine),
+		})
 		if len(out) >= maxResults {
 			break
 		}
@@ -83,4 +99,50 @@ func (p *SearXNGProvider) Search(ctx context.Context, query string, maxResults i
 		return nil, fmt.Errorf("searxng: no results for %q", query)
 	}
 	return out, nil
+}
+
+func buildSearchQuery(query, site string) string {
+	query = strings.TrimSpace(query)
+	site = strings.TrimSpace(site)
+	if site == "" {
+		return query
+	}
+	site = strings.TrimPrefix(strings.TrimPrefix(site, "site:"), "SITE:")
+	if strings.Contains(strings.ToLower(query), "site:") {
+		return query
+	}
+	return "site:" + site + " " + query
+}
+
+func urlExcluded(rawURL string, excludes []string) bool {
+	if len(excludes) == 0 {
+		return false
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	for _, ex := range excludes {
+		ex = strings.ToLower(strings.TrimSpace(ex))
+		ex = strings.TrimPrefix(ex, "www.")
+		if ex == "" {
+			continue
+		}
+		if host == ex || strings.HasSuffix(host, "."+ex) {
+			return true
+		}
+	}
+	return false
+}
+
+func classifySearchError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "timeout") || strings.Contains(msg, "deadline") {
+		return fmt.Errorf("searxng: timeout: %w", err)
+	}
+	return err
 }

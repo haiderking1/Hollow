@@ -155,7 +155,7 @@ func (a *Agent) verifierLoop(ctx context.Context, task string) (verifierReport, 
 			}
 			a.toolStart(id, call.Function.Name, call.Function.Arguments)
 			result := a.executeTool(ctx, id, call.Function.Name, call.Function.Arguments)
-			a.toolResult(id, result.output, result.isErr)
+			a.toolResult(id, result.output, result.isErr, result.details)
 			var toolMsg opencode.Message
 			if len(result.content) > 0 {
 				toolMsg = opencode.Message{

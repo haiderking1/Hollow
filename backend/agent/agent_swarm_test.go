@@ -23,7 +23,7 @@ import (
 
 func TestWorkerToolsIncludeCodingTools(t *testing.T) {
 	names := toolNames(workerTools(0))
-	for _, want := range []string{"read_file", "write_file", "edit_file", "bash", "web_search", "agent_swarm"} {
+	for _, want := range []string{"read_file", "write_file", "edit_file", "bash", "web_search", "web_fetch", "browser", "agent_swarm"} {
 		if !names[want] {
 			t.Fatalf("worker at depth 0 missing %q", want)
 		}
@@ -48,6 +48,12 @@ func TestAgentSwarmToolRegistration(t *testing.T) {
 	}
 	if hasTool(nativeTools(config.Runtime{}), "agent") {
 		t.Fatal("main agent should not expose legacy agent tool")
+	}
+}
+
+func TestNativeToolsIncludeBrowser(t *testing.T) {
+	if !hasTool(nativeTools(config.Runtime{}), "browser") {
+		t.Fatal("nativeTools missing browser")
 	}
 }
 

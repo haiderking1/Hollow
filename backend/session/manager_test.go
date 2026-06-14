@@ -65,3 +65,65 @@ func TestEncodeCWD(t *testing.T) {
 		t.Fatalf("EncodeCWD = %q, want %q", got, want)
 	}
 }
+
+func TestAppendMessageWithDetailsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	cwd := filepath.Join(dir, "proj")
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", dir)
+
+	sm, err := ContinueRecent(cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assistantCall := opencode.Message{
+		Role:    "assistant",
+		Content: opencode.StringContent("call browser"),
+		ToolCalls: []opencode.ToolCall{{
+			ID:   "c1",
+			Type: "function",
+			Function: opencode.ToolCallFunction{
+				Name:      "browser",
+				Arguments: `{"action":"list"}`,
+			},
+		}},
+	}
+	if err := sm.AppendMessage(assistantCall); err != nil {
+		t.Fatal(err)
+	}
+
+	toolResponse := opencode.Message{
+		Role:       "tool",
+		ToolCallID: "c1",
+		Name:       "browser",
+		Content:    opencode.StringContent("TAB1 Example"),
+	}
+	details := `{"action":"list","tabs":[{"id":"TAB1"}]}`
+	if err := sm.AppendMessageWithDetails(toolResponse, details); err != nil {
+		t.Fatal(err)
+	}
+
+	sm2, err := ContinueRecent(cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lines := sm2.ChatLines()
+	var toolLine *ChatLine
+	for i := range lines {
+		if lines[i].Role == "tool" {
+			toolLine = &lines[i]
+			break
+		}
+	}
+
+	if toolLine == nil {
+		t.Fatal("expected tool line, got none")
+	}
+	if toolLine.ToolDetails != details {
+		t.Errorf("expected details %q, got %q", details, toolLine.ToolDetails)
+	}
+}

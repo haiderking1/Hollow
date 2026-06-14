@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/enough/enough/backend/agent"
 	"github.com/enough/enough/backend/core"
 )
@@ -60,6 +62,7 @@ func (a *App) handleToolResult(ev core.ToolCallEvent) {
 		msg.toolPending = false
 		clean, _ := sanitizeToolOutput(msg.toolName, ev.Result)
 		msg.toolResult = clean
+		msg.toolDetails = string(ev.Details)
 		msg.toolError = ev.Error
 		switch msg.toolName {
 		case "write_file", "edit_file":
@@ -75,11 +78,12 @@ func (a *App) handleToolResult(ev core.ToolCallEvent) {
 
 	clean, _ := sanitizeToolOutput(ev.Name, ev.Result)
 	a.messages = append(a.messages, chatMsg{
-		role:       "tool",
-		toolID:     ev.ID,
-		toolName:   ev.Name,
-		toolResult: clean,
-		toolError:  ev.Error,
+		role:        "tool",
+		toolID:      ev.ID,
+		toolName:    ev.Name,
+		toolResult:  clean,
+		toolDetails: string(ev.Details),
+		toolError:   ev.Error,
 	})
 	a.bumpChat()
 }
@@ -97,6 +101,19 @@ func sanitizeToolOutput(toolName, text string) (string, bool) {
 func sanitizeLoadedToolResult(toolName, text string) string {
 	clean, _ := sanitizeToolOutput(toolName, text)
 	return clean
+}
+
+func extractAndStripBrowserMetadata(toolName, result string) (string, string) {
+	clean, _ := sanitizeToolOutput(toolName, result)
+	if toolName != "browser" {
+		return clean, ""
+	}
+	if idx := strings.Index(clean, "--METADATA--"); idx >= 0 {
+		metadata := strings.TrimSpace(clean[idx+len("--METADATA--"):])
+		clean = strings.TrimSpace(clean[:idx])
+		return clean, metadata
+	}
+	return clean, ""
 }
 
 func (a *App) toggleToolsExpanded() {

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/enough/enough/backend/opencode"
@@ -14,6 +15,7 @@ type toolResult struct {
 	output  string
 	content []ToolContentBlock
 	isErr   bool
+	details json.RawMessage
 }
 
 func (a *Agent) executeTool(ctx context.Context, id, name, argsJSON string) toolResult {
@@ -63,6 +65,10 @@ func (a *Agent) dispatchTool(ctx context.Context, id, name, argsJSON string) too
 		return a.toolBash(ctx, id, argsJSON)
 	case "web_search":
 		return a.toolWebSearch(argsJSON)
+	case "web_fetch":
+		return a.toolWebFetch(argsJSON)
+	case "browser":
+		return a.toolBrowser(argsJSON)
 	case "agent_swarm":
 		return a.toolAgentSwarm(ctx, id, argsJSON, 0)
 	case "skills_list":

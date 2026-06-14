@@ -28,6 +28,7 @@ type chatMsg struct {
 	toolName     string
 	toolArgs     string
 	toolResult   string
+	toolDetails  string
 	toolError    bool
 	toolPending bool
 	toolAdded    int
@@ -48,13 +49,19 @@ func chatMsgFromSessionLine(line session.ChatLine, skipRuntimeNotice bool) (chat
 	for _, img := range line.Images {
 		chatImages = append(chatImages, chatImage{URL: img.URL})
 	}
+	cleanResult, legacyMetadata := extractAndStripBrowserMetadata(line.ToolName, line.ToolResult)
+	toolDetails := line.ToolDetails
+	if toolDetails == "" {
+		toolDetails = legacyMetadata
+	}
 	return chatMsg{
 		role:         line.Role,
 		text:         line.Text,
 		thinking:     line.Thinking,
 		toolName:     line.ToolName,
 		toolArgs:     line.ToolArgs,
-		toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
+		toolResult:   cleanResult,
+		toolDetails:  toolDetails,
 		toolError:    line.ToolError,
 		tokensBefore: line.TokensBefore,
 		images:       chatImages,

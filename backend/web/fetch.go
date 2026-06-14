@@ -2,120 +2,72 @@ package web
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"net/http"
-	"net/url"
-	"os"
 	"strings"
-	"time"
-
-	readability "codeberg.org/readeck/go-readability/v2"
 )
 
-func isHTTPURL(s string) bool {
-	u, err := url.ParseRequestURI(s)
-	if err != nil {
-		return false
-	}
-	return u.Scheme == "http" || u.Scheme == "https"
-}
+var BrowserFallback func(ctx context.Context, url string) (PageHit, error)
 
-func validateFetchURL(raw string) (*url.URL, error) {
-	u, err := url.ParseRequestURI(raw)
-	if err != nil {
-		return nil, fmt.Errorf("invalid url: %w", err)
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, fmt.Errorf("only http and https urls are allowed")
-	}
-	if u.Host == "" {
-		return nil, fmt.Errorf("url missing host")
-	}
-
-	host := u.Hostname()
-	if strings.EqualFold(host, "localhost") && !allowPrivateFetch() {
-		return nil, fmt.Errorf("localhost urls are not allowed")
-	}
-
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		return u, nil
-	}
-	if !allowPrivateFetch() {
-		for _, ip := range ips {
-			if isPrivateIP(ip) {
-				return nil, fmt.Errorf("private network urls are not allowed")
-			}
-		}
-	}
-	return u, nil
-}
-
-func allowPrivateFetch() bool {
-	return os.Getenv("ENOUGH_WEB_ALLOW_PRIVATE") == "1"
-}
-
-func isPrivateIP(ip net.IP) bool {
-	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-		return true
-	}
-	privateRanges := []string{
-		"10.0.0.0/8",
-		"172.16.0.0/12",
-		"192.168.0.0/16",
-		"127.0.0.0/8",
-		"169.254.0.0/16",
-		"0.0.0.0/8",
-	}
-	for _, cidr := range privateRanges {
-		_, network, err := net.ParseCIDR(cidr)
-		if err != nil {
-			continue
-		}
-		if network.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-// FetchPage downloads a URL and extracts readable full-page text.
-func FetchPage(ctx context.Context, rawURL string) (Hit, error) {
+// FetchPage downloads a URL and extracts readable text with fallbacks.
+func FetchPage(ctx context.Context, rawURL string) (PageHit, error) {
 	if err := ctx.Err(); err != nil {
-		return Hit{}, err
+		return PageHit{}, err
 	}
 
 	u, err := validateFetchURL(rawURL)
 	if err != nil {
-		return Hit{}, err
+		return PageHit{URL: rawURL}, &FetchError{Kind: FetchInvalidURL, Message: err.Error()}
 	}
 
-	timeout := time.Duration(fetchTimeoutSec) * time.Second
-	article, err := readability.FromURL(u.String(), timeout, func(r *http.Request) {
-		r.Header.Set("User-Agent", userAgent())
-	})
-	if err != nil {
-		return Hit{URL: u.String()}, err
+	pageURL := u.String()
+	if isYouTubeHost(u.Hostname()) {
+		if hit, err := fetchYouTubeOEmbed(ctx, pageURL); err == nil {
+			return hit, nil
+		}
 	}
 
-	var content strings.Builder
-	if err := article.RenderText(&content); err != nil {
-		return Hit{URL: u.String()}, err
+	fetched, ferr := downloadHTML(ctx, pageURL)
+	if ferr != nil {
+		if ferr.Kind == FetchBlocked && BrowserFallback != nil {
+			if hit, err := BrowserFallback(ctx, pageURL); err == nil {
+				return hit, nil
+			}
+		}
+		return PageHit{URL: pageURL}, ferr
 	}
 
-	text := strings.TrimSpace(content.String())
-	if text == "" {
-		return Hit{URL: u.String()}, fmt.Errorf("no readable content extracted")
+	title, content, extractErr := ExtractPageContent(fetched.finalURL, fetched.body)
+	if extractErr != nil {
+		if extractErr.Kind == FetchJSRendered && BrowserFallback != nil {
+			if hit, err := BrowserFallback(ctx, pageURL); err == nil {
+				return hit, nil
+			}
+		}
+		return PageHit{URL: fetched.finalURL, Title: title}, extractErr
 	}
 
-	return Hit{
-		Title:   article.Title(),
-		URL:     u.String(),
-		Content: text,
+	return PageHit{
+		Title:   title,
+		URL:     fetched.finalURL,
+		Content: content,
 	}, nil
 }
 
-func userAgent() string {
-	return "Enough/1.0 (+https://github.com/enough/enough)"
+func NormalizeFetchURLs(raw []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, u := range raw {
+		u = strings.TrimSpace(u)
+		if u == "" || seen[u] {
+			continue
+		}
+		if !isHTTPURL(u) {
+			continue
+		}
+		seen[u] = true
+		out = append(out, u)
+		if len(out) >= maxFetchCap {
+			break
+		}
+	}
+	return out
 }

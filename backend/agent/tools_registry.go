@@ -19,6 +19,8 @@ func nativeTools(cfg config.Runtime) []opencode.Tool {
 		grepTool(),
 		bashTool(),
 		webSearchTool(),
+		webFetchTool(),
+		browserTool(),
 		agentSwarmTool(),
 	}
 	if cfg.Skills.Enabled {
@@ -41,6 +43,8 @@ func workerTools(depth int) []opencode.Tool {
 		grepTool(),
 		bashTool(),
 		webSearchTool(),
+		webFetchTool(),
+		browserTool(),
 	}
 	if depth < maxSwarmDepth {
 		tools = append(tools, agentSwarmTool())

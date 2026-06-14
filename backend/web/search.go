@@ -2,83 +2,82 @@ package web
 
 import (
 	"context"
+	"fmt"
+	"strings"
 )
 
-// Search runs a web query (or fetches a URL directly) and returns full readable page text.
-func Search(ctx context.Context, input string, opts Options) ([]Hit, error) {
-	input = trimInput(input)
-	if input == "" {
+// SearchWeb runs a meta-search and returns snippets without fetching pages.
+func SearchWeb(ctx context.Context, query string, opts SearchOptions) ([]SearchResult, error) {
+	query = trimInput(query)
+	if query == "" {
 		return nil, ErrEmptyInput
 	}
-
-	maxPages := opts.MaxPages
-	if maxPages <= 0 {
-		maxPages = defaultMaxPages
-	}
-	if maxPages > maxPagesCap {
-		maxPages = maxPagesCap
-	}
-
-	if isHTTPURL(input) {
-		page, err := FetchPage(ctx, input)
-		if err != nil {
-			return []Hit{{URL: input, Error: err.Error()}}, nil
-		}
-		return []Hit{page}, nil
+	if isHTTPURL(query) {
+		return []SearchResult{{
+			Title: query,
+			URL:   query,
+		}}, nil
 	}
 
 	provider, err := NewSearchProvider(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	results, err := provider.Search(ctx, input, maxPages)
-	if err != nil {
-		return nil, err
-	}
-
-	var hits []Hit
-	for _, r := range results {
-		if err := ctx.Err(); err != nil {
-			return hits, err
-		}
-		page, err := FetchPage(ctx, r.URL)
-		if err != nil {
-			hits = append(hits, Hit{
-				Title: r.Title,
-				URL:   r.URL,
-				Error: err.Error(),
-			})
-			continue
-		}
-		if page.Title == "" {
-			page.Title = r.Title
-		}
-		hits = append(hits, page)
-	}
-	return hits, nil
+	return provider.Search(ctx, query, opts)
 }
 
-// Format renders hits as plain text for the agent tool.
-func Format(hits []Hit) string {
-	var out string
+// FetchURLs extracts readable text from one or more http(s) URLs.
+func FetchURLs(ctx context.Context, urls []string) []PageHit {
+	return fetchURLsParallel(ctx, urls)
+}
+
+// FormatSearchResults renders search hits for web_search.
+func FormatSearchResults(results []SearchResult) string {
+	var b strings.Builder
+	for i, r := range results {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		title := r.Title
+		if title == "" {
+			title = r.URL
+		}
+		fmt.Fprintf(&b, "%d. %s\n", i+1, title)
+		fmt.Fprintf(&b, "   URL: %s\n", r.URL)
+		if r.Engine != "" {
+			fmt.Fprintf(&b, "   Engine: %s\n", r.Engine)
+		}
+		if r.Snippet != "" {
+			fmt.Fprintf(&b, "   Snippet: %s\n", r.Snippet)
+		}
+	}
+	out := b.String()
+	if len(out) > maxOutputBytes {
+		out = out[:maxOutputBytes] + "\n\n... truncated ..."
+	}
+	return out
+}
+
+// FormatPages renders fetched pages for web_fetch.
+func FormatPages(hits []PageHit) string {
+	var b strings.Builder
 	for i, hit := range hits {
 		if i > 0 {
-			out += "\n\n"
+			b.WriteString("\n\n")
 		}
 		title := hit.Title
 		if title == "" {
 			title = hit.URL
 		}
-		out += "=== " + title + " ===\n"
-		out += "URL: " + hit.URL + "\n\n"
-		if hit.Error != "" {
-			out += "Error: " + hit.Error + "\n"
+		fmt.Fprintf(&b, "=== %s ===\n", title)
+		fmt.Fprintf(&b, "URL: %s\n\n", hit.URL)
+		if hit.Fetch != nil {
+			fmt.Fprintf(&b, "Error %s\n", hit.Fetch.Error())
 			continue
 		}
-		out += hit.Content
+		b.WriteString(hit.Content)
 	}
-
+	out := b.String()
 	if len(out) > maxOutputBytes {
 		out = out[:maxOutputBytes] + "\n\n... truncated ..."
 	}

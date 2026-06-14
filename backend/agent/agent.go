@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -225,10 +226,14 @@ func (a *Agent) Reset() error {
 }
 
 func (a *Agent) persist(msg opencode.Message) {
+	a.persistWithDetails(msg, "")
+}
+
+func (a *Agent) persistWithDetails(msg opencode.Message, toolDetails string) {
 	if a.session == nil || msg.Role == "system" {
 		return
 	}
-	_ = a.session.AppendMessage(msg)
+	_ = a.session.AppendMessageWithDetails(msg, toolDetails)
 }
 
 func (a *Agent) Abort() {
@@ -727,7 +732,7 @@ func (a *Agent) runLoop(ctx context.Context) error {
 			a.toolStart(id, call.Function.Name, call.Function.Arguments)
 
 			result := a.executeTool(ctx, id, call.Function.Name, call.Function.Arguments)
-			a.toolResult(id, result.output, result.isErr)
+			a.toolResult(id, result.output, result.isErr, result.details)
 			a.notifyStagedWrite(result.output)
 			if call.Function.Name == memory.ToolName {
 				a.notifyDirectMemoryWrite(call.Function.Arguments, result.output)
@@ -753,7 +758,7 @@ func (a *Agent) runLoop(ctx context.Context) error {
 			a.mu.Lock()
 			a.messages = append(a.messages, toolMsg)
 			a.mu.Unlock()
-			a.persist(toolMsg)
+			a.persistWithDetails(toolMsg, string(result.details))
 		}
 	}
 }
@@ -816,11 +821,11 @@ func (a *Agent) toolDelta(id, chunk string) {
 	}
 }
 
-func (a *Agent) toolResult(id, result string, isErr bool) {
+func (a *Agent) toolResult(id, result string, isErr bool, details json.RawMessage) {
 	if a.emit != nil {
 		a.emit(core.Event{
 			Kind: core.EventToolResult,
-			Data: core.ToolCallEvent{ID: id, Result: result, Error: isErr},
+			Data: core.ToolCallEvent{ID: id, Result: result, Error: isErr, Details: details},
 		})
 	}
 }

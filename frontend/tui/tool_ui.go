@@ -25,17 +25,18 @@ const (
 )
 
 type toolRow struct {
-	Kind    toolKind
-	Name    string
-	Args    string
-	Action  string
-	Target  string
-	Added   int
-	Removed int
-	Lines   int
-	Pending bool
-	Error   bool
-	Output  string
+	Kind     toolKind
+	Name     string
+	Args     string
+	Action   string
+	Target   string
+	Added    int
+	Removed  int
+	Lines    int
+	Pending  bool
+	Error    bool
+	Output   string
+	Metadata string
 }
 
 func parseToolRow(msg chatMsg) toolRow {
@@ -48,13 +49,14 @@ func parseToolRow(msg chatMsg) toolRow {
 	_ = json.Unmarshal([]byte(msg.toolArgs), &args)
 
 	row := toolRow{
-		Name:    name,
-		Args:    msg.toolArgs,
-		Pending: msg.toolPending,
-		Error:   msg.toolError,
-		Output:  strings.TrimSpace(msg.toolResult),
-		Added:   msg.toolAdded,
-		Removed: msg.toolRemoved,
+		Name:     name,
+		Args:     msg.toolArgs,
+		Pending:  msg.toolPending,
+		Error:    msg.toolError,
+		Output:   strings.TrimSpace(msg.toolResult),
+		Metadata: msg.toolDetails,
+		Added:    msg.toolAdded,
+		Removed:  msg.toolRemoved,
 	}
 
 	switch name {
@@ -82,10 +84,38 @@ func parseToolRow(msg chatMsg) toolRow {
 		row.Kind = toolKindBash
 		row.Action = "Bash"
 		row.Target = oneLine(jsonString(args["command"]))
+	case "browser":
+		row.Kind = toolKindWeb
+		row.Action = jsonString(args["action"])
+		if row.Action == "" {
+			row.Action = "browser"
+		}
+		if u := jsonString(args["url"]); u != "" {
+			row.Target = u
+		} else if sel := jsonString(args["selector"]); sel != "" {
+			row.Target = sel
+		} else if tid := jsonString(args["tabId"]); tid != "" {
+			row.Target = tid
+		}
 	case "web_search":
 		row.Kind = toolKindWeb
 		row.Action = "Search"
 		row.Target = oneLine(jsonString(args["query"]))
+	case "web_fetch":
+		row.Kind = toolKindWeb
+		row.Action = "Fetch"
+		if u := jsonString(args["url"]); u != "" {
+			row.Target = oneLine(u)
+		} else if raw, ok := args["urls"]; ok {
+			var urls []string
+			_ = json.Unmarshal(raw, &urls)
+			if len(urls) > 0 {
+				row.Target = oneLine(urls[0])
+				if len(urls) > 1 {
+					row.Target += fmt.Sprintf(" +%d", len(urls)-1)
+				}
+			}
+		}
 	case "list_dir":
 		row.Kind = toolKindOther
 		row.Action = "List"
@@ -509,6 +539,9 @@ func renderToolGroup(styles Styles, tools []chatMsg, width int, expanded bool, s
 }
 
 func renderToolBlock(styles Styles, row toolRow, width int, expanded bool, spinnerFrame int) []string {
+	if row.Name == "browser" {
+		return renderBrowserBlock(styles, row, width, expanded)
+	}
 	switch row.Kind {
 	case toolKindWrite:
 		return []string{renderWriteLine(styles, row)}
@@ -878,4 +911,63 @@ func limitToolOutput(text string, expanded bool) string {
 		return text
 	}
 	return strings.Join(lines[:maxLines], "\n") + fmt.Sprintf("\n… (%d more lines)", len(lines)-maxLines)
+}
+
+func renderBrowserBlock(styles Styles, row toolRow, width int, expanded bool) []string {
+	action := row.Action
+	target := row.Target
+	header := styles.ToolBullet.Render("●") + " " +
+		styles.ToolAction.Render("browser") + " " +
+		styles.LogAccent.Render(action) + " " +
+		styles.ToolTarget.Render(term.TruncateWidth(target, width-20))
+
+	lines := []string{header}
+
+	if row.Pending {
+		lines = append(lines, styles.ToolPending.Render("  Running browser action..."))
+		return lines
+	}
+
+	if row.Error {
+		msg := row.Output
+		if len(msg) > 120 {
+			msg = msg[:120]
+		}
+		lines = append(lines, styles.AssistError.Render("  "+msg))
+		return lines
+	}
+
+	if action == "list" {
+		tabCount := 0
+		if row.Metadata != "" {
+			var details struct {
+				Tabs []interface{} `json:"tabs"`
+			}
+			if err := json.Unmarshal([]byte(row.Metadata), &details); err == nil {
+				tabCount = len(details.Tabs)
+			}
+		} else if row.Output != "" && row.Output != "No tabs." {
+			tabCount = len(strings.Split(strings.TrimSpace(row.Output), "\n"))
+		}
+		lines = append(lines, styles.ToolOutput.Render(fmt.Sprintf("  %d tab(s)", tabCount)))
+	} else {
+		var args map[string]json.RawMessage
+		_ = json.Unmarshal([]byte(row.Args), &args)
+		tabID := jsonString(args["tabId"])
+
+		lbl := action
+		if tabID != "" {
+			lbl += " " + tabID
+		}
+		lines = append(lines, styles.ToolOutput.Render("  "+lbl))
+	}
+
+	if expanded && row.Output != "" {
+		detail := limitToolOutput(row.Output, true)
+		for _, line := range strings.Split(detail, "\n") {
+			lines = append(lines, styles.ToolOutput.Render("  "+line))
+		}
+	}
+
+	return lines
 }

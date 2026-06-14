@@ -48,7 +48,7 @@ func agentSwarmTool() opencode.Tool {
 		Function: opencode.ToolFunction{
 			Name: "agent_swarm",
 			Description: fmt.Sprintf(
-				`Run many sub-agents in parallel. Pass "tasks" (one self-contained prompt each) or a single "goal" to have a planner split it into parallel subtasks. Each agent gets a fresh, isolated context with the standard coding tools (read_file, grep, glob, list_dir, bash, write_file, edit_file, web_search) scoped to the current directory. For pipelines, give a task a depends_on=[ids]: it waits for those agents and receives their output in its prompt. Up to %d agents per call; max_concurrency (default %d) run at once. All agents run on your model. Agents run with no turn limit by default (like you). Do not set max_turns_per_agent unless the user explicitly requests a cap. Agents can nest agent_swarm up to %d nested swarm calls; from a top-level call this supports a four-worker chain (level1 -> level2 -> level3 -> level4). Keep tasks disjoint to avoid conflicting edits.`,
+				`Run many sub-agents in parallel. Pass "tasks" (one self-contained prompt each) or a single "goal" to have a planner split it into parallel subtasks. Each agent gets a fresh, isolated context with the standard coding tools (read_file, grep, glob, list_dir, bash, write_file, edit_file, web_search, web_fetch) scoped to the current directory. For pipelines, give a task a depends_on=[ids]: it waits for those agents and receives their output in its prompt. Up to %d agents per call; max_concurrency (default %d) run at once. All agents run on your model. Agents run with no turn limit by default (like you). Do not set max_turns_per_agent unless the user explicitly requests a cap. Agents can nest agent_swarm up to %d nested swarm calls; from a top-level call this supports a four-worker chain (level1 -> level2 -> level3 -> level4). Keep tasks disjoint to avoid conflicting edits.`,
 				maxSwarmWorkers, defaultSwarmConcurrency, maxSwarmDepth,
 			),
 			Parameters: json.RawMessage(`{
@@ -494,7 +494,7 @@ func (a *Agent) runWorkerLoop(ctx context.Context, prompt string, maxTurns int) 
 			}
 			a.toolStart(id, call.Function.Name, call.Function.Arguments)
 			result := a.executeSwarmTool(ctx, id, call.Function.Name, call.Function.Arguments)
-			a.toolResult(id, result.output, result.isErr)
+			a.toolResult(id, result.output, result.isErr, result.details)
 
 			if call.Function.Name == "agent_swarm" {
 				lastSwarmOutput = result.output
