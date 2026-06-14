@@ -19,7 +19,7 @@ type connectOption struct {
 }
 
 var connectOptions = []connectOption{
-	{id: config.ProviderOpenCode, name: "OpenCode Zen", desc: "paste API key"},
+	{id: config.ProviderOpenCode, name: "OpenCode Go", desc: "paste API key"},
 	{id: config.ProviderCodex, name: "OpenAI Codex", desc: "browser OAuth (ChatGPT subscription)"},
 }
 

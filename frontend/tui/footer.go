@@ -143,11 +143,8 @@ func (a *App) renderFooter(width int) []string {
 
 	rightSide := model
 	if opencode.SupportsThinking(model) {
-		if thinking == "" || thinking == "off" {
-			rightSide = model + " • thinking off"
-		} else {
-			rightSide = model + " • " + thinking
-		}
+		label := opencode.FormatThinkingLevelForModel(model, opencode.ParseThinkingLevel(thinking))
+		rightSide = model + " • " + label
 	}
 	rightSide = fmt.Sprintf("(%s) %s", footerProviderLabel(provider, endpoint), rightSide)
 

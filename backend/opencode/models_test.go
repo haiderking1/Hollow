@@ -149,6 +149,9 @@ func TestFormatThinkingBadge(t *testing.T) {
 	if got := FormatThinkingBadge(m3, ThinkingMedium); got != "thinking" {
 		t.Fatalf("expected thinking, got %q", got)
 	}
+	if got := FormatThinkingLevelForModel("minimax-m3", ThinkingMedium); got != "thinking" {
+		t.Fatalf("expected thinking label, got %q", got)
+	}
 
 	// deepseek-v4-flash
 	ds := ModelInfo{ID: "deepseek-v4-flash", Reasoning: true}

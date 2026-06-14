@@ -14,7 +14,7 @@ type ProviderInfo struct {
 // ModelProviders returns the providers available in the model picker.
 func ModelProviders() []ProviderInfo {
 	return []ProviderInfo{
-		{ID: ProviderOpenCode, Name: "OpenCode Zen"},
+		{ID: ProviderOpenCode, Name: "OpenCode Go"},
 		{ID: ProviderCodex, Name: "OpenAI Codex"},
 	}
 }

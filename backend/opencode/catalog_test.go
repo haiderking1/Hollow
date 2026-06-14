@@ -207,6 +207,30 @@ func TestDiskCacheFreshness(t *testing.T) {
 					"name": "Kimi K2.7 Code Cached",
 					"reasoning": true,
 					"limit": { "context": 262144, "output": 262144 }
+				},
+				"deepseek-v4-flash": {
+					"id": "deepseek-v4-flash",
+					"name": "DeepSeek V4 Flash Cached",
+					"reasoning": true,
+					"limit": { "context": 1000000, "output": 65536 }
+				},
+				"glm-5": {
+					"id": "glm-5",
+					"name": "GLM-5 Cached",
+					"reasoning": true,
+					"limit": { "context": 202752, "output": 65536 }
+				},
+				"qwen3.7-plus": {
+					"id": "qwen3.7-plus",
+					"name": "Qwen3.7 Plus Cached",
+					"reasoning": true,
+					"limit": { "context": 1000000, "output": 65536 }
+				},
+				"minimax-m2.7": {
+					"id": "minimax-m2.7",
+					"name": "MiniMax M2.7 Cached",
+					"reasoning": true,
+					"limit": { "context": 204800, "output": 65536 }
 				}
 			}
 		}

@@ -352,13 +352,7 @@ func FormatThinkingBadge(m ModelInfo, level ThinkingLevel) string {
 		}
 		return ""
 	}
-	if strings.Contains(strings.ToLower(m.ID), "minimax-m3") {
-		if level == ThinkingOff || level == "" {
-			return "none"
-		}
-		return "thinking"
-	}
-	return FormatThinkingLabel(level)
+	return FormatThinkingLevelForModel(m.ID, level)
 }
 
 func SupportsImages(model string) bool {

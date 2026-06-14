@@ -52,8 +52,16 @@ func (a *App) openModelPicker(filter string) {
 	a.modelPickerFocus = modelPickerFocusModel
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
+		endpoint := config.DefaultEndpoint
+		if cfg, err := config.Load(); err == nil && cfg.Endpoint != "" {
+			endpoint = cfg.Endpoint
+		}
+		if apiKey, _ := secrets.GetAPIKey(); apiKey != "" {
+			_ = a.modelRegistry.Refresh(ctx, endpoint, apiKey)
+			a.requestRender()
+		}
 		if auth.HasCodexAuth() {
 			if creds, err := auth.ResolveCodexCredentials(ctx); err == nil {
 				_ = a.modelRegistry.RefreshCodex(ctx, creds.AccessToken)
@@ -502,7 +510,7 @@ func (a *App) renderModelPickerThinkingRow(m opencode.ModelInfo) string {
 	levels := opencode.SupportedThinkingLevels(m.ID)
 	parts := make([]string, 0, len(levels))
 	for _, level := range levels {
-		label := opencode.FormatThinkingLabel(level)
+		label := opencode.FormatThinkingLevelForModel(m.ID, level)
 		style := a.styles.SlashDim
 		if a.modelPickerFocus == modelPickerFocusThinking && level == a.modelPickerThinking {
 			style = a.styles.SlashSelected

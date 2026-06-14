@@ -37,7 +37,7 @@ func (a *App) cycleThinkingLevel() {
 	}
 
 	a.thinkingLevel = next
-	a.appendMessage("system", fmt.Sprintf("Thinking level: %s", next))
+	a.appendMessage("system", fmt.Sprintf("Thinking level: %s", opencode.FormatThinkingLevelForModel(cfg.Model, next)))
 }
 
 func (a *App) toggleThinkingVisibility() {

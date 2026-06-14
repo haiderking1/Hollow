@@ -175,9 +175,23 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 
 	var content strings.Builder
 	var reasoning strings.Builder
+	var thinkSplit thinkStreamSplitter
 	var lastUsage *Usage
 	toolParts := make(map[int]*ToolCall)
 	sawData := false
+
+	emitText := func(t string) {
+		content.WriteString(t)
+		if cb.OnText != nil {
+			cb.OnText(t)
+		}
+	}
+	emitThink := func(t string) {
+		reasoning.WriteString(t)
+		if cb.OnThinking != nil {
+			cb.OnThinking(t)
+		}
+	}
 
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -216,17 +230,11 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 
 		delta := chunk.Choices[0].Delta
 		if delta.Content != nil && *delta.Content != "" {
-			content.WriteString(*delta.Content)
-			if cb.OnText != nil {
-				cb.OnText(*delta.Content)
-			}
+			thinkSplit.feed(*delta.Content, emitText, emitThink)
 		}
 
 		if r := reasoningDelta(delta); r != "" {
-			reasoning.WriteString(r)
-			if cb.OnThinking != nil {
-				cb.OnThinking(r)
-			}
+			emitThink(r)
 		}
 
 		for _, tc := range delta.ToolCalls {
@@ -253,6 +261,8 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 	if !sawData {
 		return Message{}, fmt.Errorf("opencode: empty SSE body")
 	}
+
+	thinkSplit.flush(emitText, emitThink)
 
 	msg := Message{Role: "assistant", Usage: lastUsage}
 	if content.Len() > 0 {
@@ -283,6 +293,8 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 			}
 		}
 	}
+
+	SanitizeEmbeddedThinking(&msg)
 
 	return msg, nil
 }

@@ -17,6 +17,9 @@ import (
 
 var modelsDevURL = "https://models.dev/api.json"
 
+// minOpencodeGoCatalogModels guards against corrupted/partial cache files (e.g. test mocks).
+const minOpencodeGoCatalogModels = 5
+
 type modelsDevCatalog struct {
 	Providers map[string]modelsDevProvider `json:"-"`
 }
@@ -109,7 +112,7 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 	var err error
 	if modelsDevURL == "https://models.dev/api.json" {
 		cached, modTime, err = loadCatalogFromCache()
-		if err == nil {
+		if err == nil && len(cached) >= minOpencodeGoCatalogModels {
 			// Cache is present. Check freshness (60 minutes).
 			if time.Since(modTime) < 60*time.Minute {
 				catalogMu.Lock()
@@ -204,7 +207,9 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 	catalogLoaded = true
 	catalogMu.Unlock()
 
-	_ = saveCatalogToCache(raw)
+	if modelsDevURL == "https://models.dev/api.json" {
+		_ = saveCatalogToCache(raw)
+	}
 	return nil
 }
 

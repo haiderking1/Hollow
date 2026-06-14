@@ -105,5 +105,9 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error
 		return ChatResponse{}, fmt.Errorf("opencode: empty response")
 	}
 
+	for i := range out.Choices {
+		SanitizeEmbeddedThinking(&out.Choices[i].Message)
+	}
+
 	return out, nil
 }

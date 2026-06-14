@@ -218,3 +218,14 @@ func FormatThinkingLabel(level ThinkingLevel) string {
 	}
 	return string(level)
 }
+
+// FormatThinkingLevelForModel returns the user-facing label for a thinking level.
+func FormatThinkingLevelForModel(model string, level ThinkingLevel) string {
+	if strings.Contains(strings.ToLower(model), "minimax-m3") {
+		if level == ThinkingOff || level == "" {
+			return "none"
+		}
+		return "thinking"
+	}
+	return FormatThinkingLabel(level)
+}
