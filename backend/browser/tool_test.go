@@ -29,6 +29,13 @@ func handleMockWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	var writeMu sync.Mutex
+	writeMessage := func(messageType int, data []byte) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return conn.WriteMessage(messageType, data)
+	}
+
 	for {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
@@ -108,7 +115,7 @@ func handleMockWS(w http.ResponseWriter, r *http.Request) {
 							"url":               "https://files2.freedownloadmanager.org/6/latest/fdm_x64_setup.exe",
 						},
 					})
-					conn.WriteMessage(websocket.TextMessage, evt)
+					_ = writeMessage(websocket.TextMessage, evt)
 				}()
 			}
 		} else {
@@ -116,7 +123,7 @@ func handleMockWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		respBytes, _ := json.Marshal(resp)
-		conn.WriteMessage(messageType, respBytes)
+		_ = writeMessage(messageType, respBytes)
 	}
 }
 
