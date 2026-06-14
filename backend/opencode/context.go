@@ -20,7 +20,7 @@ func (r *Registry) resolveContextWindow(provider, modelID string) int {
 	}
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {
-		return 128_000
+		return 0
 	}
 
 	r.mu.RLock()
@@ -43,9 +43,12 @@ func (r *Registry) resolveContextWindow(provider, modelID string) int {
 				return m.ContextWindow
 			}
 		}
+		if m, ok := catalogModel(modelID); ok && m.ContextWindow > 0 {
+			return m.ContextWindow
+		}
 		if m, ok := knownModels[modelID]; ok && m.ContextWindow > 0 {
 			return m.ContextWindow
 		}
 	}
-	return 128_000
+	return 0
 }

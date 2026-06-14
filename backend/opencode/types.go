@@ -56,10 +56,25 @@ type Message struct {
 	Role             string          `json:"role"`
 	Content          json.RawMessage `json:"content"`
 	ReasoningContent *string         `json:"reasoning_content,omitempty"`
+	ReasoningDetails *string         `json:"reasoning_details,omitempty"`
+	ReasoningPlain   *string         `json:"reasoning,omitempty"`
 	ToolCalls        []ToolCall      `json:"tool_calls,omitempty"`
 	ToolCallID       string          `json:"tool_call_id,omitempty"`
 	Name             string          `json:"name,omitempty"`
 	Usage            *Usage          `json:"usage,omitempty"`
+}
+
+func (m Message) GetReasoning() string {
+	if m.ReasoningContent != nil {
+		return *m.ReasoningContent
+	}
+	if m.ReasoningDetails != nil {
+		return *m.ReasoningDetails
+	}
+	if m.ReasoningPlain != nil {
+		return *m.ReasoningPlain
+	}
+	return ""
 }
 
 func (m *Message) UnmarshalJSON(data []byte) error {

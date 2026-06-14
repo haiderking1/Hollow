@@ -14,11 +14,13 @@ import (
 
 // ModelInfo describes an OpenCode Go model for UI and compaction.
 type ModelInfo struct {
-	ID             string
-	Name           string
-	ContextWindow  int
-	Reasoning      bool
-	ThinkingLevels []ThinkingLevel
+	ID                string
+	Name              string
+	ContextWindow     int
+	Reasoning         bool
+	MandatoryThinking bool
+	ThinkingLevels    []ThinkingLevel
+	ReasoningField    string
 }
 
 type modelsListResponse struct {
@@ -144,6 +146,9 @@ func (r *Registry) Lookup(id string) (ModelInfo, bool) {
 			return m, true
 		}
 	}
+	if m, ok := catalogModel(id); ok {
+		return m, true
+	}
 	if m, ok := knownModels[id]; ok {
 		return normalizeModel(m), true
 	}
@@ -151,6 +156,7 @@ func (r *Registry) Lookup(id string) (ModelInfo, bool) {
 }
 
 func (r *Registry) Refresh(ctx context.Context, endpoint, apiKey string) error {
+	_ = RefreshModelsDevCatalog(ctx)
 	models, err := FetchModels(ctx, endpoint, apiKey)
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -257,12 +263,16 @@ func FetchModels(ctx context.Context, endpoint, apiKey string) ([]ModelInfo, err
 		if _, dup := seen[id]; dup {
 			continue
 		}
-		seen[id] = struct{}{}
-		out = append(out, mergeModel(id))
+		catalogMu.RLock()
+		m, ok := opencodeCatalog[id]
+		catalogMu.RUnlock()
+		if ok {
+			out = append(out, m)
+		}
 	}
 
 	if len(out) == 0 {
-		return fallbackModels(), fmt.Errorf("models: empty list")
+		return fallbackModels(), nil
 	}
 
 	sortModels(out)
@@ -270,6 +280,16 @@ func FetchModels(ctx context.Context, endpoint, apiKey string) ([]ModelInfo, err
 }
 
 func fallbackModels() []ModelInfo {
+	catalogMu.RLock()
+	defer catalogMu.RUnlock()
+	if len(opencodeCatalog) > 0 {
+		out := make([]ModelInfo, 0, len(opencodeCatalog))
+		for _, m := range opencodeCatalog {
+			out = append(out, m)
+		}
+		sortModels(out)
+		return out
+	}
 	out := make([]ModelInfo, 0, len(knownModels))
 	for id := range knownModels {
 		out = append(out, mergeModel(id))
@@ -284,46 +304,23 @@ func FallbackModels() []ModelInfo {
 }
 
 func mergeModel(id string) ModelInfo {
+	if m, ok := catalogModel(id); ok {
+		return m
+	}
 	if m, ok := knownModels[id]; ok {
 		return normalizeModel(m)
 	}
-	name := id
-	parts := strings.Split(id, "-")
-	for i, p := range parts {
-		if len(p) > 0 {
-			parts[i] = strings.ToUpper(p[:1]) + p[1:]
-		}
-	}
-	name = strings.Join(parts, " ")
-	return normalizeModel(ModelInfo{
-		ID:            id,
-		Name:          name,
-		ContextWindow: 128000,
-	})
+	return ModelInfo{}
 }
 
 func normalizeModel(m ModelInfo) ModelInfo {
-	if len(m.ThinkingLevels) == 0 {
-		switch {
-		case SupportsThinkingLevels(m.ID):
-			m.ThinkingLevels = append([]ThinkingLevel(nil), deepseekV4FlashLevels...)
-		case m.Reasoning:
-			m.ThinkingLevels = append([]ThinkingLevel(nil), defaultReasoningLevels...)
-		default:
-			m.ThinkingLevels = []ThinkingLevel{ThinkingOff}
-		}
+	if !m.MandatoryThinking {
+		m.MandatoryThinking = opencodeMandatoryThinkingID(m.ID)
 	}
+	m.ThinkingLevels = SupportedThinkingLevels(m.ID)
 	return m
 }
 
-func SupportsThinkingLevels(id string) bool {
-	switch id {
-	case "deepseek-v4-flash", "deepseek-v4-pro":
-		return true
-	default:
-		return false
-	}
-}
 
 func sortModels(models []ModelInfo) {
 	sort.Slice(models, func(i, j int) bool {
@@ -354,6 +351,12 @@ func FormatThinkingBadge(m ModelInfo, level ThinkingLevel) string {
 			return "reasoning"
 		}
 		return ""
+	}
+	if strings.Contains(strings.ToLower(m.ID), "minimax-m3") {
+		if level == ThinkingOff || level == "" {
+			return "none"
+		}
+		return "thinking"
 	}
 	return FormatThinkingLabel(level)
 }

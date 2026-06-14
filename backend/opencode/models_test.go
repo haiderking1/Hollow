@@ -8,6 +8,35 @@ import (
 )
 
 func TestFetchModelsMergesMetadata(t *testing.T) {
+	catalogSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{
+			"opencode-go": {
+				"id": "opencode-go",
+				"models": {
+					"deepseek-v4-flash": {
+						"id": "deepseek-v4-flash",
+						"name": "DeepSeek V4 Flash",
+						"reasoning": true,
+						"reasoning_options": [{"type":"effort","values":["high","max"]}],
+						"limit": { "context": 1000000, "output": 65536 }
+					},
+					"hy3-preview": {
+						"id": "hy3-preview",
+						"name": "HY3 Preview",
+						"reasoning": true,
+						"limit": { "context": 256000, "output": 65536 }
+					}
+				}
+			}
+		}`))
+	}))
+	defer catalogSrv.Close()
+
+	origCatalog := modelsDevURL
+	modelsDevURL = catalogSrv.URL
+	defer func() { modelsDevURL = origCatalog }()
+	_ = RefreshModelsDevCatalog(context.Background())
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/models" {
 			http.NotFound(w, r)
@@ -38,8 +67,19 @@ func TestFetchModelsMergesMetadata(t *testing.T) {
 	if flash.Name != "DeepSeek V4 Flash" {
 		t.Fatalf("name = %q", flash.Name)
 	}
-	if len(flash.ThinkingLevels) != 3 {
+	if len(flash.ThinkingLevels) != 4 {
 		t.Fatalf("thinking levels = %v", flash.ThinkingLevels)
+	}
+
+	var hy3 ModelInfo
+	for _, m := range models {
+		if m.ID == "hy3-preview" {
+			hy3 = m
+			break
+		}
+	}
+	if hy3.ContextWindow != 256000 {
+		t.Fatalf("hy3 context = %d, want 256000", hy3.ContextWindow)
 	}
 }
 
@@ -70,8 +110,8 @@ func TestResolveContextWindowCodex(t *testing.T) {
 	if got := ResolveContextWindow(ProviderCodex, "gpt-5.3-codex-spark"); got != 128_000 {
 		t.Fatalf("spark context = %d, want 128000", got)
 	}
-	if got := ResolveContextWindow(ProviderOpenCode, "gpt-5-codex"); got != 128_000 {
-		t.Fatalf("codex model on opencode provider = %d, want 128000 fallback", got)
+	if got := ResolveContextWindow(ProviderOpenCode, "gpt-5-codex"); got != 0 {
+		t.Fatalf("codex model on opencode provider = %d, want 0 fallback", got)
 	}
 }
 
@@ -96,3 +136,30 @@ func TestRegistryRefreshCodex(t *testing.T) {
 		t.Fatalf("live codex context = %d", got)
 	}
 }
+
+func TestFormatThinkingBadge(t *testing.T) {
+	// minimax-m3
+	m3 := ModelInfo{ID: "minimax-m3", Reasoning: true}
+	if got := FormatThinkingBadge(m3, ThinkingOff); got != "none" {
+		t.Fatalf("expected none, got %q", got)
+	}
+	if got := FormatThinkingBadge(m3, ""); got != "none" {
+		t.Fatalf("expected none, got %q", got)
+	}
+	if got := FormatThinkingBadge(m3, ThinkingMedium); got != "thinking" {
+		t.Fatalf("expected thinking, got %q", got)
+	}
+
+	// deepseek-v4-flash
+	ds := ModelInfo{ID: "deepseek-v4-flash", Reasoning: true}
+	if got := FormatThinkingBadge(ds, ThinkingLow); got != "low" {
+		t.Fatalf("expected low, got %q", got)
+	}
+
+	// kimi (no variants)
+	kimi := ModelInfo{ID: "kimi-k2.7-code", Reasoning: true}
+	if got := FormatThinkingBadge(kimi, ThinkingMedium); got != "reasoning" {
+		t.Fatalf("expected reasoning, got %q", got)
+	}
+}
+

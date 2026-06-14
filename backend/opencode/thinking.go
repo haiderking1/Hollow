@@ -1,44 +1,76 @@
 package opencode
 
+import (
+	"strings"
+)
+
 // ThinkingLevel controls model reasoning effort (OpenCode + Codex + Responses API).
 type ThinkingLevel string
 
 const (
-	ThinkingOff    ThinkingLevel = "off"
+	ThinkingOff     ThinkingLevel = "off"
 	ThinkingMinimal ThinkingLevel = "minimal"
-	ThinkingLow    ThinkingLevel = "low"
-	ThinkingMedium ThinkingLevel = "medium"
-	ThinkingHigh   ThinkingLevel = "high"
-	ThinkingXHigh  ThinkingLevel = "xhigh"
+	ThinkingLow     ThinkingLevel = "low"
+	ThinkingMedium  ThinkingLevel = "medium"
+	ThinkingHigh    ThinkingLevel = "high"
+	ThinkingMax     ThinkingLevel = "max"
+	ThinkingXHigh   ThinkingLevel = "xhigh"
 )
 
 type ThinkingParams struct {
 	Type string `json:"type"`
 }
 
-// deepseekV4FlashLevels matches Flame's opencode-go deepseek-v4-flash thinkingLevelMap.
-var deepseekV4FlashLevels = []ThinkingLevel{ThinkingOff, ThinkingHigh, ThinkingXHigh}
+// deepseekV4FlashLevels matches OpenCode's opencode-go deepseek-v4 efforts.
+var deepseekV4FlashLevels = []ThinkingLevel{ThinkingLow, ThinkingMedium, ThinkingHigh, ThinkingMax}
 
 // defaultReasoningLevels is the standard OpenAI/Codex reasoning effort ladder.
 var defaultReasoningLevels = []ThinkingLevel{
 	ThinkingOff, ThinkingMinimal, ThinkingLow, ThinkingMedium, ThinkingHigh, ThinkingXHigh,
 }
 
+func earlyReturnVariants(model string) bool {
+	id := strings.ToLower(model)
+	if strings.Contains(id, "minimax-m3") {
+		return false
+	}
+	for _, part := range []string{
+		"deepseek-chat", "deepseek-reasoner", "deepseek-r1", "deepseek-v3",
+		"minimax", "glm", "kimi", "k2p", "qwen", "big-pickle",
+	} {
+		if strings.Contains(id, part) {
+			return true
+		}
+	}
+	return false
+}
+
 func SupportsThinking(model string) bool {
 	return len(SupportedThinkingLevels(model)) > 1
 }
 
+func mandatoryThinking(model string) bool {
+	return opencodeMandatoryThinkingID(model)
+}
+
 func SupportedThinkingLevels(model string) []ThinkingLevel {
-	if m, ok := LookupCatalogModel(model); ok && len(m.ThinkingLevels) > 1 {
-		return append([]ThinkingLevel(nil), m.ThinkingLevels...)
-	}
-	if SupportsThinkingLevels(model) {
-		return append([]ThinkingLevel(nil), deepseekV4FlashLevels...)
-	}
-	if m, ok := LookupCatalogModel(model); ok && m.Reasoning {
+	modelLower := strings.ToLower(model)
+	if strings.Contains(modelLower, "gpt-") {
 		return append([]ThinkingLevel(nil), defaultReasoningLevels...)
 	}
-	return []ThinkingLevel{ThinkingOff}
+	if strings.Contains(modelLower, "minimax-m3") {
+		return []ThinkingLevel{ThinkingOff, ThinkingMedium}
+	}
+	if earlyReturnVariants(model) {
+		if mandatoryThinking(model) {
+			return []ThinkingLevel{ThinkingMedium}
+		}
+		return []ThinkingLevel{ThinkingOff}
+	}
+	if strings.Contains(modelLower, "deepseek-v4") {
+		return append([]ThinkingLevel(nil), deepseekV4FlashLevels...)
+	}
+	return []ThinkingLevel{ThinkingLow, ThinkingMedium, ThinkingHigh}
 }
 
 func CycleThinkingLevel(current ThinkingLevel, model string) ThinkingLevel {
@@ -77,20 +109,26 @@ func ApplyThinkingToRequest(req *ChatRequest, level ThinkingLevel, model string)
 	if !SupportsThinking(model) {
 		return
 	}
-	if level == ThinkingOff || level == "" {
-		req.Thinking = &ThinkingParams{Type: "disabled"}
+	modelLower := strings.ToLower(model)
+	if strings.Contains(modelLower, "minimax-m3") {
+		if level == ThinkingOff || level == "" {
+			req.Thinking = &ThinkingParams{Type: "disabled"}
+		} else {
+			req.Thinking = &ThinkingParams{Type: "adaptive"}
+		}
 		req.ReasoningEffort = ""
 		return
 	}
 
-	effort := ReasoningEffortForAPI(level, model)
-	if SupportsThinkingLevels(model) {
-		req.Thinking = &ThinkingParams{Type: "enabled"}
-		req.ReasoningEffort = effort
+	if level == ThinkingOff || level == "" {
+		req.ReasoningEffort = ""
+		req.Thinking = nil
 		return
 	}
 
+	effort := ReasoningEffortForAPI(level, model)
 	req.ReasoningEffort = effort
+	req.Thinking = nil
 }
 
 // ReasoningEffortForAPI maps UI thinking levels to provider wire values.
@@ -98,33 +136,68 @@ func ReasoningEffortForAPI(level ThinkingLevel, model string) string {
 	if level == ThinkingOff || level == "" {
 		return ""
 	}
-	if SupportsThinkingLevels(model) {
-		switch level {
-		case ThinkingXHigh:
+	if strings.Contains(strings.ToLower(model), "deepseek-v4") {
+		if level == ThinkingXHigh || level == ThinkingMax {
 			return "max"
-		case ThinkingHigh:
-			return "high"
-		default:
-			return string(level)
 		}
+		return string(level)
+	}
+	if level == ThinkingMax {
+		return "xhigh"
 	}
 	return string(level)
 }
 
+// SupportsReasoning returns true if the model supports reasoning output.
+func SupportsReasoning(model string) bool {
+	if m, ok := LookupCatalogModel(model); ok {
+		return m.Reasoning || m.ReasoningField != ""
+	}
+	// Fallback check before catalog is loaded/offline
+	modelLower := strings.ToLower(model)
+	if opencodeMandatoryThinkingID(model) {
+		return true
+	}
+	if strings.Contains(modelLower, "deepseek-v4") || strings.Contains(modelLower, "deepseek-r1") || strings.Contains(modelLower, "reasoner") {
+		return true
+	}
+	if strings.Contains(modelLower, "mimo") || strings.Contains(modelLower, "hy3") {
+		return true
+	}
+	if strings.Contains(modelLower, "gpt-") {
+		return true
+	}
+	return false
+}
+
 // NormalizeMessages ensures assistant messages include reasoning_content when required.
 func NormalizeMessages(msgs []Message, model string) []Message {
-	if !SupportsThinking(model) {
+	if !SupportsReasoning(model) {
 		return msgs
 	}
+	field := "reasoning_content"
+	if m, ok := LookupCatalogModel(model); ok && m.ReasoningField != "" {
+		field = m.ReasoningField
+	}
+
 	out := make([]Message, len(msgs))
 	copy(out, msgs)
 	for i := range out {
 		if out[i].Role != "assistant" {
 			continue
 		}
-		if out[i].ReasoningContent == nil {
-			empty := ""
-			out[i].ReasoningContent = &empty
+		reasoningText := out[i].GetReasoning()
+		out[i].ReasoningContent = nil
+		out[i].ReasoningDetails = nil
+		out[i].ReasoningPlain = nil
+
+		switch field {
+		case "reasoning_details":
+			out[i].ReasoningDetails = &reasoningText
+		case "reasoning":
+			out[i].ReasoningPlain = &reasoningText
+		default:
+			out[i].ReasoningContent = &reasoningText
 		}
 	}
 	return out
@@ -132,7 +205,7 @@ func NormalizeMessages(msgs []Message, model string) []Message {
 
 func ParseThinkingLevel(s string) ThinkingLevel {
 	switch ThinkingLevel(s) {
-	case ThinkingMinimal, ThinkingLow, ThinkingMedium, ThinkingHigh, ThinkingXHigh:
+	case ThinkingMinimal, ThinkingLow, ThinkingMedium, ThinkingHigh, ThinkingMax, ThinkingXHigh:
 		return ThinkingLevel(s)
 	default:
 		return ThinkingOff
