@@ -56,7 +56,7 @@ func promptWith(t *testing.T, a *Agent, srvURL, task string, emit func(core.Even
 	cfg := a.cfg
 	cfg.Endpoint = srvURL
 	cfg.APIKey = "k"
-	if err := a.Prompt(context.Background(), cfg, task, emit); err != nil {
+	if err := a.Prompt(context.Background(), cfg, task, nil, emit); err != nil {
 		t.Fatalf("Prompt: %v", err)
 	}
 }

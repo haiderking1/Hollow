@@ -4,20 +4,27 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"strings"
 )
 
 type ImageProtocol string
 
 const (
-	ImageKitty   ImageProtocol = "kitty"
-	ImageITerm2  ImageProtocol = "iterm2"
-	ImageNone    ImageProtocol = ""
+	ImageKitty  ImageProtocol = "kitty"
+	ImageITerm2 ImageProtocol = "iterm2"
+	ImageSixel  ImageProtocol = "sixel"
+	ImageNone   ImageProtocol = ""
 )
 
 const (
 	kittyPrefix  = "\x1b_G"
 	iterm2Prefix = "\x1b]1337;File="
+
+	// ImageReservedRow holds vertical space for direct-placement graphics.
+	// The image sequence is emitted on the last row with cursor-up so sixel
+	// or kitty output is not wiped by incremental EL on spacer lines below.
+	ImageReservedRow = "\x1b[0m"
 )
 
 // CellDimensions holds terminal cell size in pixels.
@@ -35,12 +42,37 @@ func SetCellDimensions(d CellDimensions) {
 	}
 }
 
+// GetCellDimensions returns the current assumed terminal cell size.
+func GetCellDimensions() CellDimensions {
+	return cellDimensions
+}
+
+// IsImageReservedRow reports a buffer line reserved for direct-placement height.
+func IsImageReservedRow(line string) bool {
+	i := 0
+	for i < len(line) && line[i] == ' ' {
+		i++
+	}
+	return line[i:] == ImageReservedRow
+}
+
+// IsImageLayoutRow reports lines that must not be wrapped, truncated, or padded.
+func IsImageLayoutRow(line string) bool {
+	return IsImageLine(line) || IsImageReservedRow(line)
+}
+
 // IsImageLine reports whether a rendered line contains inline terminal image data.
 func IsImageLine(line string) bool {
 	if strings.HasPrefix(line, kittyPrefix) || strings.HasPrefix(line, iterm2Prefix) {
 		return true
 	}
-	return strings.Contains(line, kittyPrefix) || strings.Contains(line, iterm2Prefix)
+	if strings.Contains(line, kittyPrefix) || strings.Contains(line, iterm2Prefix) {
+		return true
+	}
+	if isSixelLine(line) {
+		return true
+	}
+	return isBlockImageLine(line)
 }
 
 type ImageDimensions struct {
@@ -118,42 +150,70 @@ func encodeITerm2(base64Data string, widthCells int, name string) string {
 }
 
 func calculateImageCellSize(dim ImageDimensions, maxWidthCells int, maxHeightCells *int) imageCellSize {
-	maxWidth := max(1, maxWidthCells)
 	cellW := max(1, cellDimensions.WidthPx)
 	cellH := max(1, cellDimensions.HeightPx)
 	imageW := max(1, dim.WidthPx)
 	imageH := max(1, dim.HeightPx)
 
-	widthScale := float64(maxWidth*cellW) / float64(imageW)
-	heightScale := widthScale
-	if maxHeightCells != nil {
-		maxHeight := max(1, *maxHeightCells)
-		heightScale = float64(maxHeight*cellH) / float64(imageH)
+	var maxColumns, maxRows *int
+	if maxWidthCells > 0 {
+		v := max(1, maxWidthCells)
+		maxColumns = &v
 	}
-	scale := min(widthScale, heightScale)
+	if maxHeightCells != nil && *maxHeightCells > 0 {
+		v := max(1, *maxHeightCells)
+		maxRows = &v
+	}
 
-	columns := int(float64(imageW)*scale/float64(cellW) + 0.999999)
-	rows := int(float64(imageH)*scale/float64(cellH) + 0.999999)
-	if columns < 1 {
-		columns = 1
+	if maxColumns == nil && maxRows == nil {
+		columns := max(1, int(float64(imageW)/float64(cellW)+0.999999))
+		rows := max(1, int(float64(imageH)/float64(cellH)+0.999999))
+		return imageCellSize{Columns: columns, Rows: rows}
 	}
-	if rows < 1 {
-		rows = 1
+
+	maxWidthPx := math.MaxFloat64
+	maxHeightPx := math.MaxFloat64
+	if maxColumns != nil {
+		maxWidthPx = float64(*maxColumns * cellW)
 	}
-	if columns > maxWidth {
-		columns = maxWidth
+	if maxRows != nil {
+		maxHeightPx = float64(*maxRows * cellH)
 	}
-	if maxHeightCells != nil && rows > *maxHeightCells {
-		rows = *maxHeightCells
+	scale := min(maxWidthPx/float64(imageW), maxHeightPx/float64(imageH))
+	fittedWidthPx := float64(imageW) * scale
+	fittedHeightPx := float64(imageH) * scale
+
+	columns := max(1, int(fittedWidthPx/float64(cellW)))
+	rows := max(1, int(fittedHeightPx/float64(cellH)+0.999999))
+	if maxColumns != nil && columns > *maxColumns {
+		columns = *maxColumns
+	}
+	if maxRows != nil && rows > *maxRows {
+		rows = *maxRows
 	}
 	return imageCellSize{Columns: columns, Rows: rows}
 }
 
+// layoutDirectPlacementImage returns rows of buffer lines for cursor-up image
+// placement (oh-my-pi Image component pattern).
+func layoutDirectPlacementImage(rows int, sequence string) []string {
+	if rows < 1 {
+		rows = 1
+	}
+	if rows == 1 {
+		return []string{sequence}
+	}
+	lines := make([]string, rows)
+	for i := 0; i < rows-1; i++ {
+		lines[i] = ImageReservedRow
+	}
+	moveUp := fmt.Sprintf("\x1b[%dA", rows-1)
+	lines[rows-1] = moveUp + sequence
+	return lines
+}
+
 func renderImageSequence(base64Data string, mime string, dims ImageDimensions, maxWidthCells int, alt string) []string {
 	caps := currentCapabilities()
-	if caps.Images == ImageNone {
-		return nil
-	}
 
 	maxHeight := max(1, (maxWidthCells*cellDimensions.WidthPx)/max(1, cellDimensions.HeightPx))
 	size := calculateImageCellSize(dims, maxWidthCells, &maxHeight)
@@ -161,26 +221,22 @@ func renderImageSequence(base64Data string, mime string, dims ImageDimensions, m
 	switch caps.Images {
 	case ImageKitty:
 		seq := encodeKitty(base64Data, size.Columns, size.Rows, allocateImageID(), false)
-		lines := []string{seq}
-		for i := 1; i < size.Rows; i++ {
-			lines = append(lines, "")
-		}
-		return lines
+		return layoutDirectPlacementImage(size.Rows, seq)
 	case ImageITerm2:
 		seq := encodeITerm2(base64Data, size.Columns, alt)
-		lines := make([]string, size.Rows)
-		for i := 0; i < size.Rows-1; i++ {
-			lines[i] = ""
+		return layoutDirectPlacementImage(size.Rows, seq)
+	case ImageSixel:
+		if seq, ok := encodeImageSixel(base64Data, dims, maxWidthCells); ok {
+			return layoutDirectPlacementImage(size.Rows, seq)
 		}
-		moveUp := ""
-		if size.Rows > 1 {
-			moveUp = fmt.Sprintf("\x1b[%dA", size.Rows-1)
-		}
-		lines[size.Rows-1] = moveUp + seq
-		return lines
-	default:
-		return nil
 	}
+
+	if caps.TrueColor {
+		if lines := renderImageBlocks(base64Data, dims, maxWidthCells); len(lines) > 0 {
+			return lines
+		}
+	}
+	return nil
 }
 
 func imageFallbackLabel(mime string, dims *ImageDimensions, alt, url string) string {

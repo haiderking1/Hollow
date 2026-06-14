@@ -106,11 +106,11 @@ func TestRepeatedCompactionsKeptBoundary(t *testing.T) {
 	if ctxRes.Messages[0].Role != "compactionSummary" {
 		t.Fatalf("expected compactionSummary, got role %s", ctxRes.Messages[0].Role)
 	}
-	if *ctxRes.Messages[1].Content != "2" {
-		t.Fatalf("expected message 2, got %s", *ctxRes.Messages[1].Content)
+	if opencode.ContentString(ctxRes.Messages[1]) != "2" {
+		t.Fatalf("expected message 2, got %s", opencode.ContentString(ctxRes.Messages[1]))
 	}
-	if *ctxRes.Messages[4].Content != "c" {
-		t.Fatalf("expected message c, got %s", *ctxRes.Messages[4].Content)
+	if opencode.ContentString(ctxRes.Messages[4]) != "c" {
+		t.Fatalf("expected message c, got %s", opencode.ContentString(ctxRes.Messages[4]))
 	}
 }
 

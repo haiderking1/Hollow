@@ -89,6 +89,13 @@ type MessageEntry struct {
 	Message   opencode.Message `json:"message"`
 }
 
+type ChatImage struct {
+	URL      string // data URL
+	MIMEType string
+	Width    int
+	Height   int
+}
+
 // ChatLine is a TUI-friendly view of a persisted message or compaction summary.
 type ChatLine struct {
 	Role         string
@@ -99,6 +106,7 @@ type ChatLine struct {
 	ToolResult   string
 	ToolError    bool
 	TokensBefore int
+	Images       []ChatImage
 }
 
 func nowISO() string {

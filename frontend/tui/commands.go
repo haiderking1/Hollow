@@ -514,7 +514,7 @@ func (a *App) handleSlash(input string) {
 			}
 
 			if a.compacting {
-				a.compactionQueuedMessages = append(a.compactionQueuedMessages, expandedPrompt)
+				a.compactionQueuedMessages = append(a.compactionQueuedMessages, queuedMessage{text: expandedPrompt})
 				a.messages = append(a.messages, chatMsg{
 					role:     "skillSummary",
 					toolName: skillName,
@@ -534,7 +534,7 @@ func (a *App) handleSlash(input string) {
 			})
 			a.bumpChat()
 
-			a.startAgent(expandedPrompt)
+			a.startAgent(expandedPrompt, nil)
 			a.requestRender()
 			return
 		}

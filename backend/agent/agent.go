@@ -334,9 +334,15 @@ func (a *Agent) MemoryStore() *memory.Store {
 	return a.memStore
 }
 
+// UserAttachment represents an attachment (such as pasted image) passed from the user.
+type UserAttachment struct {
+	MIMEType string
+	Data     []byte // already resized
+}
+
 // Prompt appends a user message and runs the agent loop until the model stops
 // calling tools or the context is cancelled.
-func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string, emit func(core.Event)) error {
+func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string, attachments []UserAttachment, emit func(core.Event)) error {
 	a.mu.Lock()
 	if a.busy {
 		a.mu.Unlock()
@@ -433,9 +439,16 @@ func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string,
 		}
 	}
 
+	var parts []opencode.ImagePart
+	for _, att := range attachments {
+		parts = append(parts, opencode.ImagePart{
+			MIMEType: att.MIMEType,
+			Data:     att.Data,
+		})
+	}
 	userMsg := opencode.Message{
 		Role:    "user",
-		Content: opencode.StringContent(userText),
+		Content: opencode.UserContent(userText, parts),
 	}
 	a.mu.Lock()
 	a.messages = append(a.messages, userMsg)
@@ -713,11 +726,21 @@ func (a *Agent) runLoop(ctx context.Context) error {
 				a.notifyDirectMemoryWrite(call.Function.Arguments, result.output)
 			}
 
-			toolMsg := opencode.Message{
-				Role:       "tool",
-				ToolCallID: id,
-				Name:       call.Function.Name,
-				Content:    opencode.StringContent(result.output),
+			var toolMsg opencode.Message
+			if len(result.content) > 0 {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.ToolContentFromAgent(result.content),
+				}
+			} else {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.StringContent(result.output),
+				}
 			}
 
 			a.mu.Lock()

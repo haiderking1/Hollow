@@ -1,6 +1,10 @@
 package tui
 
-import "bytes"
+import (
+	"bytes"
+
+	"github.com/enough/enough/frontend/tui/markdown"
+)
 
 const escByte = 0x1b
 
@@ -26,6 +30,9 @@ func (b *stdinBuffer) process(data []byte) {
 		}
 		b.buf = b.buf[n:]
 		if len(seq) > 0 {
+			if markdown.HandleTerminalResponse(seq) {
+				continue
+			}
 			b.onSeq(seq)
 		}
 	}

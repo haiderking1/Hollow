@@ -36,8 +36,8 @@ func TestParseResponsesMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if msg.Content == nil || *msg.Content != "hello codex" {
-		t.Fatalf("content = %#v", msg.Content)
+	if len(msg.Content) == 0 || ContentString(msg) != "hello codex" {
+		t.Fatalf("content = %s", ContentString(msg))
 	}
 	if len(msg.ToolCalls) != 1 || msg.ToolCalls[0].Function.Name != "bash" {
 		t.Fatalf("tool calls = %#v", msg.ToolCalls)
@@ -144,8 +144,8 @@ func TestCodexResponsesStreamTextDeltas(t *testing.T) {
 	if strings.Join(deltas, "") != "Hello world" {
 		t.Fatalf("deltas = %q", strings.Join(deltas, ""))
 	}
-	if msg.Content == nil || *msg.Content != "Hello world" {
-		t.Fatalf("content = %#v", msg.Content)
+	if len(msg.Content) == 0 || ContentString(msg) != "Hello world" {
+		t.Fatalf("content = %s", ContentString(msg))
 	}
 	if msg.Usage == nil || msg.Usage.TotalTokens != 5 {
 		t.Fatalf("usage = %#v", msg.Usage)
@@ -205,8 +205,8 @@ func TestCodexResponsesStreamReasoningDeltas(t *testing.T) {
 	if msg.ReasoningContent == nil || *msg.ReasoningContent != "think" {
 		t.Fatalf("reasoning = %#v", msg.ReasoningContent)
 	}
-	if msg.Content == nil || *msg.Content != "answer" {
-		t.Fatalf("content = %#v", msg.Content)
+	if len(msg.Content) == 0 || ContentString(msg) != "answer" {
+		t.Fatalf("content = %s", ContentString(msg))
 	}
 }
 
@@ -224,3 +224,83 @@ func TestCodexResponsesStreamFailed(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestMessagesToResponsesInputWithImage(t *testing.T) {
+	blocks := []ContentBlock{
+		{Type: "text", Text: "image text description"},
+		{Type: "image_url", ImageURL: &ContentImageURL{URL: "data:image/png;base64,iVBOR"}},
+	}
+	msgs := []Message{
+		{
+			Role:       "tool",
+			ToolCallID: "call_abc",
+			Content:    BlocksContent(blocks),
+		},
+	}
+
+	items := messagesToResponsesInput(msgs)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	item, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("item is not map[string]any: %#v", items[0])
+	}
+	if item["type"] != "function_call_output" || item["call_id"] != "call_abc" {
+		t.Errorf("unexpected item fields: %+v", item)
+	}
+
+	output, ok := item["output"].([]map[string]any)
+	if !ok {
+		t.Fatalf("output is not []map[string]any: %#v", item["output"])
+	}
+	if len(output) != 2 {
+		t.Fatalf("expected 2 output blocks, got %d", len(output))
+	}
+	if output[0]["type"] != "input_text" || output[0]["text"] != "image text description" {
+		t.Errorf("unexpected first output block: %+v", output[0])
+	}
+	if output[1]["type"] != "input_image" || output[1]["image_url"] != "data:image/png;base64,iVBOR" {
+		t.Errorf("unexpected second output block: %+v", output[1])
+	}
+}
+
+func TestMessagesToResponsesInputUserWithImage(t *testing.T) {
+	blocks := []ContentBlock{
+		{Type: "text", Text: "user query text"},
+		{Type: "image_url", ImageURL: &ContentImageURL{URL: "data:image/png;base64,iVBOR"}},
+	}
+	msgs := []Message{
+		{
+			Role:    "user",
+			Content: BlocksContent(blocks),
+		},
+	}
+
+	items := messagesToResponsesInput(msgs)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	item, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("item is not map[string]any: %#v", items[0])
+	}
+	if item["role"] != "user" {
+		t.Errorf("unexpected item role: %+v", item["role"])
+	}
+
+	content, ok := item["content"].([]map[string]any)
+	if !ok {
+		t.Fatalf("content is not []map[string]any: %#v", item["content"])
+	}
+	if len(content) != 2 {
+		t.Fatalf("expected 2 content blocks, got %d", len(content))
+	}
+	if content[0]["type"] != "input_text" || content[0]["text"] != "user query text" {
+		t.Errorf("unexpected first content block: %+v", content[0])
+	}
+	if content[1]["type"] != "input_image" || content[1]["image_url"] != "data:image/png;base64,iVBOR" || content[1]["detail"] != "auto" {
+		t.Errorf("unexpected second content block: %+v", content[1])
+	}
+}
+

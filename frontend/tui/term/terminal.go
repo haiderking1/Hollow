@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 
+	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -38,6 +39,17 @@ func New() (*Terminal, error) {
 		width:  w,
 		height: h,
 	}, nil
+}
+
+// CellPixels reports the terminal cell size in pixels via TIOCGWINSZ. Foot and
+// most modern terminals populate the pixel fields; returns (0, 0) when they do
+// not (e.g. some multiplexers), letting the caller fall back to a query/default.
+func (t *Terminal) CellPixels() (w, h int) {
+	ws, err := unix.IoctlGetWinsize(t.fd, unix.TIOCGWINSZ)
+	if err != nil || ws.Col == 0 || ws.Row == 0 || ws.Xpixel == 0 || ws.Ypixel == 0 {
+		return 0, 0
+	}
+	return int(ws.Xpixel) / int(ws.Col), int(ws.Ypixel) / int(ws.Row)
 }
 
 func (t *Terminal) Columns() int {

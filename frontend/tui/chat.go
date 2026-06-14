@@ -2,12 +2,23 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
+	"github.com/enough/enough/backend/core"
+	"github.com/enough/enough/backend/session"
 	"github.com/enough/enough/frontend/tui/highlight"
 	"github.com/enough/enough/frontend/tui/markdown"
 	"github.com/enough/enough/frontend/tui/term"
 )
+
+type chatImage struct {
+	Path     string
+	MIMEType string
+	Width    int
+	Height   int
+	URL      string
+}
 
 type chatMsg struct {
 	role         string // user, assistant, tool, error, system, compactionSummary, branchSummary
@@ -24,6 +35,30 @@ type chatMsg struct {
 	toolDiffSnapshotted bool
 	toolBeforeContent   string
 	tokensBefore int
+	images       []chatImage
+}
+
+// chatMsgFromSessionLine maps a persisted session line to a TUI chat message.
+// When skipRuntimeNotice is true, internal user-role runtime notices are dropped.
+func chatMsgFromSessionLine(line session.ChatLine, skipRuntimeNotice bool) (chatMsg, bool) {
+	if skipRuntimeNotice && line.Role == "user" && strings.HasPrefix(line.Text, core.RuntimeNoticePrefix) {
+		return chatMsg{}, false
+	}
+	var chatImages []chatImage
+	for _, img := range line.Images {
+		chatImages = append(chatImages, chatImage{URL: img.URL})
+	}
+	return chatMsg{
+		role:         line.Role,
+		text:         line.Text,
+		thinking:     line.Thinking,
+		toolName:     line.ToolName,
+		toolArgs:     line.ToolArgs,
+		toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
+		toolError:    line.ToolError,
+		tokensBefore: line.TokensBefore,
+		images:       chatImages,
+	}, true
 }
 
 func wrapText(text string, width int) string {
@@ -180,6 +215,17 @@ func hashMsg(h uint64, m chatMsg) uint64 {
 	h = fnvInt(h, m.toolAdded)
 	h = fnvInt(h, m.toolRemoved)
 	h = fnvInt(h, m.tokensBefore)
+	for _, img := range m.images {
+		h = fnvStr(h, img.URL)
+		h = fnvStr(h, img.Path)
+		url := img.URL
+		if url == "" && img.Path != "" {
+			url = "file://" + img.Path
+		}
+		if url != "" && markdown.ImageReady(url) {
+			h = fnvByte(h, 2)
+		}
+	}
 	return h
 }
 
@@ -206,7 +252,7 @@ func chatBlockSpecs(styles Styles, messages []chatMsg, width int, hideThinking, 
 		case "user":
 			m := msg
 			add("user", hashMsg(seed, m), func() string {
-				return renderUser(styles, m.text, contentW)
+				return renderUser(styles, m, contentW, mdOpts)
 			})
 		case "assistant":
 			m := msg
@@ -304,22 +350,70 @@ func joinChatBlocks(blocks, roles []string) string {
 	return out.String()
 }
 
-func renderUser(styles Styles, text string, width int) string {
-	wrapped := wrapText(text, width-4)
+func renderUser(styles Styles, msg chatMsg, width int, mdOpts markdown.RenderOptions) string {
+	wrapped := wrapText(msg.text, width-4)
 	lines := strings.Split(wrapped, "\n")
-	if len(lines) == 0 {
-		return ""
-	}
 
 	var out strings.Builder
-	out.WriteString(styles.InputPrompt.Render("❯ "))
-	out.WriteString(styles.Text.Render(lines[0]))
+	hasText := len(lines) > 0 && lines[0] != ""
+	if hasText {
+		out.WriteString(styles.InputPrompt.Render("❯ "))
+		out.WriteString(styles.Text.Render(lines[0]))
 
-	for _, line := range lines[1:] {
-		out.WriteString("\n")
-		out.WriteString(styles.Text.Render("  " + line))
+		for _, line := range lines[1:] {
+			out.WriteString("\n")
+			out.WriteString(styles.Text.Render("  " + line))
+		}
 	}
+
+	for _, img := range msg.images {
+		var imgURL string
+		if img.Path != "" {
+			imgURL = "file://" + filepath.ToSlash(img.Path)
+		} else {
+			imgURL = img.URL
+		}
+		renderedImg := markdown.RenderAttachmentImage(imgURL, width-4, userMarkdownTheme(styles), mdOpts)
+
+		// Image protocol lines must be raw — margins corrupt sixel/kitty sequences
+		// and break direct-placement reserved rows during incremental redraw.
+		imgLines := strings.Split(strings.TrimRight(renderedImg, "\n"), "\n")
+		for _, imgLine := range imgLines {
+			if out.Len() > 0 {
+				out.WriteString("\n")
+			}
+			out.WriteString(imgLine)
+		}
+	}
+
 	return out.String()
+}
+
+func userMarkdownTheme(styles Styles) markdown.Theme {
+	p := highlight.GruvboxDark()
+	return markdown.Theme{
+		Plain: func(s string) string {
+			return styles.Text.Render(s)
+		},
+		Bold: func(s string) string {
+			return styles.Text.Copy().Bold(true).Render(s)
+		},
+		Italic: func(s string) string {
+			return styles.Text.Copy().Italic(true).Render(s)
+		},
+		Code: func(s string) string {
+			return p.InlineCode(s)
+		},
+		Link: func(s string) string {
+			return styles.LogAccent.Render(s)
+		},
+		LinkURL: func(s string) string {
+			return styles.LogDim.Render(s)
+		},
+		Heading: func(s string) string {
+			return styles.LogAccent.Copy().Bold(true).Render(s)
+		},
+	}
 }
 
 func renderAssistant(styles Styles, msg chatMsg, width int, hideThinking bool, mdOpts markdown.RenderOptions) string {

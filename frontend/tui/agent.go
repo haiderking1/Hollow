@@ -3,15 +3,15 @@ package tui
 import (
 	"context"
 	"fmt"
-	"strings"
 
+	"github.com/enough/enough/backend/agent"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/core"
 	"github.com/enough/enough/backend/session"
 	"github.com/enough/enough/backend/skills"
 )
 
-func (a *App) startAgent(task string) {
+func (a *App) startAgent(task string, attachments []agent.UserAttachment) {
 	a.running = true
 	a.beginAgentActivity()
 	a.evidenceCount = 0
@@ -48,7 +48,7 @@ func (a *App) startAgent(task string) {
 
 		ag := a.ensureAgent(cfg)
 
-		_ = ag.Prompt(context.Background(), cfg, task, emit)
+		_ = ag.Prompt(context.Background(), cfg, task, attachments, emit)
 	}()
 }
 
@@ -93,10 +93,8 @@ func (a *App) handleAgentEvent(e core.Event) {
 			a.reloadChatFromSession()
 		}
 
-		if !ev.WillRetry && len(a.compactionQueuedMessages) > 0 {
-			queued := strings.Join(a.compactionQueuedMessages, "\n")
-			a.compactionQueuedMessages = nil
-			a.startAgent(queued)
+		if !ev.WillRetry {
+			a.tryDrainCompactionQueue()
 		}
 
 	case core.EventBranchSummaryStart:

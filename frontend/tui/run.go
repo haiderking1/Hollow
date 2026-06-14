@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"os"
+
 	"github.com/enough/enough/backend/web"
+	"github.com/enough/enough/frontend/tui/markdown"
 	"github.com/enough/enough/frontend/tui/term"
 )
 
@@ -16,6 +19,8 @@ func RunWithPreloads(preloads []string) error {
 	if err != nil {
 		return err
 	}
+
+	markdown.InitTerminalCapabilities(int(os.Stdin.Fd()))
 
 	app := newApp(t)
 	app.preloadedSkills = preloads

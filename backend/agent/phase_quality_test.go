@@ -26,7 +26,7 @@ func TestGoalLockNoticeInjected(t *testing.T) {
 	cfg := a.cfg
 	cfg.Endpoint = srv.URL
 	cfg.APIKey = "k"
-	if err := a.Prompt(t.Context(), cfg, "fix the login bug", func(core.Event) {}); err != nil {
+	if err := a.Prompt(t.Context(), cfg, "fix the login bug", nil, func(core.Event) {}); err != nil {
 		t.Fatalf("Prompt: %v", err)
 	}
 

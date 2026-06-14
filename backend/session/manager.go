@@ -194,10 +194,19 @@ func messageToChatLine(msg opencode.Message) (ChatLine, bool) {
 	switch msg.Role {
 	case "user":
 		text := strings.TrimSpace(opencode.ContentString(msg))
-		if text == "" {
+		var chatImages []ChatImage
+		blocks := opencode.ContentBlocks(msg)
+		for _, b := range blocks {
+			if b.Type == "image_url" && b.ImageURL != nil {
+				chatImages = append(chatImages, ChatImage{
+					URL: b.ImageURL.URL,
+				})
+			}
+		}
+		if text == "" && len(chatImages) == 0 {
 			return ChatLine{}, false
 		}
-		return ChatLine{Role: "user", Text: text}, true
+		return ChatLine{Role: "user", Text: text, Images: chatImages}, true
 
 	case "assistant":
 		thinking := ""

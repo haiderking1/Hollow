@@ -9,9 +9,10 @@ func clampSplitLines(lines []string, width int) []string {
 	if width <= 0 || len(lines) == 0 {
 		return lines
 	}
+	sixelMask := markdown.GetSixelLineMask(lines)
 	out := make([]string, len(lines))
 	for i, line := range lines {
-		if markdown.IsImageLine(line) || line == "" {
+		if sixelMask[i] || markdown.IsImageLayoutRow(line) || line == "" {
 			out[i] = line
 			continue
 		}

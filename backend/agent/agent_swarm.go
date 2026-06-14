@@ -503,11 +503,21 @@ func (a *Agent) runWorkerLoop(ctx context.Context, prompt string, maxTurns int) 
 				}
 			}
 
-			toolMsg := opencode.Message{
-				Role:       "tool",
-				ToolCallID: id,
-				Name:       call.Function.Name,
-				Content:    opencode.StringContent(result.output),
+			var toolMsg opencode.Message
+			if len(result.content) > 0 {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.ToolContentFromAgent(result.content),
+				}
+			} else {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.StringContent(result.output),
+				}
 			}
 			messages = append(messages, toolMsg)
 		}
@@ -750,11 +760,21 @@ func (a *Agent) runPlannerLoop(ctx context.Context, prompt string) (output strin
 				id = fmt.Sprintf("planner_call_%d", idx)
 			}
 			result := a.executePlannerTool(call.Function.Name, call.Function.Arguments)
-			toolMsg := opencode.Message{
-				Role:       "tool",
-				ToolCallID: id,
-				Name:       call.Function.Name,
-				Content:    opencode.StringContent(result.output),
+			var toolMsg opencode.Message
+			if len(result.content) > 0 {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.ToolContentFromAgent(result.content),
+				}
+			} else {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.StringContent(result.output),
+				}
 			}
 			messages = append(messages, toolMsg)
 		}

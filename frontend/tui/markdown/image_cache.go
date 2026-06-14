@@ -1,6 +1,7 @@
 package markdown
 
 import (
+	"strings"
 	"sync"
 )
 
@@ -67,4 +68,39 @@ func primeImageCache(url string, data *ImageData) {
 	globalImageCache.mu.Lock()
 	globalImageCache.entries[url] = entry
 	globalImageCache.mu.Unlock()
+}
+
+// ImageReady reports whether url has finished loading into the image cache.
+func ImageReady(url string) bool {
+	globalImageCache.mu.Lock()
+	entry, ok := globalImageCache.entries[url]
+	globalImageCache.mu.Unlock()
+	if !ok {
+		return false
+	}
+	select {
+	case <-entry.ready:
+		return entry.err == nil && entry.data != nil
+	default:
+		return false
+	}
+}
+
+// RenderAttachmentImage renders a single image URL for chat attachments without
+// parsing markdown (avoids embedding megabyte data URLs in goldmark input).
+func RenderAttachmentImage(rawURL string, width int, theme Theme, opts RenderOptions) string {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return ""
+	}
+	if width < 10 {
+		width = 10
+	}
+	theme = theme.withDefaults()
+	r := &renderer{width: width, theme: theme, opts: opts}
+	lines := r.renderImageURL(rawURL, "image", "")
+	if len(lines) == 0 {
+		return ""
+	}
+	return strings.Join(wrapRenderLines(lines, width), "\n")
 }

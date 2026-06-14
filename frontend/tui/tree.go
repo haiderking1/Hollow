@@ -8,6 +8,7 @@ import (
 	"github.com/enough/enough/backend/agent"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/core"
+	"github.com/enough/enough/backend/opencode"
 	"github.com/enough/enough/backend/session"
 )
 
@@ -57,10 +58,7 @@ func getEntryDisplayText(e session.FileEntry, label string) string {
 			return "[Message: empty]" + suffix
 		}
 		role := e.Message.Role
-		content := ""
-		if e.Message.Content != nil {
-			content = *e.Message.Content
-		}
+		content := opencode.ContentString(*e.Message)
 		if len(content) > 60 {
 			content = content[:57] + "..."
 		}

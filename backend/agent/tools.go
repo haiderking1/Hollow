@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/enough/enough/backend/opencode"
 	"github.com/enough/enough/backend/skills"
 )
 
+type ToolContentBlock = opencode.ToolContentBlock
+
 type toolResult struct {
-	output string
-	isErr  bool
+	output  string
+	content []ToolContentBlock
+	isErr   bool
 }
 
 func (a *Agent) executeTool(ctx context.Context, id, name, argsJSON string) toolResult {

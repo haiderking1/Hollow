@@ -56,7 +56,7 @@ func TestCompactionTUIEventsAndQueue(t *testing.T) {
 	// 2. Test submitting messages during compaction queues them
 	app.editor.SetValue("hello while compacting")
 	app.handleSubmit()
-	if len(app.compactionQueuedMessages) != 1 || app.compactionQueuedMessages[0] != "hello while compacting" {
+	if len(app.compactionQueuedMessages) != 1 || app.compactionQueuedMessages[0].text != "hello while compacting" {
 		t.Fatalf("expected queued message, got %v", app.compactionQueuedMessages)
 	}
 
@@ -74,7 +74,37 @@ func TestCompactionTUIEventsAndQueue(t *testing.T) {
 		t.Fatal("expected app.compacting to be false after EventCompactionEnd")
 	}
 
-	// 4. Test escape cancellation routing
+	// 4. Queued messages drain one at a time when idle.
+	app.compactionQueuedMessages = []queuedMessage{
+		{text: "first"},
+		{text: "second", attachments: []agent.UserAttachment{{MIMEType: "image/png", Data: []byte("x")}}},
+	}
+	app.tryDrainCompactionQueue()
+	if !app.running {
+		t.Fatal("expected running after draining first queued message")
+	}
+	if len(app.compactionQueuedMessages) != 1 {
+		t.Fatalf("expected one queued message left, got %d", len(app.compactionQueuedMessages))
+	}
+	if app.compactionQueuedMessages[0].text != "second" {
+		t.Fatalf("expected second message to remain queued, got %+v", app.compactionQueuedMessages[0])
+	}
+	if len(app.compactionQueuedMessages[0].attachments) != 1 {
+		t.Fatalf("expected attachments preserved on second queued message, got %+v", app.compactionQueuedMessages[0].attachments)
+	}
+
+	app.running = true
+	app.tryDrainCompactionQueue()
+	if len(app.compactionQueuedMessages) != 1 {
+		t.Fatal("expected drain to no-op while agent is running")
+	}
+	app.running = false
+	app.tryDrainCompactionQueue()
+	if len(app.compactionQueuedMessages) != 0 {
+		t.Fatalf("expected queue empty after second drain, got %d", len(app.compactionQueuedMessages))
+	}
+
+	// 5. Test escape cancellation routing
 	cfg := config.Runtime{}
 	app.mu.Lock()
 	app.agent = agent.New(cfg, "", nil)

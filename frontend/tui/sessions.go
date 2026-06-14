@@ -225,16 +225,9 @@ func (a *App) resumeSession(path string) {
 	a.session = sm
 	a.messages = nil
 	for _, line := range sm.ChatLines() {
-		a.messages = append(a.messages, chatMsg{
-			role:         line.Role,
-			text:         line.Text,
-			thinking:     line.Thinking,
-			toolName:     line.ToolName,
-			toolArgs:     line.ToolArgs,
-			toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
-			toolError:    line.ToolError,
-			tokensBefore: line.TokensBefore,
-		})
+		if msg, ok := chatMsgFromSessionLine(line, false); ok {
+			a.messages = append(a.messages, msg)
+		}
 	}
 	a.bumpChat()
 

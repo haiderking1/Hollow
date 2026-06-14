@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/enough/enough/frontend/tui/markdown"
 	"github.com/enough/enough/frontend/tui/term"
 )
 
@@ -466,12 +467,39 @@ func renderToolGroup(styles Styles, tools []chatMsg, width int, expanded bool, s
 			if row.Error {
 				outStyle = styles.AssistError
 			}
-			for j, line := range strings.Split(detail, "\n") {
-				prefix := "  "
-				if j == 0 {
-					prefix = "└ "
+			if row.Kind == toolKindRead && strings.Contains(row.Output, "Read image file [") {
+				for j, line := range strings.Split(detail, "\n") {
+					prefix := "  "
+					if j == 0 {
+						prefix = "└ "
+					}
+					lines = append(lines, outStyle.Render(prefix+line))
 				}
-				lines = append(lines, outStyle.Render(prefix+line))
+
+				var args map[string]json.RawMessage
+				_ = json.Unmarshal([]byte(row.Args), &args)
+				pathStr := jsonString(args["path"])
+				if pathStr != "" {
+					absPath := pathStr
+					if !filepath.IsAbs(absPath) {
+						if cwd, err := os.Getwd(); err == nil {
+							absPath = filepath.Join(cwd, absPath)
+						}
+					}
+					fileURL := "file://" + filepath.ToSlash(filepath.Clean(absPath))
+					renderedMD := markdown.RenderAttachmentImage(fileURL, width, assistantMarkdownTheme(styles), markdown.RenderOptions{})
+					for _, line := range strings.Split(renderedMD, "\n") {
+						lines = append(lines, line)
+					}
+				}
+			} else {
+				for j, line := range strings.Split(detail, "\n") {
+					prefix := "  "
+					if j == 0 {
+						prefix = "└ "
+					}
+					lines = append(lines, outStyle.Render(prefix+line))
+				}
 			}
 		}
 		_ = msg
@@ -544,10 +572,30 @@ func renderReadBlock(styles Styles, row toolRow) []string {
 	switch {
 	case row.Pending:
 		lines = append(lines, styles.ToolSub.Render("└ …"))
+	case strings.Contains(row.Output, "Read image file ["):
+		var args map[string]json.RawMessage
+		_ = json.Unmarshal([]byte(row.Args), &args)
+		path := jsonString(args["path"])
+		lines = append(lines, styles.ToolSub.Render(parseImageInfo(row.Output, path)))
 	case row.Lines > 0:
 		lines = append(lines, styles.ToolSub.Render(fmt.Sprintf("└ Read %d lines", row.Lines)))
 	}
 	return lines
+}
+
+func parseImageInfo(output, path string) string {
+	lines := strings.Split(output, "\n")
+	filename := filepath.Base(path)
+	if filename == "." || filename == "/" || filename == "" {
+		filename = "image"
+	}
+	if len(lines) > 1 {
+		secondLine := strings.TrimSpace(lines[1])
+		if secondLine != "" && !strings.HasPrefix(secondLine, "[") {
+			return fmt.Sprintf("└ Read image %s (%s)", filename, secondLine)
+		}
+	}
+	return fmt.Sprintf("└ Read image %s", filename)
 }
 
 func renderBashBlock(styles Styles, row toolRow, width int, expanded bool) []string {

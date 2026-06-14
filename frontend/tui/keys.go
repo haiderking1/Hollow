@@ -29,6 +29,7 @@ const (
 	keyEnd
 	keyRune
 	keyPaste
+	keyCtrlV
 )
 
 type parsedKey struct {
@@ -111,6 +112,8 @@ func (kr *keyReader) parseOne() (parsedKey, int) {
 		return parsedKey{action: keyCtrlO}, 1
 	case 20:
 		return parsedKey{action: keyCtrlT}, 1
+	case 22:
+		return parsedKey{action: keyCtrlV}, 1
 	case '\r', '\n':
 		return parsedKey{action: keyEnter}, 1
 	case 127, 8:

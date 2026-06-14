@@ -7,15 +7,16 @@ import (
 )
 
 type composerRenderCache struct {
-	value         string
-	cursor        int
-	width         int
-	mode          composerMode
-	running       bool
-	compacting    bool
-	thinkingLevel string
-	connected     bool
-	lines         []string
+	value            string
+	cursor           int
+	width            int
+	mode             composerMode
+	running          bool
+	compacting       bool
+	thinkingLevel    string
+	connected        bool
+	attachmentsCount int
+	lines            []string
 }
 
 func (a *App) composerLines(width int) []string {
@@ -33,6 +34,7 @@ func (a *App) composerLines(width int) []string {
 		c.compacting == a.compacting &&
 		c.thinkingLevel == thinking &&
 		c.connected == connected &&
+		c.attachmentsCount == len(a.pendingAttachments) &&
 		c.lines != nil {
 		return c.lines
 	}
@@ -53,5 +55,6 @@ func (a *App) composerLines(width int) []string {
 	c.compacting = a.compacting
 	c.thinkingLevel = thinking
 	c.connected = connected
+	c.attachmentsCount = len(a.pendingAttachments)
 	return c.lines
 }

@@ -179,13 +179,13 @@ func ConvertToLlm(messages []opencode.Message) []opencode.Message {
 	for _, m := range messages {
 		switch m.Role {
 		case "compactionSummary":
-			content := CompactionSummaryPrefix + *m.Content + CompactionSummarySuffix
+			content := CompactionSummaryPrefix + opencode.ContentString(m) + CompactionSummarySuffix
 			out = append(out, opencode.Message{
 				Role:    "user",
 				Content: opencode.StringContent(content),
 			})
 		case "branchSummary":
-			content := BranchSummaryPrefix + *m.Content + BranchSummarySuffix
+			content := BranchSummaryPrefix + opencode.ContentString(m) + BranchSummarySuffix
 			out = append(out, opencode.Message{
 				Role:    "user",
 				Content: opencode.StringContent(content),
@@ -225,14 +225,14 @@ type ContextUsageEstimate struct {
 func EstimateMessageTokens(msg opencode.Message) int {
 	chars := 0
 	if msg.Role == "user" {
-		if msg.Content != nil {
-			chars = len(*msg.Content)
+		if len(msg.Content) > 0 {
+			chars = len(opencode.ContentString(msg))
 		}
 		return (chars + 3) / 4
 	}
 	if msg.Role == "assistant" {
-		if msg.Content != nil {
-			chars += len(*msg.Content)
+		if len(msg.Content) > 0 {
+			chars += len(opencode.ContentString(msg))
 		}
 		if msg.ReasoningContent != nil {
 			chars += len(*msg.ReasoningContent)
@@ -243,14 +243,14 @@ func EstimateMessageTokens(msg opencode.Message) int {
 		return (chars + 3) / 4
 	}
 	if msg.Role == "tool" || msg.Role == "toolResult" {
-		if msg.Content != nil {
-			chars = len(*msg.Content)
+		if len(msg.Content) > 0 {
+			chars = len(opencode.ContentString(msg))
 		}
 		return (chars + 3) / 4
 	}
 	if msg.Role == "compactionSummary" || msg.Role == "branchSummary" {
-		if msg.Content != nil {
-			chars = len(*msg.Content)
+		if len(msg.Content) > 0 {
+			chars = len(opencode.ContentString(msg))
 		}
 		return (chars + 3) / 4
 	}

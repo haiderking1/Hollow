@@ -156,12 +156,23 @@ func (a *Agent) verifierLoop(ctx context.Context, task string) (verifierReport, 
 			a.toolStart(id, call.Function.Name, call.Function.Arguments)
 			result := a.executeTool(ctx, id, call.Function.Name, call.Function.Arguments)
 			a.toolResult(id, result.output, result.isErr)
-			messages = append(messages, opencode.Message{
-				Role:       "tool",
-				ToolCallID: id,
-				Name:       call.Function.Name,
-				Content:    opencode.StringContent(result.output),
-			})
+			var toolMsg opencode.Message
+			if len(result.content) > 0 {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.ToolContentFromAgent(result.content),
+				}
+			} else {
+				toolMsg = opencode.Message{
+					Role:       "tool",
+					ToolCallID: id,
+					Name:       call.Function.Name,
+					Content:    opencode.StringContent(result.output),
+				}
+			}
+			messages = append(messages, toolMsg)
 		}
 	}
 

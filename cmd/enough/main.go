@@ -172,7 +172,7 @@ func main() {
 			}
 		}
 
-		err = ag.Prompt(context.Background(), cfg, query, emit)
+		err = ag.Prompt(context.Background(), cfg, query, nil, emit)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Execution error: %v\n", err)
 			os.Exit(1)

@@ -1,6 +1,11 @@
 package flame
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/enough/enough/frontend/tui/markdown"
+)
 
 func TestPrefixEqual(t *testing.T) {
 	a := []string{"one", "two", "three"}
@@ -10,6 +15,49 @@ func TestPrefixEqual(t *testing.T) {
 	}
 	if prefixEqual(a, b, 3) {
 		t.Fatal("expected prefix mismatch at index 2")
+	}
+}
+
+func TestIsImageSpacerRow(t *testing.T) {
+	undo := markdown.CapabilitiesForTest(markdown.Capabilities{Images: markdown.ImageSixel, TrueColor: true})
+	defer undo()
+
+	rendered := markdown.RenderAttachmentImage(
+		"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+		40,
+		markdown.Theme{},
+		markdown.RenderOptions{},
+	)
+	if rendered == "" {
+		t.Fatal("expected sixel output")
+	}
+
+	imgLines := strings.Split(strings.TrimSpace(rendered), "\n")
+	if len(imgLines) < 1 {
+		t.Fatal("expected at least one image line")
+	}
+	imageLine := imgLines[len(imgLines)-1]
+	if !markdown.IsImageLine(imageLine) {
+		t.Fatalf("expected image on last line, got %q", imageLine)
+	}
+
+	lines := []string{"hello"}
+	for _, l := range imgLines {
+		lines = append(lines, l)
+	}
+	lines = append(lines, "next")
+
+	for i := 1; i < len(imgLines); i++ {
+		idx := i // reserved row index in lines
+		if !isImageSpacerRow(lines, idx) {
+			t.Fatalf("expected reserved row %d to be image spacer", idx)
+		}
+	}
+	if isImageSpacerRow(lines, len(lines)-1) {
+		t.Fatal("text line should not be image spacer")
+	}
+	if isImageSpacerRow(lines, 0) {
+		t.Fatal("text line should not be image spacer")
 	}
 }
 

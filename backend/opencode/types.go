@@ -42,14 +42,24 @@ type Usage struct {
 	CacheWrite  int `json:"cacheWrite,omitempty"`
 }
 
+type ContentBlock struct {
+	Type     string           `json:"type"`               // "text" | "image_url"
+	Text     string           `json:"text,omitempty"`
+	ImageURL *ContentImageURL `json:"image_url,omitempty"`
+}
+
+type ContentImageURL struct {
+	URL string `json:"url"`
+}
+
 type Message struct {
-	Role             string     `json:"role"`
-	Content          *string    `json:"content"`
-	ReasoningContent *string    `json:"reasoning_content,omitempty"`
-	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID       string     `json:"tool_call_id,omitempty"`
-	Name             string     `json:"name,omitempty"`
-	Usage            *Usage     `json:"usage,omitempty"`
+	Role             string          `json:"role"`
+	Content          json.RawMessage `json:"content"`
+	ReasoningContent *string         `json:"reasoning_content,omitempty"`
+	ToolCalls        []ToolCall      `json:"tool_calls,omitempty"`
+	ToolCallID       string          `json:"tool_call_id,omitempty"`
+	Name             string          `json:"name,omitempty"`
+	Usage            *Usage          `json:"usage,omitempty"`
 }
 
 func (m *Message) UnmarshalJSON(data []byte) error {
@@ -62,35 +72,7 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
-
-	if len(aux.Content) == 0 {
-		return nil
-	}
-
-	// Try to unmarshal as string
-	var s string
-	if err := json.Unmarshal(aux.Content, &s); err == nil {
-		m.Content = &s
-		return nil
-	}
-
-	// Try to unmarshal as array of blocks
-	var blocks []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(aux.Content, &blocks); err == nil {
-		var contentParts []string
-		for _, b := range blocks {
-			if b.Type == "text" && b.Text != "" {
-				contentParts = append(contentParts, b.Text)
-			}
-		}
-		res := strings.Join(contentParts, "\n")
-		m.Content = &res
-		return nil
-	}
-
+	m.Content = aux.Content
 	return nil
 }
 
@@ -116,13 +98,48 @@ type ToolCallFunction struct {
 	Arguments string `json:"arguments"`
 }
 
-func StringContent(s string) *string {
-	return &s
+func StringContent(s string) json.RawMessage {
+	b, _ := json.Marshal(s)
+	return b
+}
+
+func BlocksContent(blocks []ContentBlock) json.RawMessage {
+	b, _ := json.Marshal(blocks)
+	return b
 }
 
 func ContentString(m Message) string {
-	if m.Content == nil {
+	if len(m.Content) == 0 || string(m.Content) == "null" {
 		return ""
 	}
-	return *m.Content
+	var s string
+	if err := json.Unmarshal(m.Content, &s); err == nil {
+		return s
+	}
+	var blocks []ContentBlock
+	if err := json.Unmarshal(m.Content, &blocks); err == nil {
+		var parts []string
+		for _, b := range blocks {
+			if b.Type == "text" && b.Text != "" {
+				parts = append(parts, b.Text)
+			}
+		}
+		return strings.Join(parts, "\n")
+	}
+	return ""
+}
+
+func ContentBlocks(m Message) []ContentBlock {
+	if len(m.Content) == 0 || string(m.Content) == "null" {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(m.Content, &s); err == nil {
+		return []ContentBlock{{Type: "text", Text: s}}
+	}
+	var blocks []ContentBlock
+	if err := json.Unmarshal(m.Content, &blocks); err == nil {
+		return blocks
+	}
+	return nil
 }

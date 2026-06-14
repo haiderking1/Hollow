@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/enough/enough/frontend/tui/markdown"
 	"github.com/enough/enough/frontend/tui/term"
 )
 
@@ -185,7 +186,11 @@ func (r *Renderer) Render(lines []string, stablePrefix int) {
 				buf.WriteString("\x1b[1B")
 			}
 			for i := 0; i < extraLines; i++ {
-				buf.WriteString("\r\x1b[2K")
+				if !isImageSpacerRow(r.previousLines, len(newLines)+i) {
+					buf.WriteString("\r\x1b[2K")
+				} else {
+					buf.WriteString("\r")
+				}
 				if i < extraLines-1 {
 					buf.WriteString("\x1b[1B")
 				}
@@ -257,6 +262,9 @@ func (r *Renderer) Render(lines []string, stablePrefix int) {
 		if i > firstChanged {
 			buf.WriteString("\r\n")
 		}
+		if isImageSpacerRow(newLines, i) {
+			continue
+		}
 		buf.WriteString("\x1b[2K")
 		buf.WriteString(newLines[i])
 	}
@@ -272,6 +280,10 @@ func (r *Renderer) Render(lines []string, stablePrefix int) {
 		}
 		extraLines := len(r.previousLines) - len(newLines)
 		for i := len(newLines); i < len(r.previousLines); i++ {
+			if isImageSpacerRow(r.previousLines, i) {
+				buf.WriteString("\r\n")
+				continue
+			}
 			buf.WriteString("\r\n\x1b[2K")
 		}
 		if extraLines > 0 {
@@ -352,4 +364,36 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// isImageSpacerRow reports buffer lines that must not be EL-cleared during
+// incremental redraw. Direct-placement images reserve rows above the sequence
+// line; legacy layouts may still use blank rows below a first-line sequence.
+func isImageSpacerRow(lines []string, i int) bool {
+	if i < 0 || i >= len(lines) {
+		return false
+	}
+	sixelMask := markdown.GetSixelLineMask(lines)
+	if sixelMask[i] && !markdown.IsImageLine(lines[i]) {
+		return true
+	}
+	if markdown.IsImageReservedRow(lines[i]) {
+		for j := i + 1; j < len(lines); j++ {
+			if markdown.IsImageReservedRow(lines[j]) {
+				continue
+			}
+			return markdown.IsImageLine(lines[j])
+		}
+		return false
+	}
+	if lines[i] != "" {
+		return false
+	}
+	for j := i - 1; j >= 0; j-- {
+		if lines[j] == "" || markdown.IsImageReservedRow(lines[j]) {
+			continue
+		}
+		return markdown.IsImageLine(lines[j])
+	}
+	return false
 }

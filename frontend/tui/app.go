@@ -2,7 +2,11 @@ package tui
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -12,11 +16,27 @@ import (
 	"github.com/enough/enough/backend/auth"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/core"
+	"github.com/enough/enough/backend/enoughhome"
+	"github.com/enough/enough/backend/imageutil"
 	"github.com/enough/enough/backend/opencode"
 	"github.com/enough/enough/backend/session"
 	"github.com/enough/enough/frontend/tui/flame"
+	"github.com/enough/enough/frontend/tui/markdown"
 	"github.com/enough/enough/frontend/tui/term"
 )
+
+type pendingAttachment struct {
+	id     string
+	path   string // stored on disk under ~/.enough/attachments/{sessionID}/{uuid}.{ext}
+	mime   string
+	width  int
+	height int
+}
+
+type queuedMessage struct {
+	text        string
+	attachments []agent.UserAttachment
+}
 
 type App struct {
 	term     *term.Terminal
@@ -69,7 +89,8 @@ type App struct {
 	activityStreamSegments   int
 	activityStartedAt        time.Time
 	toolSpinnerFrame         int
-	compactionQueuedMessages []string
+	compactionQueuedMessages []queuedMessage
+	pendingAttachments       []pendingAttachment
 	agentCh                  <-chan core.Event
 	agent                    *agent.Agent
 	session                  *session.Manager
@@ -151,6 +172,18 @@ func (a *App) notifyAsync(text string) {
 	a.requestRender()
 }
 
+// refreshCellDimensions sets the terminal cell pixel size used for image
+// scaling. It prefers the TIOCGWINSZ ioctl (no escape, no leak, accurate per
+// font/DPI) and falls back to the CSI 16 t query when the terminal does not
+// report pixel geometry.
+func (a *App) refreshCellDimensions() {
+	if w, h := a.term.CellPixels(); w > 0 && h > 0 {
+		markdown.SetCellDimensions(markdown.CellDimensions{WidthPx: w, HeightPx: h})
+		return
+	}
+	markdown.QueryCellDimensions(a.term)
+}
+
 func (a *App) run() error {
 	a.width = a.term.Columns()
 	a.height = a.term.Rows()
@@ -167,10 +200,12 @@ func (a *App) run() error {
 		a.width = a.term.Columns()
 		a.height = a.term.Rows()
 		a.mu.Unlock()
+		a.refreshCellDimensions()
 		a.requestRenderNow()
 	}); err != nil {
 		return err
 	}
+	a.refreshCellDimensions()
 	defer func() {
 		a.shutdown()
 		a.stopRenderTimer()
@@ -229,24 +264,14 @@ func (a *App) run() error {
 
 		case e, ok := <-agentCh:
 			if !ok {
-				a.mu.Lock()
-				a.running = false
-				a.lastActiveAt = time.Now()
-				a.agentCh = nil
-				a.stopAgentActivity()
-				a.mu.Unlock()
+				a.finishAgentRun()
 			} else {
 				a.handleAgentEvent(e)
 				for {
 					select {
 					case e, ok = <-agentCh:
 						if !ok {
-							a.mu.Lock()
-							a.running = false
-							a.lastActiveAt = time.Now()
-							a.agentCh = nil
-							a.stopAgentActivity()
-							a.mu.Unlock()
+							a.finishAgentRun()
 							goto agentEventsDone
 						}
 						a.handleAgentEvent(e)
@@ -316,16 +341,9 @@ func (a *App) initSession() error {
 	a.session = sm
 
 	for _, line := range sm.ChatLines() {
-		a.messages = append(a.messages, chatMsg{
-			role:         line.Role,
-			text:         line.Text,
-			thinking:     line.Thinking,
-			toolName:     line.ToolName,
-			toolArgs:     line.ToolArgs,
-			toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
-			toolError:    line.ToolError,
-			tokensBefore: line.TokensBefore,
-		})
+		if msg, ok := chatMsgFromSessionLine(line, false); ok {
+			a.messages = append(a.messages, msg)
+		}
 	}
 	a.bumpChat()
 	return nil
@@ -353,22 +371,37 @@ func (a *App) reloadChatFromSession() {
 		return
 	}
 	for _, line := range a.session.ChatLines() {
-		// Runtime-injected continuation notices are model plumbing, not chat.
-		if line.Role == "user" && strings.HasPrefix(line.Text, core.RuntimeNoticePrefix) {
-			continue
+		if msg, ok := chatMsgFromSessionLine(line, true); ok {
+			a.messages = append(a.messages, msg)
 		}
-		a.messages = append(a.messages, chatMsg{
-			role:         line.Role,
-			text:         line.Text,
-			thinking:     line.Thinking,
-			toolName:     line.ToolName,
-			toolArgs:     line.ToolArgs,
-			toolResult:   sanitizeLoadedToolResult(line.ToolName, line.ToolResult),
-			toolError:    line.ToolError,
-			tokensBefore: line.TokensBefore,
-		})
 	}
 	a.bumpChat()
+}
+
+func (a *App) finishAgentRun() {
+	a.mu.Lock()
+	a.running = false
+	a.lastActiveAt = time.Now()
+	a.agentCh = nil
+	a.stopAgentActivity()
+	a.mu.Unlock()
+	a.tryDrainCompactionQueue()
+}
+
+// tryDrainCompactionQueue starts the next queued user turn after compaction or
+// agent idle. Processes one message at a time so attachments stay with their turn.
+func (a *App) tryDrainCompactionQueue() {
+	a.mu.Lock()
+	running := a.running
+	compacting := a.compacting
+	if running || compacting || len(a.compactionQueuedMessages) == 0 {
+		a.mu.Unlock()
+		return
+	}
+	next := a.compactionQueuedMessages[0]
+	a.compactionQueuedMessages = a.compactionQueuedMessages[1:]
+	a.mu.Unlock()
+	a.startAgent(next.text, next.attachments)
 }
 
 func (a *App) handleInput(data []byte) {
@@ -546,7 +579,11 @@ func (a *App) applyEditorKey(k parsedKey) {
 	case keyRune:
 		a.editor.Insert(k.r)
 	case keyBackspace:
-		a.editor.Backspace()
+		if a.editor.Value() == "" && len(a.pendingAttachments) > 0 {
+			a.pendingAttachments = a.pendingAttachments[:len(a.pendingAttachments)-1]
+		} else {
+			a.editor.Backspace()
+		}
 	case keyDelete:
 		a.editor.Delete()
 	case keyLeft:
@@ -557,8 +594,15 @@ func (a *App) applyEditorKey(k parsedKey) {
 		a.editor.Home()
 	case keyEnd:
 		a.editor.End()
-	case keyPaste:
-		a.editor.InsertPaste(k.paste)
+	case keyCtrlV, keyPaste:
+		if a.tryAttachClipboardImage() {
+			break
+		}
+		if k.action == keyPaste {
+			a.editor.InsertPaste(k.paste)
+		} else if text, err := readClipboardText(); err == nil && text != "" {
+			a.editor.InsertPaste(text)
+		}
 	}
 }
 
@@ -653,6 +697,18 @@ func (a *App) buildLines() (out []string, stablePrefix int) {
 }
 
 func (a *App) renderTaskInput() string {
+	res := a.renderTaskInputRaw()
+	if len(a.pendingAttachments) > 0 {
+		var chips []string
+		for _, att := range a.pendingAttachments {
+			chips = append(chips, a.styles.InputHint.Render(fmt.Sprintf("[🖼 image (%dx%d)]", att.width, att.height)))
+		}
+		res += "\n" + "  " + strings.Join(chips, " ")
+	}
+	return res
+}
+
+func (a *App) renderTaskInputRaw() string {
 	runes := a.editor.Runes()
 	cursor := a.editor.Cursor()
 
@@ -796,19 +852,115 @@ func (a *App) handleSubmit() {
 		return
 	}
 
-	if raw == "" {
+	attachments, chatImages := a.takePendingAttachments()
+	if raw == "" && len(attachments) == 0 {
 		return
 	}
 
 	if a.compacting {
-		a.compactionQueuedMessages = append(a.compactionQueuedMessages, raw)
-		a.appendMessage("user", raw)
+		a.compactionQueuedMessages = append(a.compactionQueuedMessages, queuedMessage{text: raw, attachments: attachments})
+		a.appendUserMessage(raw, chatImages)
 		a.requestRender()
 		return
 	}
 
-	a.appendMessage("user", raw)
-	a.startAgent(raw)
+	a.appendUserMessage(raw, chatImages)
+	a.startAgent(raw, attachments)
+	a.requestRender()
+}
+
+func (a *App) takePendingAttachments() ([]agent.UserAttachment, []chatImage) {
+	var out []agent.UserAttachment
+	var imgs []chatImage
+	for _, att := range a.pendingAttachments {
+		data, err := os.ReadFile(att.path)
+		if err != nil {
+			continue
+		}
+		out = append(out, agent.UserAttachment{
+			MIMEType: att.mime,
+			Data:     data,
+		})
+		imgs = append(imgs, chatImage{
+			Path:     att.path,
+			MIMEType: att.mime,
+			Width:    att.width,
+			Height:   att.height,
+		})
+	}
+	a.pendingAttachments = nil
+	return out, imgs
+}
+
+func (a *App) appendUserMessage(text string, images []chatImage) {
+	text = strings.TrimSpace(text)
+	if text == "" && len(images) == 0 {
+		return
+	}
+	a.messages = append(a.messages, chatMsg{
+		role:   "user",
+		text:   text,
+		images: images,
+	})
+	a.bumpChat()
+	a.requestRender()
+}
+
+func (a *App) tryAttachClipboardImage() bool {
+	data, mime, err := readClipboardImage()
+	if err != nil || len(data) == 0 {
+		return false
+	}
+	a.attachImage(data, mime)
+	return true
+}
+
+func (a *App) attachImage(data []byte, mime string) {
+	sessionID := "temp"
+	if a.session != nil {
+		sessionID = a.session.SessionID()
+	}
+
+	resizedData, w, h, _, _, _, err := imageutil.ResizeImage(data, mime)
+	if err != nil {
+		a.appendMessage("error", "Failed to resize image: "+err.Error())
+		return
+	}
+
+	ext := "png"
+	switch mime {
+	case "image/jpeg":
+		ext = "jpg"
+	case "image/gif":
+		ext = "gif"
+	case "image/webp":
+		ext = "webp"
+	}
+
+	uuidBytes := make([]byte, 16)
+	_, _ = rand.Read(uuidBytes)
+	uuidStr := hex.EncodeToString(uuidBytes)
+	fileName := uuidStr + "." + ext
+
+	dir := filepath.Join(enoughhome.HomeDir(), "attachments", sessionID)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		a.appendMessage("error", "Failed to create attachments directory: "+err.Error())
+		return
+	}
+
+	filePath := filepath.Join(dir, fileName)
+	if err := os.WriteFile(filePath, resizedData, 0644); err != nil {
+		a.appendMessage("error", "Failed to save attachment: "+err.Error())
+		return
+	}
+
+	a.pendingAttachments = append(a.pendingAttachments, pendingAttachment{
+		id:     uuidStr,
+		path:   filePath,
+		mime:   mime,
+		width:  w,
+		height: h,
+	})
 	a.requestRender()
 }
 

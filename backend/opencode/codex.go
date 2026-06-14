@@ -177,11 +177,43 @@ func messagesToResponsesInput(msgs []Message) []any {
 		case "system":
 			continue
 		case "user":
-			text := ContentString(msg)
-			items = append(items, map[string]any{
-				"role":    "user",
-				"content": text,
-			})
+			blocks := ContentBlocks(msg)
+			hasImage := false
+			for _, b := range blocks {
+				if b.Type == "image_url" {
+					hasImage = true
+					break
+				}
+			}
+			if hasImage {
+				var content []map[string]any
+				for _, b := range blocks {
+					switch b.Type {
+					case "text":
+						if b.Text != "" {
+							content = append(content, map[string]any{"type": "input_text", "text": b.Text})
+						}
+					case "image_url":
+						if b.ImageURL != nil {
+							content = append(content, map[string]any{
+								"type":      "input_image",
+								"image_url": b.ImageURL.URL,
+								"detail":    "auto",
+							})
+						}
+					}
+				}
+				items = append(items, map[string]any{
+					"role":    "user",
+					"content": content,
+				})
+			} else {
+				text := ContentString(msg)
+				items = append(items, map[string]any{
+					"role":    "user",
+					"content": text,
+				})
+			}
 		case "assistant":
 			text := ContentString(msg)
 			if text != "" {
@@ -209,11 +241,41 @@ func messagesToResponsesInput(msgs []Message) []any {
 			if callID == "" {
 				continue
 			}
-			items = append(items, map[string]any{
-				"type":    "function_call_output",
-				"call_id": callID,
-				"output":  ContentString(msg),
-			})
+			blocks := ContentBlocks(msg)
+			hasImage := false
+			for _, b := range blocks {
+				if b.Type == "image_url" {
+					hasImage = true
+					break
+				}
+			}
+			if hasImage {
+				var outputItems []map[string]any
+				for _, b := range blocks {
+					if b.Type == "image_url" && b.ImageURL != nil {
+						outputItems = append(outputItems, map[string]any{
+							"type":      "input_image",
+							"image_url": b.ImageURL.URL,
+						})
+					} else {
+						outputItems = append(outputItems, map[string]any{
+							"type": "input_text",
+							"text": b.Text,
+						})
+					}
+				}
+				items = append(items, map[string]any{
+					"type":    "function_call_output",
+					"call_id": callID,
+					"output":  outputItems,
+				})
+			} else {
+				items = append(items, map[string]any{
+					"type":    "function_call_output",
+					"call_id": callID,
+					"output":  ContentString(msg),
+				})
+			}
 		}
 	}
 	return items
@@ -268,7 +330,7 @@ func parseResponsesMessage(resp responsesResponse) (Message, error) {
 	output := resp.Output
 	if len(output) == 0 && strings.TrimSpace(resp.OutputText) != "" {
 		s := strings.TrimSpace(resp.OutputText)
-		msg.Content = &s
+		msg.Content = StringContent(s)
 		return msg, nil
 	}
 	if len(output) == 0 {
@@ -321,14 +383,14 @@ func parseResponsesMessage(resp responsesResponse) (Message, error) {
 
 	if len(textParts) > 0 {
 		s := strings.Join(textParts, "")
-		msg.Content = &s
+		msg.Content = StringContent(s)
 	}
 	if len(reasoningParts) > 0 {
 		s := strings.Join(reasoningParts, "\n")
 		msg.ReasoningContent = &s
 	}
 
-	if msg.Content == nil && len(msg.ToolCalls) == 0 {
+	if len(msg.Content) == 0 && len(msg.ToolCalls) == 0 {
 		return Message{}, fmt.Errorf("codex: no assistant output")
 	}
 	return msg, nil

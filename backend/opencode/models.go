@@ -357,3 +357,23 @@ func FormatThinkingBadge(m ModelInfo, level ThinkingLevel) string {
 	}
 	return FormatThinkingLabel(level)
 }
+
+func SupportsImages(model string) bool {
+	m := strings.ToLower(model)
+	if strings.HasPrefix(m, "gpt-5") {
+		return true
+	}
+	if strings.HasPrefix(m, "gpt-5.3-codex-spark") {
+		return true
+	}
+	if strings.HasPrefix(m, "kimi-k2") {
+		return true
+	}
+	if strings.HasPrefix(m, "glm-") {
+		return true
+	}
+	if strings.HasPrefix(m, "mimo-v2-omni") {
+		return true
+	}
+	return false
+}

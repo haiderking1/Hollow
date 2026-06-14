@@ -6,6 +6,11 @@ import (
 	"github.com/yuin/goldmark/ast"
 )
 
+func isLocalImageURL(rawURL string) bool {
+	rawURL = strings.TrimSpace(rawURL)
+	return strings.HasPrefix(rawURL, "data:") || strings.HasPrefix(rawURL, "file://")
+}
+
 func (r *renderer) renderImageURL(url, alt string, nextKind string) []renderLine {
 	url = strings.TrimSpace(url)
 	alt = strings.TrimSpace(alt)
@@ -18,7 +23,16 @@ func (r *renderer) renderImageURL(url, alt string, nextKind string) []renderLine
 		return r.imageLines(data, alt, url, nextKind)
 	}
 
-	if caps.Images != ImageNone && isFetchableImageURL(url) {
+	// Pasted attachments and read_file previews are already local — render
+	// synchronously so the first frame shows pixels, not a data-URL placeholder.
+	if (caps.Images != ImageNone || caps.TrueColor) && isLocalImageURL(url) {
+		if data, err := fetchImage(url); err == nil && data != nil {
+			primeImageCache(url, data)
+			return r.imageLines(data, alt, url, nextKind)
+		}
+	}
+
+	if (caps.Images != ImageNone || caps.TrueColor) && isFetchableImageURL(url) {
 		globalImageCache.load(url, r.opts.OnImageReady)
 	}
 
@@ -51,8 +65,8 @@ func (r *renderer) imageLines(data *ImageData, alt, url, nextKind string) []rend
 
 func (r *renderer) imagePlaceholder(alt, url string, dims *ImageDimensions, nextKind string) []renderLine {
 	label := r.theme.Image(imageFallbackLabel("", dims, alt, url))
-	if currentCapabilities().Hyperlinks && url != "" {
-		label = Hyperlink(label, url)
+	if link := hyperlinkImageURL(url); link != "" && currentCapabilities().Hyperlinks {
+		label = Hyperlink(label, link)
 	}
 	out := []renderLine{rl(label, false)}
 	if nextKind != "" && nextKind != "space" {

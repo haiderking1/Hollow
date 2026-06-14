@@ -257,7 +257,7 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 	msg := Message{Role: "assistant", Usage: lastUsage}
 	if content.Len() > 0 {
 		s := content.String()
-		msg.Content = &s
+		msg.Content = StringContent(s)
 	}
 	if reasoning.Len() > 0 {
 		s := reasoning.String()
