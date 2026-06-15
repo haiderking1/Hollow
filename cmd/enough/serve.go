@@ -34,6 +34,7 @@ type WsClientMessage struct {
 	Type          string               `json:"type"`
 	Text          string               `json:"text,omitempty"`
 	ID            string               `json:"id,omitempty"`
+	CWD           string               `json:"cwd,omitempty"`
 	Provider      string               `json:"provider,omitempty"`
 	Model         string               `json:"model,omitempty"`
 	ThinkingLevel string               `json:"thinkingLevel,omitempty"`
@@ -53,6 +54,7 @@ type WsServerMessage struct {
 	Result    string      `json:"result,omitempty"`
 	Sessions  interface{} `json:"sessions,omitempty"`
 	SessionID string      `json:"sessionId,omitempty"`
+	CWD       string      `json:"cwd,omitempty"`
 	Messages  interface{} `json:"messages,omitempty"`
 	Message   string      `json:"message,omitempty"`
 }
@@ -74,6 +76,7 @@ type WsHistoryMessage struct {
 	ID        string          `json:"id"`
 	Role      string          `json:"role"`
 	Content   string          `json:"content"`
+	Thinking  string          `json:"thinking,omitempty"`
 	Timestamp string          `json:"timestamp"`
 	Tools     []WsHistoryTool `json:"tools,omitempty"`
 }
@@ -155,6 +158,14 @@ func listDesktopSessions() ([]SessionResponse, error) {
 		}
 	}
 	return list, nil
+}
+
+func resolveDesktopCWD(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return os.UserHomeDir()
+	}
+	return filepath.Abs(raw)
 }
 
 func runServeCLI() {
@@ -252,13 +263,14 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sm, err := session.ContinueRecent("")
+	home, _ := os.UserHomeDir()
+	sm, err := session.ContinueRecent(home)
 	if err != nil {
 		sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
 		return
 	}
 
-	ag := agent.New(cfg, "", sm)
+	ag := agent.New(cfg, sm.CWD(), sm)
 	modelRegistry := opencode.DefaultRegistry()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -340,6 +352,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 						ID:        fmt.Sprintf("msg-%d", len(history)),
 						Role:      "assistant",
 						Content:   line.Text,
+						Thinking:  line.Thinking,
 						Timestamp: "Just now",
 					})
 				} else if line.Role == "tool" {
@@ -370,11 +383,23 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			sendCh <- WsServerMessage{
 				Type:      "session.history",
 				SessionID: newSm.SessionID(),
+				CWD:       newSm.CWD(),
 				Messages:  history,
 			}
 
 		case "newSession":
-			if err := sm.NewSession(); err != nil {
+			targetCWD, err := resolveDesktopCWD(msg.CWD)
+			if err != nil {
+				sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
+				continue
+			}
+
+			if sm == nil || sm.CWD() != targetCWD {
+				sm, err = session.StartNew(targetCWD)
+			} else {
+				err = sm.NewSession()
+			}
+			if err != nil {
 				sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
 				continue
 			}
@@ -383,6 +408,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			sendCh <- WsServerMessage{
 				Type:      "session.history",
 				SessionID: sm.SessionID(),
+				CWD:       sm.CWD(),
 				Messages:  []WsHistoryMessage{},
 			}
 
@@ -436,6 +462,24 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			promptCtx, cancelPrompt = context.WithCancel(connCtx)
 			promptingMu.Unlock()
 
+			// Keep agent workspace aligned with the UI project folder.
+			if cwd := strings.TrimSpace(msg.CWD); cwd != "" {
+				targetCWD, cwdErr := resolveDesktopCWD(cwd)
+				if cwdErr != nil {
+					sendCh <- WsServerMessage{Type: "error", Message: cwdErr.Error()}
+					continue
+				}
+				if sm == nil || sm.CWD() != targetCWD {
+					newSm, cwdErr := session.ContinueRecent(targetCWD)
+					if cwdErr != nil {
+						sendCh <- WsServerMessage{Type: "error", Message: cwdErr.Error()}
+						continue
+					}
+					sm = newSm
+					ag.LoadSession(sm)
+				}
+			}
+
 			// Run prompt in a separate goroutine so reads keep flowing
 			go func(text string, atts []agent.UserAttachment, pCtx context.Context) {
 				defer func() {
@@ -454,7 +498,12 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 					switch e.Kind {
 					case core.EventAssistantStart:
 						wsMsg.Type = "token"
-					case core.EventAssistantThinkingDelta, core.EventAssistantDelta:
+					case core.EventAssistantThinkingDelta:
+						wsMsg.Type = "thinking"
+						if delta, ok := e.Data.(string); ok {
+							wsMsg.Text = delta
+						}
+					case core.EventAssistantDelta:
 						wsMsg.Type = "token"
 						if delta, ok := e.Data.(string); ok {
 							wsMsg.Text = delta

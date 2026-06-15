@@ -99,6 +99,9 @@ type Agent struct {
 	turnsSinceMemory int
 	itersSinceSkill  int
 
+	// activeTools maps in-flight tool call IDs to tool names for streaming UI.
+	activeTools map[string]string
+
 	// maxIterations caps model calls per turn when > 0 (used by review and
 	// curator forks; the main agent runs unbounded).
 	maxIterations int
@@ -109,6 +112,9 @@ type Agent struct {
 }
 
 func New(cfg config.Runtime, workDir string, sm *session.Manager) *Agent {
+	if workDir == "" && sm != nil && sm.CWD() != "" {
+		workDir = sm.CWD()
+	}
 	if workDir == "" {
 		workDir, _ = os.Getwd()
 	}
@@ -186,8 +192,13 @@ func (a *Agent) LoadSession(sm *session.Manager) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	sessionChanged := a.session == nil || sm == nil || a.session.SessionID() != sm.SessionID()
+	cwdChanged := false
+	if sm != nil && sm.CWD() != "" && sm.CWD() != a.workDir {
+		a.workDir = sm.CWD()
+		cwdChanged = true
+	}
 	a.session = sm
-	if sessionChanged {
+	if sessionChanged || cwdChanged {
 		a.invalidateSystemPrompt()
 		a.userTurnCount = 0
 		a.turnsSinceMemory = 0
@@ -201,7 +212,9 @@ func (a *Agent) LoadSession(sm *session.Manager) {
 	a.messages = []opencode.Message{
 		{Role: "system", Content: opencode.StringContent(a.systemPrompt())},
 	}
-	a.messages = append(a.messages, opencode.RepairToolMessages(sm.Messages())...)
+	if sm != nil {
+		a.messages = append(a.messages, opencode.RepairToolMessages(sm.Messages())...)
+	}
 }
 
 func (a *Agent) Reset() error {
@@ -783,6 +796,12 @@ func (a *Agent) thinkingDelta(text string) {
 
 func (a *Agent) toolStart(id, name, args string) {
 	if a.emit != nil {
+		a.mu.Lock()
+		if a.activeTools == nil {
+			a.activeTools = make(map[string]string)
+		}
+		a.activeTools[id] = name
+		a.mu.Unlock()
 		a.emit(core.Event{
 			Kind: core.EventToolStart,
 			Data: core.ToolCallEvent{ID: id, Name: name, Args: args},
@@ -814,18 +833,25 @@ func (a *Agent) appendToolStubs(calls []opencode.ToolCall, text string) {
 // result.
 func (a *Agent) toolDelta(id, chunk string) {
 	if a.emit != nil && chunk != "" {
+		a.mu.Lock()
+		name := a.activeTools[id]
+		a.mu.Unlock()
 		a.emit(core.Event{
 			Kind: core.EventToolDelta,
-			Data: core.ToolCallEvent{ID: id, Result: chunk},
+			Data: core.ToolCallEvent{ID: id, Name: name, Result: chunk},
 		})
 	}
 }
 
 func (a *Agent) toolResult(id, result string, isErr bool, details json.RawMessage) {
 	if a.emit != nil {
+		a.mu.Lock()
+		name := a.activeTools[id]
+		delete(a.activeTools, id)
+		a.mu.Unlock()
 		a.emit(core.Event{
 			Kind: core.EventToolResult,
-			Data: core.ToolCallEvent{ID: id, Result: result, Error: isErr, Details: details},
+			Data: core.ToolCallEvent{ID: id, Name: name, Result: result, Error: isErr, Details: details},
 		})
 	}
 }

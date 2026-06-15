@@ -174,19 +174,17 @@ export default function App() {
     const unsubscribe = enoughAgent.onEvent((event: AgentEvent) => {
       switch (event.type) {
         case "bridge_ready": {
-          // Pipe is open (possibly after respawning in a new cwd).
-          if (event.cwd) {
-            const cwd = event.cwd
-            setProjectCwd(cwd)
-            // Keep the active project registered so other projects don't vanish
-            // when we switch into a new one.
-            setAddedProjects((prev) => (prev.includes(cwd) ? prev : [...prev, cwd]))
-          }
+          // Pipe is open — load catalog once. Cwd updates come via session_cwd.
           send({ type: "get_model_catalog" })
           send({ type: "get_state" })
           send({ type: "get_messages" })
-          // Defer sidebar refresh so the active thread can render first.
           window.setTimeout(() => refreshSessionList(), 50)
+          break
+        }
+        case "session_cwd": {
+          const cwd = event.cwd
+          setProjectCwd(cwd)
+          setAddedProjects((prev) => (prev.includes(cwd) ? prev : [...prev, cwd]))
           break
         }
         case "message_update":
@@ -317,8 +315,8 @@ export default function App() {
       { id: assistantId, role: "assistant", blocks: [{ type: "text", text: "" }], streaming: true },
     ])
     setIsStreaming(true)
-    send({ type: "prompt", message: content })
-  }, [])
+    send({ type: "prompt", message: content, cwd: projectCwd ?? undefined })
+  }, [projectCwd])
 
   const handleAbort = useCallback(() => {
     send({ type: "abort" })

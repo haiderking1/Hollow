@@ -10,6 +10,13 @@ import type {
   RawMessage,
 } from "./rpc"
 import type { ToolVerb } from "../types"
+import {
+  appendText,
+  appendThinking,
+  streamBlocksToContent,
+  upsertTool,
+  type StreamBlock,
+} from "./stream-blocks"
 
 type Listener = (event: AgentEvent) => void
 
@@ -36,6 +43,7 @@ interface BackendHistoryMessage {
   id: string
   role: "user" | "assistant" | "system"
   content: string
+  thinking?: string
   timestamp: string
   tools?: BackendHistoryTool[]
 }
@@ -50,9 +58,10 @@ interface BackendModelsCatalog {
 type BackendMessage =
   | { type: "ready" }
   | { type: "session.list"; sessions: BackendSession[] | null }
-  | { type: "session.history"; sessionId: string; messages: BackendHistoryMessage[] | null }
+  | { type: "session.history"; sessionId: string; cwd?: string; messages: BackendHistoryMessage[] | null }
   | BackendModelsCatalog
   | { type: "token"; text?: string }
+  | { type: "thinking"; text?: string }
   | {
       type: "tool"
       id: string
@@ -95,8 +104,8 @@ function stateToModel(state: ModelSelectionState): AgentModel {
   }
 }
 
-function toolVerb(name: string): ToolVerb {
-  const lower = name.toLowerCase()
+function toolVerb(name?: string): ToolVerb {
+  const lower = (name ?? "tool").toLowerCase()
   if (lower.includes("write")) return "Write"
   if (lower.includes("edit") || lower.includes("patch")) return "Edit"
   if (lower.includes("read") || lower.includes("file")) return "Read"
@@ -124,11 +133,32 @@ function toolTitle(tool: BackendHistoryTool | (BackendMessage & { type: "tool" }
   }
 }
 
+function toolMeta(name: string, argsJson: string): string | undefined {
+  try {
+    const args = JSON.parse(argsJson || "{}")
+    const lower = name.toLowerCase()
+    if (lower.includes("write") && typeof args.content === "string") {
+      const lines = args.content.split("\n").length
+      return lines > 0 ? `+${lines}` : undefined
+    }
+    if ((lower.includes("edit") || lower.includes("patch")) && typeof args.new_string === "string") {
+      const lines = args.new_string.split("\n").length
+      return lines > 0 ? `+${lines}` : undefined
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined
+}
+
 function mapTool(tool: BackendHistoryTool | (BackendMessage & { type: "tool" })): ContentPart {
+  const name = tool.name || "tool"
+  const args = tool.arguments ?? ""
   return {
     type: "tool",
-    tool: toolVerb(tool.name),
-    title: toolTitle(tool),
+    tool: toolVerb(name),
+    title: toolTitle({ ...tool, name }),
+    meta: toolMeta(name, args),
     status: tool.status === "failed" ? "error" : tool.status === "running" ? "running" : "done",
     output: tool.result,
   }
@@ -141,6 +171,7 @@ function mapHistory(messages: BackendHistoryMessage[] | null | undefined): RawMe
     }
 
     const content: ContentPart[] = []
+    if (message.thinking) content.push({ type: "thinking", thinking: message.thinking })
     if (message.content) content.push({ type: "text", text: message.content })
     for (const tool of message.tools ?? []) content.push(mapTool(tool))
     return [{ role: message.role, content }]
@@ -171,8 +202,8 @@ class EnoughClient {
   private histories = new Map<string, RawMessage[]>()
   private currentSessionId: string | null = null
   private streaming = false
-  private streamText = ""
-  private streamTools = new Map<string, ContentPart>()
+  private streamBlocks: StreamBlock[] = []
+  private toolMeta = new Map<string, { name: string; arguments: string }>()
   private catalog: ModelCatalog = emptyCatalog()
 
   onEvent(listener: Listener) {
@@ -222,15 +253,20 @@ class EnoughClient {
         break
       }
       case "new_session": {
-        this.sendWs({ type: "newSession" })
+        const cwd = commandText(command, "cwd")
+        this.sendWs({ type: "newSession", ...(cwd ? { cwd } : {}) })
         this.emit({ type: "response", command: "new_session", success: true, data: { cancelled: false } })
         break
       }
       case "prompt":
         this.streaming = true
-        this.streamText = ""
-        this.streamTools.clear()
-        this.sendWs({ type: "prompt", text: commandText(command, "message") })
+        this.streamBlocks = []
+        this.toolMeta.clear()
+        this.sendWs({
+          type: "prompt",
+          text: commandText(command, "message"),
+          ...(commandText(command, "cwd") ? { cwd: commandText(command, "cwd") } : {}),
+        })
         this.emit({ type: "response", command: "get_state", success: true, data: this.state() })
         break
       case "abort":
@@ -322,25 +358,57 @@ class EnoughClient {
         this.currentSessionId = message.sessionId
         const history = mapHistory(message.messages)
         this.histories.set(message.sessionId, history)
+        const cwd = message.cwd || this.sessions.find((s) => s.id === message.sessionId)?.cwd
+        if (cwd) {
+          this.emit({ type: "session_cwd", cwd })
+        }
         this.emit({ type: "response", command: "get_state", success: true, data: this.state() })
         this.emit({ type: "response", command: "get_messages", success: true, data: { messages: history } })
         break
       }
       case "token":
-        this.streamText += message.text ?? ""
+        this.streamBlocks = appendText(this.streamBlocks, message.text ?? "")
         this.emitAssistantUpdate()
         break
-      case "tool":
-        this.streamTools.set(message.id, mapTool(message))
+      case "thinking":
+        this.streamBlocks = appendThinking(this.streamBlocks, message.text ?? "")
         this.emitAssistantUpdate()
         break
+      case "tool": {
+        const id = message.id || `tool-${this.streamBlocks.length}`
+        if (message.name) {
+          this.toolMeta.set(id, {
+            name: message.name,
+            arguments: message.arguments ?? this.toolMeta.get(id)?.arguments ?? "",
+          })
+        }
+        const meta = this.toolMeta.get(id)
+        const prev = this.streamBlocks.find((b) => b.type === "tool" && b.id === id)
+        const prevOutput = prev?.type === "tool" ? prev.part.output : undefined
+        this.streamBlocks = upsertTool(
+          this.streamBlocks,
+          id,
+          mapTool({
+            type: "tool",
+            id,
+            name: message.name || meta?.name || "tool",
+            arguments: message.arguments ?? meta?.arguments ?? "",
+            status: message.status ?? "running",
+            result: message.result ?? prevOutput,
+          }),
+        )
+        this.emitAssistantUpdate()
+        break
+      }
       case "done":
         this.streaming = false
+        this.toolMeta.clear()
         this.emit({ type: "agent_end" })
         this.sendWs({ type: "listSessions" })
         break
       case "error":
         this.streaming = false
+        this.toolMeta.clear()
         this.emit({ type: "bridge_error", error: message.message })
         this.emit({ type: "agent_end" })
         break
@@ -348,9 +416,7 @@ class EnoughClient {
   }
 
   private emitAssistantUpdate() {
-    const content: ContentPart[] = []
-    if (this.streamText) content.push({ type: "text", text: this.streamText })
-    content.push(...this.streamTools.values())
+    const content = streamBlocksToContent(this.streamBlocks)
     this.emit({
       type: "message_update",
       assistantMessageEvent: {

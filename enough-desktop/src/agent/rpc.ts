@@ -89,6 +89,7 @@ export type AgentEvent =
   | { type: "response"; command: "new_session"; success: true; data: { cancelled: boolean } }
   // Bridge (from electron main, not the agent)
   | { type: "bridge_ready"; cwd?: string }
+  | { type: "session_cwd"; cwd: string }
   | { type: "bridge_error"; error: string }
   | { type: "bridge_exit"; code: number | null }
   // Anything else we don't handle yet

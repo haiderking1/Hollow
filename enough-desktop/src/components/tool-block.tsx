@@ -1,64 +1,68 @@
 import { useState } from "react"
-import {
-  ChevronRight,
-  Terminal,
-  FileText,
-  FilePen,
-  FilePlus,
-  Search,
-  Check,
-  CircleDot,
-  X,
-} from "lucide-react"
+import { ChevronRight, Check, Loader2, X } from "lucide-react"
 import type { Block } from "../types"
 import { DiffView } from "./diff-view"
 import { cn } from "../lib/utils"
 
 type ToolBlockType = Extract<Block, { type: "tool" }>
 
-const toolIcons: Record<string, typeof Terminal> = {
-  Bash: Terminal,
-  Read: FileText,
-  Edit: FilePen,
-  Write: FilePlus,
-  Grep: Search,
-  Search: Search,
+function displayPath(title: string) {
+  const t = title.trim().replace(/\\/g, "/")
+  const parts = t.split("/")
+  return parts[parts.length - 1] || t
+}
+
+function truncate(text: string, max = 72) {
+  const t = text.trim()
+  if (t.length <= max) return t
+  return `${t.slice(0, max)}…`
 }
 
 export function ToolBlock({ block }: { block: ToolBlockType }) {
   const hasBody = Boolean(block.output || block.diff)
-  const [open, setOpen] = useState(block.tool === "Edit" || block.tool === "Write")
-  const Icon = toolIcons[block.tool] ?? Terminal
+  const [open, setOpen] = useState(false)
+  const isBash = block.tool === "Bash"
+  const label = isBash ? truncate(block.title) : displayPath(block.title)
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-surface">
+    <div className="min-w-0">
       <button
+        type="button"
+        disabled={!hasBody}
         onClick={() => hasBody && setOpen((o) => !o)}
         className={cn(
-          "flex w-full items-center gap-2.5 px-3 py-2 text-left",
-          hasBody && "transition-colors hover:bg-surface-hover",
+          "inline-flex max-w-full min-w-0 items-center gap-2 py-0.5 text-left",
+          hasBody && "transition-colors hover:opacity-90",
+          !hasBody && "cursor-default",
         )}
       >
-        {hasBody ? (
-          <ChevronRight
-            className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
-          />
-        ) : (
-          <span className="w-3.5" />
-        )}
-        <Icon className="h-3.5 w-3.5 shrink-0 text-accent" />
-        <span className="font-mono text-[12px] font-medium text-foreground">{block.tool}</span>
-        <span className="truncate font-mono text-[12px] text-muted-foreground">{block.title}</span>
-        <span className="ml-auto flex shrink-0 items-center gap-2">
-          {block.meta && <span className="font-mono text-[11px] text-muted-foreground">{block.meta}</span>}
-          <StatusBadge status={block.status} />
+        <span className="shrink-0 text-[13px] font-medium text-foreground">{block.tool}</span>
+
+        <span className="max-w-[min(100%,28rem)] truncate font-mono text-[13px] text-muted-foreground" title={block.title}>
+          {label}
         </span>
+
+        {block.meta && (
+          <span className="shrink-0 font-mono text-[13px] tabular-nums text-add">{block.meta}</span>
+        )}
+
+        <StatusIcon status={block.status} />
+
+        {hasBody && (
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground/45 transition-transform",
+              open && "rotate-90",
+            )}
+            strokeWidth={2}
+          />
+        )}
       </button>
 
       {open && hasBody && (
-        <div className="border-t border-border px-3 pb-2">
+        <div className="mt-1.5 border-l border-border/60 pl-3">
           {block.output && (
-            <pre className="overflow-x-auto whitespace-pre-wrap py-2 font-mono text-[12px] leading-[1.6] text-foreground/75">
+            <pre className="overflow-x-auto whitespace-pre-wrap py-1 font-mono text-[12px] leading-relaxed text-muted-foreground">
               {block.output}
             </pre>
           )}
@@ -69,12 +73,12 @@ export function ToolBlock({ block }: { block: ToolBlockType }) {
   )
 }
 
-function StatusBadge({ status }: { status: ToolBlockType["status"] }) {
+function StatusIcon({ status }: { status: ToolBlockType["status"] }) {
   if (status === "running") {
-    return <CircleDot className="h-3.5 w-3.5 animate-pulse-dot text-warning" />
+    return <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" strokeWidth={2} />
   }
   if (status === "error") {
-    return <X className="h-3.5 w-3.5 text-danger" />
+    return <X className="h-3.5 w-3.5 shrink-0 text-danger" strokeWidth={2} />
   }
-  return <Check className="h-3.5 w-3.5 text-success" />
+  return <Check className="h-3.5 w-3.5 shrink-0 text-success" strokeWidth={2.5} />
 }

@@ -33,8 +33,9 @@ const MessageRow = memo(function MessageRow({ message }: { message: Message }) {
   return (
     <div className="flex gap-3">
       <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-white" />
-      <div className="min-w-0 flex-1 space-y-3">
+      <div className="min-w-0 flex-1 space-y-2">
         {message.blocks.map((block, i) => {
+          const isLast = i === message.blocks.length - 1
           switch (block.type) {
             case "text":
               return (
@@ -42,11 +43,18 @@ const MessageRow = memo(function MessageRow({ message }: { message: Message }) {
                   key={i}
                   id={`${message.id}-text-${i}`}
                   text={block.text}
-                  streaming={message.streaming && i === message.blocks.length - 1}
+                  streaming={message.streaming && isLast && block.type === "text"}
                 />
               )
             case "thinking":
-              return <ThinkingBlock key={i} id={`${message.id}-thinking-${i}`} text={block.text} />
+              return (
+                <ThinkingBlock
+                  key={i}
+                  id={`${message.id}-thinking-${i}`}
+                  text={block.text}
+                  streaming={message.streaming && isLast}
+                />
+              )
             case "tool":
               return <ToolBlock key={i} block={block} />
             case "todo":

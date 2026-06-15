@@ -2,6 +2,7 @@ process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const os = require('os');
 
 // Nvidia/Linux fixes requested verbatim
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
@@ -74,7 +75,7 @@ function startBackend() {
   if (fs.existsSync(binPath)) {
     console.log('[main] Spawning Go backend from:', binPath);
     backendProcess = spawn(binPath, ['serve'], {
-      cwd: path.join(__dirname, '..'),
+      cwd: os.homedir(),
       stdio: 'inherit'
     });
 

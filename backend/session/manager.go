@@ -71,6 +71,29 @@ func ContinueRecent(cwd string) (*Manager, error) {
 	return m, m.newSession()
 }
 
+// StartNew begins a fresh session file for cwd without resuming the newest file.
+func StartNew(cwd string) (*Manager, error) {
+	if cwd == "" {
+		var err error
+		cwd, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+	}
+	cwd, err := filepath.Abs(cwd)
+	if err != nil {
+		return nil, err
+	}
+
+	dir, err := SessionDir(cwd)
+	if err != nil {
+		return nil, err
+	}
+
+	m := &Manager{cwd: cwd, sessionDir: dir}
+	return m, m.newSession()
+}
+
 func (m *Manager) CWD() string        { return m.cwd }
 func (m *Manager) SessionID() string  { return m.sessionID }
 func (m *Manager) SessionFile() string { return m.sessionFile }

@@ -127,3 +127,45 @@ func TestAppendMessageWithDetailsRoundTrip(t *testing.T) {
 		t.Errorf("expected details %q, got %q", details, toolLine.ToolDetails)
 	}
 }
+
+func TestStartNewDoesNotResumeRecent(t *testing.T) {
+	dir := t.TempDir()
+	projA := filepath.Join(dir, "a")
+	projB := filepath.Join(dir, "b")
+	for _, p := range []string{projA, projB} {
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("HOME", dir)
+
+	smA, err := StartNew(projA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := smA.AppendMessage(opencode.Message{Role: "user", Content: opencode.StringContent("hello")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := smA.AppendMessage(opencode.Message{Role: "assistant", Content: opencode.StringContent("hi")}); err != nil {
+		t.Fatal(err)
+	}
+
+	smB, err := StartNew(projB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if smB.CWD() != projB {
+		t.Fatalf("cwd = %q, want %q", smB.CWD(), projB)
+	}
+	if len(smB.Messages()) != 0 {
+		t.Fatalf("expected empty new session, got %d messages", len(smB.Messages()))
+	}
+
+	resumed, err := ContinueRecent(projA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resumed.Messages()) != 2 {
+		t.Fatalf("expected resumed session with 2 messages, got %d", len(resumed.Messages()))
+	}
+}
