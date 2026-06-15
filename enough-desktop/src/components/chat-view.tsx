@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from "react"
+import { capitalizeProseStart } from "../lib/text"
 import type { Message } from "../types"
 import { MarkdownContent } from "./markdown-content"
 import { ToolBlock } from "./tool-block"
@@ -96,40 +97,52 @@ const MessageRow = memo(function MessageRow({ message }: { message: Message }) {
     )
   }
 
+  const blocks = message.blocks
+  if (blocks.length === 0) return null
+
+  const renderBlock = (block: (typeof blocks)[number], i: number) => {
+    const isLast = i === blocks.length - 1
+    switch (block.type) {
+      case "text":
+        return (
+          <MarkdownContent
+            id={`${message.id}-text-${i}`}
+            text={capitalizeProseStart(block.text)}
+            streaming={message.streaming && isLast}
+          />
+        )
+      case "thinking":
+        return (
+          <ThinkingBlock
+            id={`${message.id}-thinking-${i}`}
+            text={block.text}
+            streaming={message.streaming && isLast}
+          />
+        )
+      case "tool":
+        return <ToolBlock block={block} />
+      case "todo":
+        return <TodoBlock items={block.items} />
+      default:
+        return null
+    }
+  }
+
+  const first = blocks[0]
+
   return (
-    <div className="flex gap-3">
-      <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-white" />
-      <div className="min-w-0 flex-1 space-y-2">
-        {message.blocks.map((block, i) => {
-          const isLast = i === message.blocks.length - 1
-          switch (block.type) {
-            case "text":
-              return (
-                <MarkdownContent
-                  key={i}
-                  id={`${message.id}-text-${i}`}
-                  text={block.text}
-                  streaming={message.streaming && isLast && block.type === "text"}
-                />
-              )
-            case "thinking":
-              return (
-                <ThinkingBlock
-                  key={i}
-                  id={`${message.id}-thinking-${i}`}
-                  text={block.text}
-                  streaming={message.streaming && isLast}
-                />
-              )
-            case "tool":
-              return <ToolBlock key={i} block={block} />
-            case "todo":
-              return <TodoBlock key={i} items={block.items} />
-            default:
-              return null
-          }
-        })}
+    <div className="space-y-2">
+      <div className="flex gap-3">
+        <div className="flex h-[1.625em] w-2 shrink-0 items-center text-[14px]">
+          <div className="size-2 rounded-full bg-white" />
+        </div>
+        <div className="min-w-0 flex-1">{renderBlock(first, 0)}</div>
       </div>
+      {blocks.slice(1).map((block, i) => (
+        <div key={i + 1} className="pl-5">
+          {renderBlock(block, i + 1)}
+        </div>
+      ))}
     </div>
   )
 })
