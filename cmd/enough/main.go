@@ -30,6 +30,10 @@ func main() {
 		runAuthCLI()
 		return
 	}
+	if len(os.Args) >= 2 && os.Args[1] == "serve" {
+		runServeCLI()
+		return
+	}
 
 	// 2. Parse command-line args
 	var preloads []string
@@ -205,4 +209,5 @@ func printUsage() {
 	fmt.Println("  -q, --query <query>   Single query to execute, then exit")
 	fmt.Println("  skills <action>       Manage skills (run 'enough skills' for actions)")
 	fmt.Println("  auth add openai-codex Browser OAuth for OpenAI Codex subscription")
+	fmt.Println("  serve [--ws addr]     Expose coding-agent via WebSocket server")
 }

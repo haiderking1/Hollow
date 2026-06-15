@@ -171,6 +171,10 @@ func ScanInfo(path string) (*Info, error) {
 				}
 			}
 		}
+
+		if headerOK && firstMessage != "" {
+			break
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
