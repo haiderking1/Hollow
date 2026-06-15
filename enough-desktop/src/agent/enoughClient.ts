@@ -262,6 +262,12 @@ class EnoughClient {
         this.emit({ type: "response", command: "new_session", success: true, data: { cancelled: false } })
         break
       }
+      case "delete_session":
+        this.sendWs({ type: "deleteSession", id: commandText(command, "sessionId") })
+        break
+      case "delete_project_sessions":
+        this.sendWs({ type: "deleteProjectSessions", cwd: commandText(command, "cwd") })
+        break
       case "prompt":
         this.streaming = true
         this.streamBlocks = []

@@ -180,6 +180,10 @@ export default function App() {
   const projectCwdRef = useRef<string | null>(null)
   projectCwdRef.current = projectCwd
   const messagesCacheRef = useRef(new Map<string, Message[]>())
+  const sessionListRef = useRef(sessionList)
+  sessionListRef.current = sessionList
+  const addedProjectsRef = useRef(addedProjects)
+  addedProjectsRef.current = addedProjects
 
   const stashMessagesInCache = useCallback((sessionId: string | null) => {
     if (sessionId && messagesRef.current.length > 0) {
@@ -356,8 +360,13 @@ export default function App() {
       { id: assistantId, role: "assistant", blocks: [{ type: "text", text: "" }], streaming: true },
     ])
     setIsStreaming(true)
-    send({ type: "prompt", message: content, cwd: projectCwd ?? undefined })
-  }, [projectCwd])
+    const sessionCwd = sessionListRef.current.find((s) => s.id === currentSessionIdRef.current)?.cwd
+    send({
+      type: "prompt",
+      message: content,
+      cwd: sessionCwd ?? projectCwdRef.current ?? undefined,
+    })
+  }, [])
 
   const handleAbort = useCallback(() => {
     send({ type: "abort" })
@@ -413,15 +422,47 @@ export default function App() {
     })
   }, [])
 
-  // Remove a project from the app only — never deletes the folder on disk.
-  const handleDeleteProject = useCallback((cwd: string) => {
-    setAddedProjects((prev) => prev.filter((p) => p !== cwd))
-    setProjectAliases((prev) => {
-      const next = { ...prev }
-      delete next[cwd]
-      return next
-    })
-  }, [])
+  // Remove a project from the app (folder stays on disk) and delete its threads.
+  const handleDeleteProject = useCallback(
+    (cwd: string) => {
+      const sessions = sessionListRef.current.filter((s) => s.cwd === cwd)
+      const ids = sessions.map((s) => s.id)
+      const wasActive = sessions.some((s) => s.id === currentSessionId)
+
+      setAddedProjects((prev) => prev.filter((p) => p !== cwd))
+      setProjectAliases((prev) => {
+        const next = { ...prev }
+        delete next[cwd]
+        return next
+      })
+      setThreadAliases((prev) => {
+        const next = { ...prev }
+        for (const id of ids) delete next[id]
+        return next
+      })
+      setHiddenThreads((prev) => prev.filter((id) => !ids.includes(id)))
+      for (const id of ids) messagesCacheRef.current.delete(id)
+
+      setSessionList((prev) => prev.filter((s) => s.cwd !== cwd))
+
+      if (wasActive) {
+        const nextCwd =
+          addedProjectsRef.current.find((p) => p !== cwd) ??
+          sessionListRef.current.find((s) => s.cwd !== cwd)?.cwd ??
+          undefined
+        streamingIdRef.current = null
+        setCurrentSessionId(null)
+        setMessages([])
+        setLoadingThread(true)
+        setSyncingThread(false)
+        setProjectCwd(nextCwd ?? null)
+        send({ type: "new_session", ...(nextCwd ? { cwd: nextCwd } : {}) })
+      }
+
+      send({ type: "delete_project_sessions", cwd })
+    },
+    [currentSessionId],
+  )
 
   const handleRenameThread = useCallback((id: string, name: string) => {
     setThreadAliases((prev) => {
@@ -432,34 +473,41 @@ export default function App() {
     })
   }, [])
 
-  // Hide a thread from the app only — never deletes the session file on disk.
+  // Delete a thread's session file (Enough storage only, not the project folder).
   const handleDeleteThread = useCallback(
     (id: string) => {
-      setHiddenThreads((prev) => (prev.includes(id) ? prev : [...prev, id]))
-      if (id === currentSessionId) {
+      const wasActive = id === currentSessionId
+
+      messagesCacheRef.current.delete(id)
+      setThreadAliases((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      setHiddenThreads((prev) => prev.filter((hid) => hid !== id))
+      setSessionList((prev) => prev.filter((s) => s.id !== id))
+
+      if (wasActive) {
         streamingIdRef.current = null
         setCurrentSessionId(null)
         setMessages([])
         setLoadingThread(true)
+        setSyncingThread(false)
         send({ type: "new_session", cwd: projectCwd ?? undefined })
       }
+
+      send({ type: "delete_session", sessionId: id })
     },
     [currentSessionId, projectCwd],
   )
 
   const handleAddProject = useCallback(() => setPickerOpen(true), [])
 
-  // A directory was chosen: register it as a project and start a fresh thread
-  // inside it (the agent respawns in that cwd).
+  // Register a project folder in the app (does not create anything on disk).
   const handleProjectChosen = useCallback((dir: string) => {
     setPickerOpen(false)
     setAddedProjects((prev) => (prev.includes(dir) ? prev : [dir, ...prev]))
-    streamingIdRef.current = null
-    setCurrentSessionId(null)
     setProjectCwd(dir)
-    setMessages([])
-    setLoadingThread(true)
-    send({ type: "new_session", cwd: dir })
   }, [])
 
   const handleSelectModel = useCallback((provider: string, modelId: string, thinkingLevel: string) => {
@@ -483,14 +531,12 @@ export default function App() {
   const current = sessionList.find((s) => s.id === currentSessionId)
   const currentCwd = current?.cwd ?? projectCwd ?? "~"
 
-  // The sidebar is session-derived. Persisted project folders are only used
-  // for picker state, not as fake empty buckets in the thread list.
   const projects = useMemo(() => {
-    const set = new Set<string>()
+    const set = new Set<string>(addedProjects)
     for (const session of sessionList) set.add(session.cwd)
     if (projectCwd) set.add(projectCwd)
     return Array.from(set)
-  }, [projectCwd, sessionList])
+  }, [addedProjects, projectCwd, sessionList])
 
   const sidebarSessions = useMemo(
     () => sessionList.filter((s) => !hiddenThreads.includes(s.id)),

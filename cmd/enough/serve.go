@@ -160,6 +160,32 @@ func listDesktopSessions() ([]SessionResponse, error) {
 	return list, nil
 }
 
+func findSessionPath(id string) (string, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "", fmt.Errorf("empty session id")
+	}
+	infos, err := session.ListAll()
+	if err != nil {
+		return "", err
+	}
+	for _, info := range infos {
+		if info.ID == id || info.Path == id {
+			return info.Path, nil
+		}
+	}
+	return "", fmt.Errorf("session not found")
+}
+
+func sendDesktopSessionList(sendCh chan<- interface{}) {
+	list, err := listDesktopSessions()
+	if err != nil {
+		sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
+		return
+	}
+	sendCh <- WsServerMessage{Type: "session.list", Sessions: list}
+}
+
 func resolveDesktopCWD(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -416,6 +442,38 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				sendCh <- WsServerMessage{Type: "session.list", Sessions: list}
 			}
+
+		case "deleteSession":
+			path, err := findSessionPath(msg.ID)
+			if err != nil {
+				sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
+				continue
+			}
+			if sm != nil && filepath.Clean(sm.SessionFile()) == filepath.Clean(path) {
+				sendCh <- WsServerMessage{Type: "error", Message: "cannot delete the active session"}
+				continue
+			}
+			if _, err := session.Delete(path); err != nil {
+				sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
+				continue
+			}
+			sendDesktopSessionList(sendCh)
+
+		case "deleteProjectSessions":
+			targetCWD, err := resolveDesktopCWD(msg.CWD)
+			if err != nil {
+				sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
+				continue
+			}
+			skipPath := ""
+			if sm != nil && filepath.Clean(sm.CWD()) == filepath.Clean(targetCWD) {
+				skipPath = sm.SessionFile()
+			}
+			if _, err := session.DeleteForCWD(targetCWD, skipPath); err != nil {
+				sendCh <- WsServerMessage{Type: "error", Message: err.Error()}
+				continue
+			}
+			sendDesktopSessionList(sendCh)
 
 		case "listModels":
 			handleListModels(sendCh, modelRegistry)

@@ -105,6 +105,9 @@ func TestNoModelProviderLines(t *testing.T) {
 	if !strings.Contains(prompt, "Session ID: abc123") {
 		t.Fatal("session ID line missing")
 	}
+	if !strings.Contains(prompt, "Working directory: ") {
+		t.Fatal("working directory line missing")
+	}
 	if !strings.Contains(prompt, "Conversation started: ") {
 		t.Fatal("date line missing")
 	}

@@ -6,14 +6,8 @@ const bridge = {
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
   setZoom: (factor) => webFrame.setZoomFactor(factor),
-  pickDirectory: () => Promise.resolve(null),
-  listDir: () =>
-    Promise.resolve({
-      path: '',
-      parent: null,
-      entries: [],
-      home: '',
-    }),
+  pickDirectory: () => ipcRenderer.invoke('fs-pick-directory'),
+  listDir: (targetPath) => ipcRenderer.invoke('fs-list-dir', targetPath),
 };
 
 contextBridge.exposeInMainWorld('enoughIPC', bridge);

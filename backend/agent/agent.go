@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -204,7 +205,8 @@ func (a *Agent) LoadSession(sm *session.Manager) {
 		a.turnsSinceMemory = 0
 		a.itersSinceSkill = 0
 		if sm != nil {
-			if stored := sm.StoredSystemPrompt(); stored != "" {
+			stored := sm.StoredSystemPrompt()
+			if stored != "" && strings.Contains(stored, "Working directory:") {
 				a.cachedSystemPrompt = stored
 			}
 		}

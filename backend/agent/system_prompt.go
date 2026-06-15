@@ -194,6 +194,9 @@ func buildVolatileTier(in SystemPromptInputs) string {
 	// Day granularity only — the prompt stays byte-stable for the full day.
 	// Enough policy: never add Model:/Provider: lines here.
 	line := "Conversation started: " + now.Format("Monday, January 02, 2006")
+	if in.WorkDir != "" {
+		line += "\nWorking directory: " + in.WorkDir
+	}
 	if in.SessionID != "" {
 		line += "\nSession ID: " + in.SessionID
 	}

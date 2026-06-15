@@ -1,8 +1,9 @@
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
 // Nvidia/Linux fixes requested verbatim
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
@@ -60,6 +61,42 @@ ipcMain.on('window-maximize', (event) => {
 ipcMain.on('window-close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) win.close();
+});
+
+function listDirectory(targetPath) {
+  const home = os.homedir();
+  const resolved = targetPath ? path.resolve(targetPath) : home;
+  let parent = path.dirname(resolved);
+  if (parent === resolved) parent = null;
+
+  try {
+    const entries = fs.readdirSync(resolved, { withFileTypes: true });
+    const dirs = entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return { path: resolved, parent, entries: dirs, home };
+  } catch (err) {
+    return {
+      path: resolved,
+      parent,
+      entries: [],
+      home,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+ipcMain.handle('fs-list-dir', (_event, targetPath) => listDirectory(targetPath));
+
+ipcMain.handle('fs-pick-directory', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showOpenDialog(win ?? undefined, {
+    properties: ['openDirectory'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
 });
 
 let backendProcess = null;

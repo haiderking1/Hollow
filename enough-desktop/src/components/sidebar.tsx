@@ -212,7 +212,7 @@ export function Sidebar({
                     <IconBtn
                       onClick={() => onDeleteProject(group.cwd)}
                       aria-label="Remove project"
-                      title="Remove from app"
+                      title="Remove project (deletes its threads)"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                     </IconBtn>
@@ -266,7 +266,7 @@ export function Sidebar({
                               <IconBtn
                                 onClick={() => onDeleteThread(s.id)}
                                 aria-label="Delete thread"
-                                title="Remove from app"
+                                title="Delete thread"
                               >
                                 <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                               </IconBtn>
