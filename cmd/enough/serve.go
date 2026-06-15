@@ -452,16 +452,6 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 
-			promptingMu.Lock()
-			if prompting {
-				promptingMu.Unlock()
-				sendCh <- WsServerMessage{Type: "error", Message: "agent is already processing"}
-				continue
-			}
-			prompting = true
-			promptCtx, cancelPrompt = context.WithCancel(connCtx)
-			promptingMu.Unlock()
-
 			// Keep agent workspace aligned with the UI project folder.
 			if cwd := strings.TrimSpace(msg.CWD); cwd != "" {
 				targetCWD, cwdErr := resolveDesktopCWD(cwd)
@@ -480,11 +470,24 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+			promptingMu.Lock()
+			if prompting {
+				promptingMu.Unlock()
+				sendCh <- WsServerMessage{Type: "error", Message: "agent is already processing"}
+				continue
+			}
+			prompting = true
+			var cancel context.CancelFunc
+			promptCtx, cancel = context.WithCancel(connCtx)
+			cancelPrompt = cancel
+			promptingMu.Unlock()
+
 			// Run prompt in a separate goroutine so reads keep flowing
-			go func(text string, atts []agent.UserAttachment, pCtx context.Context) {
+			go func(text string, atts []agent.UserAttachment, pCtx context.Context, cancel context.CancelFunc) {
 				defer func() {
 					promptingMu.Lock()
 					prompting = false
+					cancel()
 					cancelPrompt = nil
 					promptingMu.Unlock()
 					sendCh <- WsServerMessage{Type: "done"}
@@ -558,7 +561,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-			}(msg.Text, userAtts, promptCtx)
+			}(msg.Text, userAtts, promptCtx, cancel)
 
 		case "interrupt":
 			promptingMu.Lock()
