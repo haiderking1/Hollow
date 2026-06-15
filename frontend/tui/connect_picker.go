@@ -19,7 +19,8 @@ type connectOption struct {
 }
 
 var connectOptions = []connectOption{
-	{id: config.ProviderOpenCode, name: "OpenCode Go", desc: "paste API key"},
+	{id: config.ProviderOpenCode, name: "OpenCode Go", desc: "Go subscription · paste API key"},
+	{id: config.ProviderOpenCodeZen, name: "OpenCode Zen", desc: "pay-as-you-go · paste API key"},
 	{id: config.ProviderCodex, name: "OpenAI Codex", desc: "browser OAuth (ChatGPT subscription)"},
 }
 
@@ -27,6 +28,7 @@ func (a *App) openConnectPicker() {
 	a.mode = modeConnectPicker
 	a.connectPickerCursor = 0
 	a.connectPickerStatus = ""
+	a.connectTargetProvider = ""
 	a.requestRender()
 }
 
@@ -73,18 +75,12 @@ func (a *App) handleConnectPickerKey(k parsedKey) bool {
 }
 
 func (a *App) selectConnectOption(provider string) {
+	a.connectTargetProvider = provider
 	switch provider {
 	case config.ProviderOpenCode:
-		a.mode = modeConnect
-		a.editor = NewEditor(1024)
-		_, endpoint, model, err := config.ConnectionSettings()
-		if err != nil {
-			a.appendMessage("error", err.Error())
-			a.mode = modeTask
-			a.editor = NewEditor(512)
-			return
-		}
-		a.appendMessage("system", fmt.Sprintf("connect — OpenCode · %s · %s\npaste your api key below", endpoint, model))
+		a.beginAPIKeyConnect(config.DefaultEndpoint, config.DefaultModel, "OpenCode Go")
+	case config.ProviderOpenCodeZen:
+		a.beginAPIKeyConnect(config.DefaultZenEndpoint, config.DefaultZenModel, "OpenCode Zen")
 	case config.ProviderCodex:
 		a.startCodexOAuth()
 	default:
@@ -92,6 +88,12 @@ func (a *App) selectConnectOption(provider string) {
 		a.mode = modeTask
 		a.editor = NewEditor(512)
 	}
+}
+
+func (a *App) beginAPIKeyConnect(endpoint, model, label string) {
+	a.mode = modeConnect
+	a.editor = NewEditor(1024)
+	a.appendMessage("system", fmt.Sprintf("connect — %s · %s · %s\npaste your api key below", label, endpoint, model))
 }
 
 func (a *App) startCodexOAuth() {

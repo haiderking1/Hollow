@@ -24,7 +24,7 @@ type slashCommand struct {
 }
 
 var slashCommands = []slashCommand{
-	{name: "connect", desc: "link OpenCode API key or OpenAI Codex OAuth"},
+	{name: "connect", desc: "link OpenCode Go/Zen API key or OpenAI Codex OAuth"},
 	{name: "model", desc: "pick provider and model"},
 	{name: "new", desc: "start a fresh session"},
 	{name: "sessions", desc: "list saved sessions for this project"},

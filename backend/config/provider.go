@@ -5,8 +5,17 @@ import (
 	"github.com/enough/enough/backend/secrets"
 )
 
-// EnableOpenCodeProvider stores an API key and switches the active provider.
+// EnableOpenCodeProvider stores an API key and switches the active provider to Go.
 func EnableOpenCodeProvider(key string) error {
+	return enableOpenCodeProvider(key, ProviderOpenCode, DefaultEndpoint)
+}
+
+// EnableOpenCodeZenProvider stores an API key and switches the active provider to Zen.
+func EnableOpenCodeZenProvider(key string) error {
+	return enableOpenCodeProvider(key, ProviderOpenCodeZen, DefaultZenEndpoint)
+}
+
+func enableOpenCodeProvider(key, provider, endpoint string) error {
 	if err := auth.SaveAPIKey(key); err != nil {
 		return err
 	}
@@ -14,9 +23,14 @@ func EnableOpenCodeProvider(key string) error {
 	if err != nil {
 		return err
 	}
-	cfg.Provider = ProviderOpenCode
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = DefaultEndpoint
+	cfg.Provider = provider
+	cfg.Endpoint = endpoint
+	if cfg.Model == "" {
+		if provider == ProviderOpenCodeZen {
+			cfg.Model = DefaultZenModel
+		} else {
+			cfg.Model = DefaultModel
+		}
 	}
 	return Save(cfg)
 }
@@ -49,9 +63,12 @@ func ConnectionSettings() (provider, endpoint, model string, err error) {
 		provider = ProviderOpenCode
 	}
 	if cfg.Endpoint == "" {
-		if provider == ProviderCodex {
+		switch provider {
+		case ProviderCodex:
 			endpoint = auth.CodexDefaultBaseURL()
-		} else {
+		case ProviderOpenCodeZen:
+			endpoint = DefaultZenEndpoint
+		default:
 			endpoint = DefaultEndpoint
 		}
 	} else {
@@ -59,9 +76,12 @@ func ConnectionSettings() (provider, endpoint, model string, err error) {
 	}
 	model = cfg.Model
 	if model == "" {
-		if provider == ProviderCodex {
+		switch provider {
+		case ProviderCodex:
 			model = DefaultCodexModel
-		} else {
+		case ProviderOpenCodeZen:
+			model = DefaultZenModel
+		default:
 			model = DefaultModel
 		}
 	}
@@ -75,7 +95,7 @@ func ApplyProviderModel(provider, model, thinkingLevel string) error {
 		if !auth.HasCodexAuth() {
 			return secrets.ErrNotConnected
 		}
-	case ProviderOpenCode:
+	case ProviderOpenCode, ProviderOpenCodeZen:
 		if !secrets.HasAPIKey() {
 			return secrets.ErrNotConnected
 		}
@@ -94,8 +114,12 @@ func ApplyProviderModel(provider, model, thinkingLevel string) error {
 	switch provider {
 	case ProviderCodex:
 		cfg.Endpoint = auth.CodexDefaultBaseURL()
+	case ProviderOpenCodeZen:
+		if cfg.Endpoint == "" || cfg.Endpoint == DefaultEndpoint || cfg.Endpoint == auth.CodexDefaultBaseURL() {
+			cfg.Endpoint = DefaultZenEndpoint
+		}
 	default:
-		if cfg.Endpoint == "" || cfg.Endpoint == auth.CodexDefaultBaseURL() {
+		if cfg.Endpoint == "" || cfg.Endpoint == DefaultZenEndpoint || cfg.Endpoint == auth.CodexDefaultBaseURL() {
 			cfg.Endpoint = DefaultEndpoint
 		}
 	}

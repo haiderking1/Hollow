@@ -21,19 +21,21 @@ const (
 	modelPickerFocusThinking
 )
 
-func (a *App) startModelFetch() {
-	endpoint := config.DefaultEndpoint
-	if cfg, err := config.Load(); err == nil && cfg.Endpoint != "" {
-		endpoint = cfg.Endpoint
+func (a *App) refreshOpenCodeModelLists(ctx context.Context, apiKey string) {
+	if apiKey == "" {
+		return
 	}
+	_ = a.modelRegistry.Refresh(ctx, opencode.ProviderOpenCode, config.DefaultEndpoint, apiKey)
+	_ = a.modelRegistry.Refresh(ctx, opencode.ProviderOpenCodeZen, config.DefaultZenEndpoint, apiKey)
+}
+
+func (a *App) startModelFetch() {
 	apiKey, _ := secrets.GetAPIKey()
 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		if apiKey != "" {
-			_ = a.modelRegistry.Refresh(ctx, endpoint, apiKey)
-		}
+		a.refreshOpenCodeModelLists(ctx, apiKey)
 		if auth.HasCodexAuth() {
 			if creds, err := auth.ResolveCodexCredentials(ctx); err == nil {
 				_ = a.modelRegistry.RefreshCodex(ctx, creds.AccessToken)
@@ -54,12 +56,8 @@ func (a *App) openModelPicker(filter string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		endpoint := config.DefaultEndpoint
-		if cfg, err := config.Load(); err == nil && cfg.Endpoint != "" {
-			endpoint = cfg.Endpoint
-		}
 		if apiKey, _ := secrets.GetAPIKey(); apiKey != "" {
-			_ = a.modelRegistry.Refresh(ctx, endpoint, apiKey)
+			a.refreshOpenCodeModelLists(ctx, apiKey)
 			a.requestRender()
 		}
 		if auth.HasCodexAuth() {
@@ -165,6 +163,8 @@ func (a *App) providerConnected(id string) bool {
 	switch id {
 	case config.ProviderCodex:
 		return auth.HasCodexAuth()
+	case config.ProviderOpenCode, config.ProviderOpenCodeZen:
+		return secrets.HasAPIKey()
 	default:
 		return secrets.HasAPIKey()
 	}
@@ -420,7 +420,7 @@ func (a *App) renderModelPicker(width int) string {
 		leftLines = append(leftLines, style.Render(fmt.Sprintf("%s%-18s", marker, truncateRunes(name, 18))))
 	}
 
-	if fetchErr := a.modelRegistry.Err(); fetchErr != nil && a.modelPickerProvider().ID == opencode.ProviderOpenCode && len(items) == 0 {
+	if fetchErr := a.modelRegistry.ErrFor(a.modelPickerProvider().ID); fetchErr != nil && (a.modelPickerProvider().ID == opencode.ProviderOpenCode || a.modelPickerProvider().ID == opencode.ProviderOpenCodeZen) && len(items) == 0 {
 		rightLines = append(rightLines, a.styles.SlashDim.Render("  could not fetch — catalog"))
 	} else if len(items) == 0 {
 		rightLines = append(rightLines, a.styles.SlashDim.Render("  no matching models"))

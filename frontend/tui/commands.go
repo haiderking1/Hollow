@@ -615,7 +615,14 @@ func (a *App) saveAPIKey(key string) {
 	a.mode = modeTask
 	a.editor = NewEditor(512)
 
-	if err := config.EnableOpenCodeProvider(key); err != nil {
+	var err error
+	switch a.connectTargetProvider {
+	case config.ProviderOpenCodeZen:
+		err = config.EnableOpenCodeZenProvider(key)
+	default:
+		err = config.EnableOpenCodeProvider(key)
+	}
+	if err != nil {
 		a.appendMessage("error", err.Error())
 		return
 	}

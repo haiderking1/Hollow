@@ -37,6 +37,16 @@ func (r *Registry) resolveContextWindow(provider, modelID string) int {
 			return m.ContextWindow
 		}
 		return codexContextFallbackFor(modelID)
+	case ProviderOpenCodeZen:
+		for _, m := range r.zenModels {
+			if m.ID == modelID && m.ContextWindow > 0 {
+				return m.ContextWindow
+			}
+		}
+		if m, ok := catalogModelForProvider(ProviderOpenCodeZen, modelID); ok && m.ContextWindow > 0 {
+			return m.ContextWindow
+		}
+		return 0
 	default:
 		for _, m := range r.models {
 			if m.ID == modelID && m.ContextWindow > 0 {

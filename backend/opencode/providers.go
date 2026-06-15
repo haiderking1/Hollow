@@ -1,8 +1,9 @@
 package opencode
 
 const (
-	ProviderOpenCode = "opencode-go"
-	ProviderCodex    = "openai-codex"
+	ProviderOpenCode    = "opencode-go"
+	ProviderOpenCodeZen = "opencode-zen"
+	ProviderCodex       = "openai-codex"
 )
 
 // ProviderInfo describes a model provider shown in the /model picker.
@@ -15,6 +16,7 @@ type ProviderInfo struct {
 func ModelProviders() []ProviderInfo {
 	return []ProviderInfo{
 		{ID: ProviderOpenCode, Name: "OpenCode Go"},
+		{ID: ProviderOpenCodeZen, Name: "OpenCode Zen"},
 		{ID: ProviderCodex, Name: "OpenAI Codex"},
 	}
 }
@@ -80,15 +82,27 @@ func ModelsForProvider(provider string, registry *Registry) []ModelInfo {
 			return registry.CodexModelsList()
 		}
 		return CodexModels()
-	default:
-		models := registry.Models()
-		if len(models) == 0 {
-			models = FallbackModels()
+	case ProviderOpenCodeZen:
+		if registry != nil {
+			models := registry.ZenModelsList()
+			out := make([]ModelInfo, len(models))
+			copy(out, models)
+			sortModels(out)
+			return out
 		}
-		out := make([]ModelInfo, len(models))
-		copy(out, models)
-		sortModels(out)
-		return out
+		return fallbackModels(ProviderOpenCodeZen)
+	default:
+		if registry != nil {
+			models := registry.Models()
+			if len(models) == 0 {
+				models = fallbackModels(ProviderOpenCode)
+			}
+			out := make([]ModelInfo, len(models))
+			copy(out, models)
+			sortModels(out)
+			return out
+		}
+		return fallbackModels(ProviderOpenCode)
 	}
 }
 

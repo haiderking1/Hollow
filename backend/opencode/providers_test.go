@@ -24,8 +24,11 @@ func TestModelsForProvider(t *testing.T) {
 }
 
 func TestProviderIndex(t *testing.T) {
-	if ProviderIndex(ProviderCodex) != 1 {
+	if ProviderIndex(ProviderCodex) != 2 {
 		t.Fatalf("codex index = %d", ProviderIndex(ProviderCodex))
+	}
+	if ProviderIndex(ProviderOpenCodeZen) != 1 {
+		t.Fatalf("zen index = %d", ProviderIndex(ProviderOpenCodeZen))
 	}
 	if ProviderIndex("unknown") != 0 {
 		t.Fatal("unknown should default to 0")

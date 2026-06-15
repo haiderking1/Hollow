@@ -46,7 +46,7 @@ func TestFetchModelsMergesMetadata(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	models, err := FetchModels(context.Background(), srv.URL, "")
+	models, err := FetchModels(context.Background(), ProviderOpenCode, srv.URL, "")
 	if err != nil {
 		t.Fatalf("FetchModels: %v", err)
 	}

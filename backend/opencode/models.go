@@ -111,8 +111,10 @@ var defaultRegistry = NewRegistry()
 type Registry struct {
 	mu          sync.RWMutex
 	models      []ModelInfo
+	zenModels   []ModelInfo
 	codexModels []ModelInfo
 	err         error
+	zenErr      error
 	codexErr    error
 }
 
@@ -155,14 +157,40 @@ func (r *Registry) Lookup(id string) (ModelInfo, bool) {
 	return ModelInfo{}, false
 }
 
-func (r *Registry) Refresh(ctx context.Context, endpoint, apiKey string) error {
+func (r *Registry) Refresh(ctx context.Context, provider, endpoint, apiKey string) error {
 	_ = RefreshModelsDevCatalog(ctx)
-	models, err := FetchModels(ctx, endpoint, apiKey)
+	models, err := FetchModels(ctx, provider, endpoint, apiKey)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.models = models
-	r.err = err
+	switch provider {
+	case ProviderOpenCodeZen:
+		r.zenModels = models
+		r.zenErr = err
+	default:
+		r.models = models
+		r.err = err
+	}
 	return err
+}
+
+func (r *Registry) ErrFor(provider string) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if provider == ProviderOpenCodeZen {
+		return r.zenErr
+	}
+	return r.err
+}
+
+func (r *Registry) ZenModelsList() []ModelInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if len(r.zenModels) > 0 {
+		out := make([]ModelInfo, len(r.zenModels))
+		copy(out, r.zenModels)
+		return out
+	}
+	return fallbackModels(ProviderOpenCodeZen)
 }
 
 func (r *Registry) RefreshCodex(ctx context.Context, accessToken string) error {
@@ -221,13 +249,13 @@ func ModelContextWindow(id string) int {
 	return ResolveContextWindow(ProviderOpenCode, id)
 }
 
-func FetchModels(ctx context.Context, endpoint, apiKey string) ([]ModelInfo, error) {
+func FetchModels(ctx context.Context, provider, endpoint, apiKey string) ([]ModelInfo, error) {
 	endpoint = strings.TrimRight(endpoint, "/")
 	url := endpoint + "/models"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return fallbackModels(), err
+		return fallbackModels(provider), err
 	}
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -236,21 +264,21 @@ func FetchModels(ctx context.Context, endpoint, apiKey string) ([]ModelInfo, err
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fallbackModels(), err
+		return fallbackModels(provider), err
 	}
 	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fallbackModels(), err
+		return fallbackModels(provider), err
 	}
 	if resp.StatusCode >= 400 {
-		return fallbackModels(), fmt.Errorf("models %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return fallbackModels(provider), fmt.Errorf("models %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 
 	var list modelsListResponse
 	if err := json.Unmarshal(raw, &list); err != nil {
-		return fallbackModels(), fmt.Errorf("decode models: %w", err)
+		return fallbackModels(provider), fmt.Errorf("decode models: %w", err)
 	}
 
 	seen := make(map[string]struct{}, len(list.Data))
@@ -263,32 +291,40 @@ func FetchModels(ctx context.Context, endpoint, apiKey string) ([]ModelInfo, err
 		if _, dup := seen[id]; dup {
 			continue
 		}
-		catalogMu.RLock()
-		m, ok := opencodeCatalog[id]
-		catalogMu.RUnlock()
+		m, ok := catalogModelForProvider(provider, id)
 		if ok {
 			out = append(out, m)
 		}
 	}
 
 	if len(out) == 0 {
-		return fallbackModels(), nil
+		return fallbackModels(provider), nil
 	}
 
 	sortModels(out)
 	return out, nil
 }
 
-func fallbackModels() []ModelInfo {
+func fallbackModels(provider string) []ModelInfo {
 	catalogMu.RLock()
-	defer catalogMu.RUnlock()
-	if len(opencodeCatalog) > 0 {
-		out := make([]ModelInfo, 0, len(opencodeCatalog))
-		for _, m := range opencodeCatalog {
+	var source map[string]ModelInfo
+	if provider == ProviderOpenCodeZen {
+		source = opencodeZenCatalog
+	} else {
+		source = opencodeCatalog
+	}
+	if len(source) > 0 {
+		out := make([]ModelInfo, 0, len(source))
+		for _, m := range source {
 			out = append(out, m)
 		}
+		catalogMu.RUnlock()
 		sortModels(out)
 		return out
+	}
+	catalogMu.RUnlock()
+	if provider == ProviderOpenCodeZen {
+		return nil
 	}
 	out := make([]ModelInfo, 0, len(knownModels))
 	for id := range knownModels {
@@ -298,9 +334,9 @@ func fallbackModels() []ModelInfo {
 	return out
 }
 
-// FallbackModels returns the static catalog when the API is unavailable.
+// FallbackModels returns the static Go catalog when the API is unavailable.
 func FallbackModels() []ModelInfo {
-	return fallbackModels()
+	return fallbackModels(ProviderOpenCode)
 }
 
 func mergeModel(id string) ModelInfo {

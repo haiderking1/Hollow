@@ -20,6 +20,9 @@ var modelsDevURL = "https://models.dev/api.json"
 // minOpencodeGoCatalogModels guards against corrupted/partial cache files (e.g. test mocks).
 const minOpencodeGoCatalogModels = 5
 
+const modelsDevProviderGo = "opencode-go"
+const modelsDevProviderZen = "opencode"
+
 type modelsDevCatalog struct {
 	Providers map[string]modelsDevProvider `json:"-"`
 }
@@ -49,7 +52,8 @@ type modelsDevModel struct {
 
 var (
 	catalogMu             sync.RWMutex
-	opencodeCatalog       map[string]ModelInfo
+	opencodeCatalog       map[string]ModelInfo // OpenCode Go (models.dev opencode-go)
+	opencodeZenCatalog    map[string]ModelInfo // OpenCode Zen (models.dev opencode)
 	catalogLoaded         bool
 	backgroundRefreshOnce sync.Once
 )
@@ -58,29 +62,37 @@ func cacheFilePath() string {
 	return filepath.Join(enoughhome.HomeDir(), "cache", "models.json")
 }
 
-func loadCatalogFromCache() (map[string]ModelInfo, time.Time, error) {
+func loadCatalogFromCache() (goCatalog, zenCatalog map[string]ModelInfo, modTime time.Time, err error) {
 	path := cacheFilePath()
 	fi, err := os.Stat(path)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, time.Time{}, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, time.Time{}, err
 	}
 	var all map[string]modelsDevProvider
 	if err := json.Unmarshal(data, &all); err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, time.Time{}, err
 	}
-	provider, ok := all[ProviderOpenCode]
-	if !ok {
-		return nil, time.Time{}, fmt.Errorf("missing provider in cached catalog")
+	goCatalog = catalogFromModelsDevProvider(all[modelsDevProviderGo])
+	zenCatalog = catalogFromModelsDevProvider(all[modelsDevProviderZen])
+	if len(goCatalog) == 0 {
+		return nil, nil, time.Time{}, fmt.Errorf("missing go provider in cached catalog")
+	}
+	return goCatalog, zenCatalog, fi.ModTime(), nil
+}
+
+func catalogFromModelsDevProvider(provider modelsDevProvider) map[string]ModelInfo {
+	if len(provider.Models) == 0 {
+		return nil
 	}
 	next := make(map[string]ModelInfo, len(provider.Models))
 	for id, m := range provider.Models {
 		next[id] = modelInfoFromModelsDev(m)
 	}
-	return next, fi.ModTime(), nil
+	return next
 }
 
 func saveCatalogToCache(data []byte) error {
@@ -107,16 +119,17 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 	backgroundRefreshOnce.Do(startBackgroundRefreshLoop)
 
 	// 1. Try to load from disk cache first (only if using default URL)
-	var cached map[string]ModelInfo
+	var cachedGo, cachedZen map[string]ModelInfo
 	var modTime time.Time
 	var err error
 	if modelsDevURL == "https://models.dev/api.json" {
-		cached, modTime, err = loadCatalogFromCache()
-		if err == nil && len(cached) >= minOpencodeGoCatalogModels {
+		cachedGo, cachedZen, modTime, err = loadCatalogFromCache()
+		if err == nil && len(cachedGo) >= minOpencodeGoCatalogModels {
 			// Cache is present. Check freshness (60 minutes).
 			if time.Since(modTime) < 60*time.Minute {
 				catalogMu.Lock()
-				opencodeCatalog = cached
+				opencodeCatalog = cachedGo
+				opencodeZenCatalog = cachedZen
 				catalogLoaded = true
 				catalogMu.Unlock()
 				return nil
@@ -127,9 +140,10 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 	// 2. Fetch from network
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsDevURL, nil)
 	if err != nil {
-		if cached != nil {
+		if cachedGo != nil {
 			catalogMu.Lock()
-			opencodeCatalog = cached
+			opencodeCatalog = cachedGo
+			opencodeZenCatalog = cachedZen
 			catalogLoaded = true
 			catalogMu.Unlock()
 			return nil
@@ -140,9 +154,10 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		if cached != nil {
+		if cachedGo != nil {
 			catalogMu.Lock()
-			opencodeCatalog = cached
+			opencodeCatalog = cachedGo
+			opencodeZenCatalog = cachedZen
 			catalogLoaded = true
 			catalogMu.Unlock()
 			return nil
@@ -153,9 +168,10 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		if cached != nil {
+		if cachedGo != nil {
 			catalogMu.Lock()
-			opencodeCatalog = cached
+			opencodeCatalog = cachedGo
+			opencodeZenCatalog = cachedZen
 			catalogLoaded = true
 			catalogMu.Unlock()
 			return nil
@@ -163,9 +179,10 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 		return err
 	}
 	if resp.StatusCode >= 400 {
-		if cached != nil {
+		if cachedGo != nil {
 			catalogMu.Lock()
-			opencodeCatalog = cached
+			opencodeCatalog = cachedGo
+			opencodeZenCatalog = cachedZen
 			catalogLoaded = true
 			catalogMu.Unlock()
 			return nil
@@ -175,9 +192,10 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 
 	var all map[string]modelsDevProvider
 	if err := json.Unmarshal(raw, &all); err != nil {
-		if cached != nil {
+		if cachedGo != nil {
 			catalogMu.Lock()
-			opencodeCatalog = cached
+			opencodeCatalog = cachedGo
+			opencodeZenCatalog = cachedZen
 			catalogLoaded = true
 			catalogMu.Unlock()
 			return nil
@@ -185,25 +203,22 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 		return fmt.Errorf("decode models.dev: %w", err)
 	}
 
-	provider, ok := all[ProviderOpenCode]
+	goProvider, ok := all[modelsDevProviderGo]
 	if !ok {
-		if cached != nil {
+		if cachedGo != nil {
 			catalogMu.Lock()
-			opencodeCatalog = cached
+			opencodeCatalog = cachedGo
+			opencodeZenCatalog = cachedZen
 			catalogLoaded = true
 			catalogMu.Unlock()
 			return nil
 		}
-		return fmt.Errorf("models.dev: missing %q provider", ProviderOpenCode)
-	}
-
-	next := make(map[string]ModelInfo, len(provider.Models))
-	for id, m := range provider.Models {
-		next[id] = modelInfoFromModelsDev(m)
+		return fmt.Errorf("models.dev: missing %q provider", modelsDevProviderGo)
 	}
 
 	catalogMu.Lock()
-	opencodeCatalog = next
+	opencodeCatalog = catalogFromModelsDevProvider(goProvider)
+	opencodeZenCatalog = catalogFromModelsDevProvider(all[modelsDevProviderZen])
 	catalogLoaded = true
 	catalogMu.Unlock()
 
@@ -214,9 +229,17 @@ func RefreshModelsDevCatalog(ctx context.Context) error {
 }
 
 func catalogModel(id string) (ModelInfo, bool) {
+	return catalogModelForProvider(ProviderOpenCode, id)
+}
+
+func catalogModelForProvider(provider, id string) (ModelInfo, bool) {
 	catalogMu.RLock()
 	defer catalogMu.RUnlock()
-	if m, ok := opencodeCatalog[id]; ok {
+	cat := opencodeCatalog
+	if provider == ProviderOpenCodeZen {
+		cat = opencodeZenCatalog
+	}
+	if m, ok := cat[id]; ok {
 		return m, true
 	}
 	return ModelInfo{}, false

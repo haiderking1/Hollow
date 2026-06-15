@@ -15,12 +15,15 @@ import (
 )
 
 const (
-	DefaultEndpoint   = "https://opencode.ai/zen/go/v1"
-	DefaultModel      = "deepseek-v4-flash"
-	DefaultCodexModel = "gpt-5-codex"
+	DefaultEndpoint    = "https://opencode.ai/zen/go/v1"
+	DefaultZenEndpoint = "https://opencode.ai/zen/v1"
+	DefaultModel       = "deepseek-v4-flash"
+	DefaultZenModel    = "deepseek-v4-flash"
+	DefaultCodexModel  = "gpt-5-codex"
 
-	ProviderOpenCode = "opencode-go"
-	ProviderCodex    = "openai-codex"
+	ProviderOpenCode    = "opencode-go"
+	ProviderOpenCodeZen = "opencode-zen"
+	ProviderCodex       = "openai-codex"
 )
 
 type CompactionSettings struct {
@@ -585,7 +588,12 @@ func LoadRuntime() (Runtime, error) {
 			return Runtime{}, err
 		}
 		if cfg.Endpoint == "" {
-			cfg.Endpoint = DefaultEndpoint
+			switch provider {
+			case ProviderOpenCodeZen:
+				cfg.Endpoint = DefaultZenEndpoint
+			default:
+				cfg.Endpoint = DefaultEndpoint
+			}
 		}
 	}
 

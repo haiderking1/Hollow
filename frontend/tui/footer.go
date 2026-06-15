@@ -35,6 +35,8 @@ func footerProviderLabel(provider, endpoint string) string {
 		return "openai-codex"
 	case config.ProviderOpenCode:
 		return "opencode-go"
+	case config.ProviderOpenCodeZen:
+		return "opencode-zen"
 	}
 	endpoint = strings.ToLower(endpoint)
 	switch {

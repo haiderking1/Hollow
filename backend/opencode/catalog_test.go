@@ -127,7 +127,7 @@ func TestApplyThinkingMandatoryKimi(t *testing.T) {
 	}
 
 	r := NewRegistry()
-	_ = r.Refresh(context.Background(), "http://invalid", "")
+	_ = r.Refresh(context.Background(), ProviderOpenCode, "http://invalid", "")
 
 	req := &ChatRequest{Model: "kimi-k2.7-code"}
 	ApplyThinkingToRequest(req, ThinkingOff, "kimi-k2.7-code")
@@ -167,7 +167,7 @@ func TestFetchModelsIntersection(t *testing.T) {
 	}))
 	defer zenSrv.Close()
 
-	models, err := FetchModels(context.Background(), zenSrv.URL, "")
+	models, err := FetchModels(context.Background(), ProviderOpenCode, zenSrv.URL, "")
 	if err != nil {
 		t.Fatalf("FetchModels: %v", err)
 	}

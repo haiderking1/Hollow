@@ -75,6 +75,7 @@ type App struct {
 
 	connectPickerCursor int
 	connectPickerStatus string
+	connectTargetProvider string
 	codexOAuthCancel    context.CancelFunc
 
 	running                  bool
