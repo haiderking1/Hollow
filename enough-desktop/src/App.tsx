@@ -270,10 +270,7 @@ export default function App() {
             }
             case "switch_session":
             case "new_session": {
-              // Session is live — fetch transcript. Skip list_sessions here; it
-              // scans every project and was adding seconds to each switch.
-              send({ type: "get_state" })
-              send({ type: "get_messages" })
+              // session.history from the backend updates state + messages.
               break
             }
           }
@@ -345,8 +342,8 @@ export default function App() {
         setLoadingThread(true)
         setSyncingThread(false)
       }
-      if (!info.path) return
-      send({ type: "switch_session", sessionPath: info.path })
+      if (!info.id) return
+      send({ type: "switch_session", sessionPath: info.id })
     },
     [currentSessionId, stashMessagesInCache],
   )
@@ -455,7 +452,10 @@ export default function App() {
   // record yet (brand-new thread), so it shows under its project immediately.
   const sidebarSessions = useMemo(() => {
     const visible = sessionList.filter((s) => !hiddenThreads.includes(s.id))
-    if (currentSessionId && projectCwd && !visible.some((s) => s.id === currentSessionId)) {
+    const inList = visible.some(
+      (s) => s.id === currentSessionId || s.path === currentSessionId,
+    )
+    if (currentSessionId && projectCwd && !inList) {
       const now = new Date().toISOString()
       const synthetic: AgentSessionInfo = {
         path: "",

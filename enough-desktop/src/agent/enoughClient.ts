@@ -244,10 +244,11 @@ class EnoughClient {
         this.sendWs({ type: "listSessions" })
         break
       case "switch_session": {
-        const id = commandText(command, "sessionPath")
-        if (id) {
+        const raw = commandText(command, "sessionPath")
+        if (raw) {
+          const id = this.resolveSessionId(raw)
           this.currentSessionId = id
-          this.sendWs({ type: "openSession", id })
+          this.sendWs({ type: "openSession", id: raw })
         }
         this.emit({ type: "response", command: "switch_session", success: true, data: { cancelled: false } })
         break
@@ -426,6 +427,11 @@ class EnoughClient {
         },
       },
     })
+  }
+
+  private resolveSessionId(raw: string): string {
+    const match = this.sessions.find((s) => s.id === raw || s.path === raw)
+    return match?.id ?? raw
   }
 
   private state(): AgentSessionState {
