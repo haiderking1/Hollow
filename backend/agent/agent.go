@@ -578,6 +578,7 @@ func (a *Agent) runLoop(ctx context.Context) error {
 		a.mu.Unlock()
 
 		streamStarted := false
+		streamedReasoningLen := 0
 		startStream := func() {
 			if streamStarted {
 				return
@@ -597,6 +598,7 @@ func (a *Agent) runLoop(ctx context.Context) error {
 			OnThinking: func(delta string) {
 				startStream()
 				a.thinkingDelta(delta)
+				streamedReasoningLen += len(delta)
 			},
 			OnText: func(delta string) {
 				startStream()
@@ -636,12 +638,14 @@ func (a *Agent) runLoop(ctx context.Context) error {
 
 		if len(msg.ToolCalls) == 0 {
 			text := opencode.ContentString(msg)
-			if !streamStarted {
-				if msg.ReasoningContent != nil && *msg.ReasoningContent != "" {
-					a.streamStart()
-					a.thinkingDelta(*msg.ReasoningContent)
-					streamStarted = true
+			if msg.ReasoningContent != nil {
+				full := *msg.ReasoningContent
+				if len(full) > streamedReasoningLen {
+					startStream()
+					a.thinkingDelta(full[streamedReasoningLen:])
 				}
+			}
+			if !streamStarted {
 				if text != "" {
 					startStream()
 					a.streamDelta(text)

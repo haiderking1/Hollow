@@ -34,6 +34,7 @@ export interface AgentModel {
   contextLabel?: string
   reasoning?: boolean
   thinkingLevels?: string[]
+  thinkingLevelLabels?: string[]
 }
 
 export interface ModelSelectionState {

@@ -17,13 +17,14 @@ type wsProviderDTO struct {
 }
 
 type wsModelDTO struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Provider       string   `json:"provider"`
-	ContextWindow  int      `json:"contextWindow"`
-	ContextLabel   string   `json:"contextLabel"`
-	Reasoning      bool     `json:"reasoning"`
-	ThinkingLevels []string `json:"thinkingLevels"`
+	ID                  string   `json:"id"`
+	Name                string   `json:"name"`
+	Provider            string   `json:"provider"`
+	ContextWindow       int      `json:"contextWindow"`
+	ContextLabel        string   `json:"contextLabel"`
+	Reasoning           bool     `json:"reasoning"`
+	ThinkingLevels      []string `json:"thinkingLevels"`
+	ThinkingLevelLabels []string `json:"thinkingLevelLabels"`
 }
 
 type wsModelStateDTO struct {
@@ -68,17 +69,20 @@ func refreshDesktopModelRegistry(ctx context.Context, registry *opencode.Registr
 func mapModelDTO(provider string, m opencode.ModelInfo) wsModelDTO {
 	levels := opencode.SupportedThinkingLevels(m.ID)
 	outLevels := make([]string, 0, len(levels))
+	outLabels := make([]string, 0, len(levels))
 	for _, l := range levels {
 		outLevels = append(outLevels, string(l))
+		outLabels = append(outLabels, opencode.FormatThinkingLevelForModel(m.ID, l))
 	}
 	return wsModelDTO{
-		ID:             m.ID,
-		Name:           m.Name,
-		Provider:       provider,
-		ContextWindow:  m.ContextWindow,
-		ContextLabel:   opencode.FormatContextWindow(m.ContextWindow),
-		Reasoning:      m.Reasoning,
-		ThinkingLevels: outLevels,
+		ID:                  m.ID,
+		Name:                m.Name,
+		Provider:            provider,
+		ContextWindow:       m.ContextWindow,
+		ContextLabel:        opencode.FormatContextWindow(m.ContextWindow),
+		Reasoning:           m.Reasoning,
+		ThinkingLevels:      outLevels,
+		ThinkingLevelLabels: outLabels,
 	}
 }
 

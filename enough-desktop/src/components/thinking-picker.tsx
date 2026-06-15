@@ -1,41 +1,29 @@
 import { useEffect, useRef, useState } from "react"
 import { Brain, Check } from "lucide-react"
+import type { AgentModel } from "../agent/rpc"
+import { thinkingLevelHint, thinkingLevelLabel } from "../lib/thinking"
 import { PickerButton } from "./picker-button"
 import { cn } from "../lib/utils"
 
 interface ThinkingPickerProps {
+  model?: AgentModel
   levels: string[]
   value: string
   disabled?: boolean
   onChange: (level: string) => void
 }
 
-const LEVEL_HINTS: Record<string, string> = {
-  off: "Fastest responses",
-  low: "Light reasoning",
-  medium: "Balanced depth",
-  high: "Deeper analysis",
-  xhigh: "Maximum depth",
-  max: "Maximum depth",
-}
-
-function formatThinking(level: string) {
-  if (!level || level === "off") return "Off"
-  return level.charAt(0).toUpperCase() + level.slice(1)
-}
-
-function levelHint(level: string) {
-  return LEVEL_HINTS[level] ?? "Reasoning depth"
-}
-
-export function ThinkingPicker({ levels, value, disabled, onChange }: ThinkingPickerProps) {
+export function ThinkingPicker({ model, levels, value, disabled, onChange }: ThinkingPickerProps) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
 
+  const valueIndex = Math.max(0, levels.indexOf(value))
+  const valueLabel = thinkingLevelLabel(model, value, valueIndex)
+
   useEffect(() => {
-    setHighlight(Math.max(0, levels.indexOf(value)))
-  }, [levels, value, open])
+    setHighlight(valueIndex)
+  }, [levels, value, open, valueIndex])
 
   useEffect(() => {
     if (!open) return
@@ -75,7 +63,7 @@ export function ThinkingPicker({ levels, value, disabled, onChange }: ThinkingPi
     <div ref={rootRef} className="relative shrink-0">
       <PickerButton
         icon={<Brain className="h-3.5 w-3.5" strokeWidth={1.75} />}
-        label={formatThinking(value)}
+        label={valueLabel}
         open={open}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
@@ -94,6 +82,8 @@ export function ThinkingPicker({ levels, value, disabled, onChange }: ThinkingPi
             {levels.map((level, index) => {
               const active = level === value
               const highlighted = index === highlight
+              const label = thinkingLevelLabel(model, level, index)
+              const hint = thinkingLevelHint(model?.id ?? "", level)
               return (
                 <button
                   key={level}
@@ -116,15 +106,13 @@ export function ThinkingPicker({ levels, value, disabled, onChange }: ThinkingPi
                   <div className="min-w-0 flex-1">
                     <div
                       className={cn(
-                        "text-[13px] font-medium leading-tight",
+                        "text-[13px] font-medium leading-tight capitalize",
                         active ? "text-foreground" : "text-foreground/90",
                       )}
                     >
-                      {formatThinking(level)}
+                      {label}
                     </div>
-                    <div className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
-                      {levelHint(level)}
-                    </div>
+                    <div className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{hint}</div>
                   </div>
 
                   {active && (

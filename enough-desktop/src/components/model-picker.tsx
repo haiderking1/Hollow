@@ -8,6 +8,9 @@ import {
 } from "./provider-icons"
 import { PickerButton } from "./picker-button"
 import { ThinkingPicker } from "./thinking-picker"
+import {
+  formatThinkingBadge,
+} from "../lib/thinking"
 import { cn } from "../lib/utils"
 
 const FAVORITES_KEY = "enough-favorite-models"
@@ -46,6 +49,22 @@ function defaultThinking(model: AgentModel) {
   if (levels.length <= 1) return ""
   if (levels.includes("medium")) return "medium"
   return levels.find((l) => l !== "off") ?? levels[0]
+}
+
+function modelBadgeThinking(
+  model: AgentModel,
+  isActive: boolean,
+  isHighlight: boolean,
+  pickerThinking: string,
+  catalogThinking: string,
+): string {
+  const levels = model.thinkingLevels ?? []
+  if (levels.length > 1) {
+    if (isHighlight || isActive) return pickerThinking || defaultThinking(model)
+    if (catalogThinking && levels.includes(catalogThinking)) return catalogThinking
+    return defaultThinking(model)
+  }
+  return levels[0] ?? ""
 }
 
 function modelMatchesTab(model: AgentModel, tab: SidebarTab) {
@@ -265,6 +284,16 @@ export function ModelPicker({ catalog, disabled, isStreaming, onSelect }: ModelP
                       const isActive = model.id === state?.modelId && model.provider === state?.provider
                       const isHighlight = index === highlight
                       const shortcut = index < 9 ? `Ctrl+${index + 1}` : null
+                      const badge = formatThinkingBadge(
+                        model,
+                        modelBadgeThinking(
+                          model,
+                          isActive,
+                          isHighlight,
+                          thinking,
+                          state?.thinkingLevel ?? "",
+                        ),
+                      )
 
                       return (
                         <div
@@ -312,6 +341,12 @@ export function ModelPicker({ catalog, disabled, isStreaming, onSelect }: ModelP
                                   <span>{model.contextLabel}</span>
                                 </>
                               )}
+                              {badge && (
+                                <>
+                                  <span>·</span>
+                                  <span>{badge}</span>
+                                </>
+                              )}
                             </div>
                           </div>
 
@@ -333,6 +368,7 @@ export function ModelPicker({ catalog, disabled, isStreaming, onSelect }: ModelP
 
       {activeModel && (
         <ThinkingPicker
+          model={activeModel}
           levels={thinkingLevels}
           value={thinking}
           disabled={disabled}
