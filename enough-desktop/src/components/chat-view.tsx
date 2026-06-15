@@ -1,4 +1,5 @@
 import type { Message } from "../types"
+import { MarkdownContent } from "./markdown-content"
 import { ToolBlock } from "./tool-block"
 import { ThinkingBlock } from "./thinking-block"
 import { TodoBlock } from "./todo-block"
@@ -21,8 +22,8 @@ function MessageRow({ message }: { message: Message }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-elevated px-4 py-2.5 text-[14px] leading-relaxed text-foreground">
-          {message.text}
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-elevated px-4 py-2.5">
+          <MarkdownContent text={message.text} className="text-foreground" />
         </div>
       </div>
     )
@@ -36,12 +37,11 @@ function MessageRow({ message }: { message: Message }) {
           switch (block.type) {
             case "text":
               return (
-                <p key={i} className="text-[14px] leading-relaxed text-foreground/90">
-                  {block.text}
-                  {message.streaming && i === message.blocks.length - 1 && (
-                    <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] bg-accent align-text-bottom animate-caret" />
-                  )}
-                </p>
+                <MarkdownContent
+                  key={i}
+                  text={block.text}
+                  streaming={message.streaming && i === message.blocks.length - 1}
+                />
               )
             case "thinking":
               return <ThinkingBlock key={i} text={block.text} />
