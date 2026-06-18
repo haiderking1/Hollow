@@ -13,7 +13,7 @@ import (
 func TestPromptWithUserAttachments(t *testing.T) {
 	a := &Agent{
 		cfg: config.Runtime{
-			Model:    "test-model",
+			Model:    "minimax-m3",
 			Evidence: config.DefaultEvidence(),
 		},
 		workDir: t.TempDir(),
@@ -63,5 +63,55 @@ func TestPromptWithUserAttachments(t *testing.T) {
 
 	if blocks[1].Type != "image_url" || blocks[1].ImageURL == nil || !strings.HasPrefix(blocks[1].ImageURL.URL, "data:image/png;base64,") {
 		t.Errorf("unexpected second block: %+v", blocks[1])
+	}
+}
+
+func TestPromptOmitsAttachmentsForNonVisionModel(t *testing.T) {
+	a := &Agent{
+		cfg: config.Runtime{
+			Model:    "deepseek-v4-flash",
+			Evidence: config.DefaultEvidence(),
+		},
+		workDir: t.TempDir(),
+	}
+
+	srv := scriptedServer(t, func(req opencode.ChatRequest) (string, []toolCallJSON) {
+		for _, msg := range req.Messages {
+			for _, block := range opencode.ContentBlocks(msg) {
+				if block.Type == "image_url" {
+					t.Fatal("non-vision model request must not include image blocks")
+				}
+			}
+		}
+		return "understood", nil
+	})
+	defer srv.Close()
+
+	cfg := a.cfg
+	cfg.Endpoint = srv.URL
+	cfg.APIKey = "k"
+
+	err := a.Prompt(context.Background(), cfg, "What's in this image?", []UserAttachment{{
+		MIMEType: "image/png",
+		Data:     []byte("fake-resized-png-bytes"),
+	}}, func(core.Event) {})
+	if err != nil {
+		t.Fatalf("Prompt failed: %v", err)
+	}
+
+	var userMsg *opencode.Message
+	for i := range a.messages {
+		if a.messages[i].Role == "user" && strings.Contains(opencode.ContentString(a.messages[i]), "What's in this image?") {
+			userMsg = &a.messages[i]
+			break
+		}
+	}
+	if userMsg == nil {
+		t.Fatal("user message not found")
+	}
+
+	blocks := opencode.ContentBlocks(*userMsg)
+	if len(blocks) != 1 || !strings.Contains(blocks[0].Text, "omitted") {
+		t.Fatalf("expected omission note only, got %+v", blocks)
 	}
 }

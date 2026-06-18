@@ -34,27 +34,27 @@ var codexModelOrder = []string{
 var codexKnownModels = map[string]ModelInfo{
 	"gpt-5.5": {
 		ID: "gpt-5.5", Name: "GPT-5.5",
-		ContextWindow: 272_000, Reasoning: true,
+		ContextWindow: 272_000, Reasoning: true, SupportsImages: true,
 	},
 	"gpt-5.4-mini": {
 		ID: "gpt-5.4-mini", Name: "GPT-5.4 Mini",
-		ContextWindow: 272_000, Reasoning: true,
+		ContextWindow: 272_000, Reasoning: true, SupportsImages: true,
 	},
 	"gpt-5.4": {
 		ID: "gpt-5.4", Name: "GPT-5.4",
-		ContextWindow: 272_000, Reasoning: true,
+		ContextWindow: 272_000, Reasoning: true, SupportsImages: true,
 	},
 	"gpt-5.3-codex": {
 		ID: "gpt-5.3-codex", Name: "GPT-5.3 Codex",
-		ContextWindow: 272_000, Reasoning: true,
+		ContextWindow: 272_000, Reasoning: true, SupportsImages: true,
 	},
 	"gpt-5.3-codex-spark": {
 		ID: "gpt-5.3-codex-spark", Name: "GPT-5.3 Codex Spark",
-		ContextWindow: 128_000, Reasoning: true,
+		ContextWindow: 128_000, Reasoning: true, SupportsImages: true,
 	},
 	"gpt-5-codex": {
 		ID: "gpt-5-codex", Name: "GPT-5 Codex",
-		ContextWindow: 272_000, Reasoning: true,
+		ContextWindow: 272_000, Reasoning: true, SupportsImages: true,
 	},
 }
 
@@ -109,6 +109,9 @@ func ModelsForProvider(provider string, registry *Registry) []ModelInfo {
 // LookupCatalogModel resolves model metadata from OpenCode or Codex catalogs.
 func LookupCatalogModel(id string) (ModelInfo, bool) {
 	if m, ok := LookupModel(id); ok {
+		return m, true
+	}
+	if m, ok := catalogModelForProvider(ProviderOpenCodeZen, id); ok {
 		return m, true
 	}
 	if m, ok := defaultRegistry.LookupCodex(id); ok {

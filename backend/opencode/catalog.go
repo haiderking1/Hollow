@@ -43,11 +43,14 @@ type modelsDevModel struct {
 	Family           string                     `json:"family"`
 	Reasoning        bool                       `json:"reasoning"`
 	ReasoningOptions []modelsDevReasoningOption `json:"reasoning_options"`
-	Limit            struct {
+	Modalities       struct {
+		Input []string `json:"input"`
+	} `json:"modalities"`
+	Limit struct {
 		Context int `json:"context"`
 		Output  int `json:"output"`
 	} `json:"limit"`
-	Interleaved      json.RawMessage            `json:"interleaved"`
+	Interleaved json.RawMessage `json:"interleaved"`
 }
 
 var (
@@ -278,11 +281,21 @@ func modelInfoFromModelsDev(m modelsDevModel) ModelInfo {
 		ContextWindow:  m.Limit.Context,
 		Reasoning:      m.Reasoning,
 		ReasoningField: parseReasoningField(m.Interleaved),
+		SupportsImages: modelSupportsImagesFromModalities(m.Modalities.Input),
 	}
 	if info.Name == "" {
 		info.Name = titleCaseModelID(m.ID)
 	}
 	return normalizeModel(info)
+}
+
+func modelSupportsImagesFromModalities(input []string) bool {
+	for _, modality := range input {
+		if modality == "image" {
+			return true
+		}
+	}
+	return false
 }
 
 func opencodeMandatoryThinkingID(id string) bool {

@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -32,41 +31,50 @@ func stripImagesIfNeeded(msgs []Message, model string) []Message {
 	}
 	out := make([]Message, len(msgs))
 	for i, msg := range msgs {
-		if len(msg.Content) > 0 {
-			var blocks []ContentBlock
-			if err := json.Unmarshal(msg.Content, &blocks); err == nil {
-				var filtered []ContentBlock
-				var imageCount int
-				for _, b := range blocks {
-					if b.Type != "image_url" {
-						filtered = append(filtered, b)
-					} else {
-						imageCount++
-					}
-				}
-				if imageCount > 0 {
-					note := fmt.Sprintf("[%d image(s) omitted — current model does not support images.]", imageCount)
-					if len(filtered) > 0 && filtered[0].Type == "text" {
-						filtered[0].Text = filtered[0].Text + "\n" + note
-					} else {
-						filtered = append([]ContentBlock{{
-							Type: "text",
-							Text: note,
-						}}, filtered...)
-					}
-				}
-				if len(filtered) == 0 {
-					msg.Content = nil
-				} else if len(filtered) == 1 && filtered[0].Type == "text" {
-					msg.Content, _ = json.Marshal(filtered[0].Text)
-				} else {
-					msg.Content, _ = json.Marshal(filtered)
-				}
+		blocks := ContentBlocks(msg)
+		if len(blocks) == 0 {
+			out[i] = msg
+			continue
+		}
+
+		var filtered []ContentBlock
+		var imageCount int
+		for _, b := range blocks {
+			if isImageContentBlock(b) {
+				imageCount++
+			} else {
+				filtered = append(filtered, b)
 			}
+		}
+		if imageCount == 0 {
+			out[i] = msg
+			continue
+		}
+
+		note := fmt.Sprintf("[%d image(s) omitted — current model does not support images.]", imageCount)
+		if len(filtered) > 0 && filtered[0].Type == "text" {
+			filtered[0].Text = filtered[0].Text + "\n" + note
+		} else {
+			filtered = append([]ContentBlock{{
+				Type: "text",
+				Text: note,
+			}}, filtered...)
+		}
+
+		if len(filtered) == 0 {
+			msg.Content = nil
+		} else if len(filtered) == 1 && filtered[0].Type == "text" {
+			msg.Content = StringContent(filtered[0].Text)
+		} else {
+			msg.Content = BlocksContent(filtered)
 		}
 		out[i] = msg
 	}
 	return out
+}
+
+func isImageContentBlock(b ContentBlock) bool {
+	return b.Type == "image_url" || b.Type == "image"
 }
 
 // RepairToolMessages ensures every assistant tool_call has a matching tool response.

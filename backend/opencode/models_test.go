@@ -137,6 +137,45 @@ func TestRegistryRefreshCodex(t *testing.T) {
 	}
 }
 
+func TestSupportsImagesUsesCatalogModalities(t *testing.T) {
+	catalogSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{
+			"opencode-go": {
+				"id": "opencode-go",
+				"models": {
+					"glm-5": {
+						"id": "glm-5",
+						"name": "GLM-5",
+						"modalities": { "input": ["text"] },
+						"limit": { "context": 202752, "output": 65536 }
+					},
+					"kimi-k2.5": {
+						"id": "kimi-k2.5",
+						"name": "Kimi K2.5",
+						"modalities": { "input": ["text", "image"] },
+						"limit": { "context": 262144, "output": 65536 }
+					}
+				}
+			}
+		}`))
+	}))
+	defer catalogSrv.Close()
+
+	origCatalog := modelsDevURL
+	modelsDevURL = catalogSrv.URL
+	defer func() { modelsDevURL = origCatalog }()
+	if err := RefreshModelsDevCatalog(context.Background()); err != nil {
+		t.Fatalf("RefreshModelsDevCatalog: %v", err)
+	}
+
+	if SupportsImages("glm-5") {
+		t.Fatal("glm-5 should not support images")
+	}
+	if !SupportsImages("kimi-k2.5") {
+		t.Fatal("kimi-k2.5 should support images")
+	}
+}
+
 func TestFormatThinkingBadge(t *testing.T) {
 	// minimax-m3
 	m3 := ModelInfo{ID: "minimax-m3", Reasoning: true}

@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -138,5 +139,22 @@ func TestPrepareRequestMessagesStripsImagesForNonVisionModels(t *testing.T) {
 	expectedText := "text content\n[1 image(s) omitted — current model does not support images.]"
 	if parsedNoVisionBlocks[0].Type != "text" || parsedNoVisionBlocks[0].Text != expectedText {
 		t.Errorf("expected text block with omission notice, got %+v", parsedNoVisionBlocks[0])
+	}
+
+	// 3. User history from a vision turn must strip after switching to glm-5 (text-only).
+	userMsgs := []Message{{
+		Role: "user",
+		Content: UserContent("what is this?", []ImagePart{{
+			MIMEType: "image/png",
+			Data:     []byte("png"),
+		}}),
+	}}
+	switched := PrepareRequestMessages(userMsgs, "glm-5")
+	userBlocks := ContentBlocks(switched[0])
+	if len(userBlocks) != 1 {
+		t.Fatalf("expected 1 user block after glm switch, got %d", len(userBlocks))
+	}
+	if !strings.Contains(userBlocks[0].Text, "omitted") {
+		t.Fatalf("expected omission note in user message, got %q", userBlocks[0].Text)
 	}
 }

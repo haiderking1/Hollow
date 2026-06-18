@@ -19,6 +19,7 @@ type ModelInfo struct {
 	ContextWindow     int
 	Reasoning         bool
 	MandatoryThinking bool
+	SupportsImages    bool
 	ThinkingLevels    []ThinkingLevel
 	ReasoningField    string
 }
@@ -49,11 +50,11 @@ var knownModels = map[string]ModelInfo{
 	},
 	"kimi-k2.5": {
 		ID: "kimi-k2.5", Name: "Kimi K2.5",
-		ContextWindow: 262144, Reasoning: true,
+		ContextWindow: 262144, Reasoning: true, SupportsImages: true,
 	},
 	"kimi-k2.6": {
 		ID: "kimi-k2.6", Name: "Kimi K2.6",
-		ContextWindow: 262144, Reasoning: true,
+		ContextWindow: 262144, Reasoning: true, SupportsImages: true,
 	},
 	"mimo-v2.5": {
 		ID: "mimo-v2.5", Name: "MiMo V2.5",
@@ -69,7 +70,7 @@ var knownModels = map[string]ModelInfo{
 	},
 	"mimo-v2-omni": {
 		ID: "mimo-v2-omni", Name: "MiMo V2 Omni",
-		ContextWindow: 1_000_000, Reasoning: true,
+		ContextWindow: 1_000_000, Reasoning: true, SupportsImages: true,
 	},
 	"minimax-m2.5": {
 		ID: "minimax-m2.5", Name: "MiniMax M2.5",
@@ -81,7 +82,7 @@ var knownModels = map[string]ModelInfo{
 	},
 	"minimax-m3": {
 		ID: "minimax-m3", Name: "MiniMax M3",
-		ContextWindow: 512000, Reasoning: true,
+		ContextWindow: 512000, Reasoning: true, SupportsImages: true,
 	},
 	"qwen3.6-plus": {
 		ID: "qwen3.6-plus", Name: "Qwen3.6 Plus",
@@ -149,6 +150,9 @@ func (r *Registry) Lookup(id string) (ModelInfo, bool) {
 		}
 	}
 	if m, ok := catalogModel(id); ok {
+		return m, true
+	}
+	if m, ok := catalogModelForProvider(ProviderOpenCodeZen, id); ok {
 		return m, true
 	}
 	if m, ok := knownModels[id]; ok {
@@ -343,6 +347,9 @@ func mergeModel(id string) ModelInfo {
 	if m, ok := catalogModel(id); ok {
 		return m
 	}
+	if m, ok := catalogModelForProvider(ProviderOpenCodeZen, id); ok {
+		return m
+	}
 	if m, ok := knownModels[id]; ok {
 		return normalizeModel(m)
 	}
@@ -392,20 +399,12 @@ func FormatThinkingBadge(m ModelInfo, level ThinkingLevel) string {
 }
 
 func SupportsImages(model string) bool {
-	m := strings.ToLower(model)
-	if strings.HasPrefix(m, "gpt-5") {
-		return true
+	model = strings.ToLower(strings.TrimSpace(model))
+	if m, ok := LookupCatalogModel(model); ok {
+		return m.SupportsImages
 	}
-	if strings.HasPrefix(m, "gpt-5.3-codex-spark") {
-		return true
-	}
-	if strings.HasPrefix(m, "kimi-k2") {
-		return true
-	}
-	if strings.HasPrefix(m, "glm-") {
-		return true
-	}
-	if strings.HasPrefix(m, "mimo-v2-omni") {
+	// Codex GPT models accept image inputs via the responses API.
+	if strings.HasPrefix(model, "gpt-5") {
 		return true
 	}
 	return false

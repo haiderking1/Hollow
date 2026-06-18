@@ -481,9 +481,19 @@ func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string,
 			Data:     att.Data,
 		})
 	}
+	userTextForMsg := userText
+	if len(parts) > 0 && !opencode.SupportsImages(cfg.Model) {
+		note := fmt.Sprintf("[%d image(s) omitted — current model does not support images.]", len(parts))
+		if strings.TrimSpace(userTextForMsg) != "" {
+			userTextForMsg += "\n" + note
+		} else {
+			userTextForMsg = note
+		}
+		parts = nil
+	}
 	userMsg := opencode.Message{
 		Role:    "user",
-		Content: opencode.UserContent(userText, parts),
+		Content: opencode.UserContent(userTextForMsg, parts),
 	}
 	a.mu.Lock()
 	a.messages = append(a.messages, userMsg)
