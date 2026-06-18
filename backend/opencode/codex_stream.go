@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -75,56 +74,38 @@ func consumeCodexResponsesSSE(r io.Reader, cb StreamCallbacks) (codexStreamState
 	var state codexStreamState
 	state.terminalStatus = "completed"
 
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	var pendingEventType string
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			pendingEventType = ""
-			continue
+	err := forEachSSEBlock(r, func(block sseBlock) error {
+		if block.Done {
+			return ErrSSEDone
 		}
-		if strings.HasPrefix(line, ":") {
-			continue
-		}
-		if strings.HasPrefix(line, "event:") {
-			pendingEventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-			continue
-		}
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-
-		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if data == "[DONE]" {
-			break
+		data := block.Data
+		if data == "" {
+			return nil
 		}
 		state.sawData = true
 
 		var event map[string]json.RawMessage
 		if err := json.Unmarshal([]byte(data), &event); err != nil {
-			continue
+			return nil
 		}
 
-		eventType := pendingEventType
+		eventType := block.EventType
 		if rawType, ok := event["type"]; ok {
 			var typed string
 			if err := json.Unmarshal(rawType, &typed); err == nil && typed != "" {
 				eventType = typed
 			}
 		}
-		pendingEventType = ""
 
 		if err := applyCodexStreamEvent(&state, eventType, event, cb); err != nil {
-			return state, err
+			return err
 		}
 		if state.sawTerminal {
-			break
+			return ErrSSEDone
 		}
-	}
-	if err := scanner.Err(); err != nil {
+		return nil
+	})
+	if err != nil {
 		return state, err
 	}
 

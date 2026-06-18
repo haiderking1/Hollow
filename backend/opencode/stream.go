@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -193,29 +192,25 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 		}
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, ":") {
-			continue
+	err = forEachSSEBlock(resp.Body, func(block sseBlock) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		if !strings.HasPrefix(line, "data:") {
-			continue
+		if block.Done {
+			return ErrSSEDone
 		}
-		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if data == "[DONE]" {
-			break
+		data := block.Data
+		if data == "" {
+			return nil
 		}
 		sawData = true
 
 		var chunk streamChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			continue
+			return nil
 		}
 		if chunk.Error != nil && chunk.Error.Message != "" {
-			return Message{}, fmt.Errorf("opencode: %s", chunk.Error.Message)
+			return fmt.Errorf("opencode: %s", chunk.Error.Message)
 		}
 		if chunk.Usage != nil {
 			lastUsage = &Usage{
@@ -225,7 +220,7 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 			}
 		}
 		if len(chunk.Choices) == 0 {
-			continue
+			return nil
 		}
 
 		delta := chunk.Choices[0].Delta
@@ -254,8 +249,9 @@ func (c *Client) chatStreamOnce(ctx context.Context, req ChatRequest, cb StreamC
 			}
 			part.Function.Arguments += tc.Function.Arguments
 		}
-	}
-	if err := scanner.Err(); err != nil {
+		return nil
+	})
+	if err != nil {
 		return Message{}, err
 	}
 	if !sawData {

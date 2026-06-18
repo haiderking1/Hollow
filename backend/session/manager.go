@@ -415,25 +415,18 @@ func (m *Manager) SetSystemPrompt(prompt string) error {
 }
 
 func (m *Manager) openFile(path string) error {
-	f, err := os.Open(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	var entries []json.RawMessage
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 		entries = append(entries, json.RawMessage(line))
-	}
-	if err := scanner.Err(); err != nil {
-		return err
 	}
 	if len(entries) == 0 {
 		return m.newSession()

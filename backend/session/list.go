@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -138,46 +139,48 @@ func ScanInfo(path string) (*Info, error) {
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	reader := bufio.NewReader(f)
 
 	var header Header
 	headerOK := false
 	messageCount := 0
 	firstMessage := ""
 
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		switch peekLineType(line) {
-		case "session":
-			if !headerOK {
-				if json.Unmarshal([]byte(line), &header) == nil && header.Type == "session" && header.ID != "" {
-					headerOK = true
-				}
-			}
-		case "message":
-			messageCount++
-			if firstMessage == "" && (strings.Contains(line, `"role":"user"`) || strings.Contains(line, `"role": "user"`)) {
-				var entry MessageEntry
-				if json.Unmarshal([]byte(line), &entry) == nil {
-					text := strings.TrimSpace(opencode.ContentString(entry.Message))
-					if text != "" {
-						firstMessage = text
+	for {
+		raw, err := reader.ReadString('\n')
+		if len(raw) > 0 {
+			line := strings.TrimSpace(raw)
+			if line != "" {
+				switch peekLineType(line) {
+				case "session":
+					if !headerOK {
+						if json.Unmarshal([]byte(line), &header) == nil && header.Type == "session" && header.ID != "" {
+							headerOK = true
+						}
+					}
+				case "message":
+					messageCount++
+					if firstMessage == "" && (strings.Contains(line, `"role":"user"`) || strings.Contains(line, `"role": "user"`)) {
+						var entry MessageEntry
+						if json.Unmarshal([]byte(line), &entry) == nil {
+							text := strings.TrimSpace(opencode.ContentString(entry.Message))
+							if text != "" {
+								firstMessage = text
+							}
+						}
 					}
 				}
 			}
 		}
-
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
 		if headerOK && firstMessage != "" {
 			break
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
 	}
 	if !headerOK {
 		return nil, fmt.Errorf("missing session header")
