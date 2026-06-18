@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -59,7 +60,7 @@ func TestToolBrowserOutputExcludesMetadata(t *testing.T) {
 	defer os.Unsetenv("ENOUGH_BROWSER_CDP_URL")
 
 	a := &Agent{workDir: "."}
-	res := a.toolBrowser(`{"action":"list"}`)
+	res := a.toolBrowser(context.Background(), `{"action":"list"}`)
 	if res.isErr {
 		t.Fatalf("toolBrowser failed: %s", res.output)
 	}

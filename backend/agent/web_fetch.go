@@ -36,7 +36,7 @@ func webFetchTool() opencode.Tool {
 	}
 }
 
-func (a *Agent) toolWebFetch(argsJSON string) toolResult {
+func (a *Agent) toolWebFetch(ctx context.Context, argsJSON string) toolResult {
 	var args struct {
 		URLs []string `json:"urls"`
 		URL  string   `json:"url"`
@@ -54,6 +54,9 @@ func (a *Agent) toolWebFetch(argsJSON string) toolResult {
 		return toolResult{output: "no valid http(s) urls provided", isErr: true}
 	}
 
-	hits := web.FetchURLs(context.Background(), urls)
+	hits := web.FetchURLs(ctx, urls)
+	if ctx.Err() != nil {
+		return toolResult{output: "[interrupted]", isErr: true}
+	}
 	return toolResult{output: web.FormatPages(hits)}
 }

@@ -627,7 +627,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				cancelPrompt()
 			}
 			promptingMu.Unlock()
-			ag.Abort()
+			ag.AbortAndWait()
 		}
 	}
 }

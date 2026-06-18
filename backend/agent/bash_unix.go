@@ -20,10 +20,14 @@ func configureProcGroup(cmd *exec.Cmd) {
 		Pdeathsig: syscall.SIGKILL,
 	}
 	cmd.Cancel = func() error {
-		if cmd.Process == nil {
-			return nil
-		}
-		// Negative pid targets the process group.
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		return killProcessGroup(cmd)
 	}
+}
+
+func killProcessGroup(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+	// Negative pid targets the process group.
+	return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 }

@@ -84,14 +84,17 @@ func browserTool() opencode.Tool {
 	}
 }
 
-func (a *Agent) toolBrowser(argsJSON string) toolResult {
+func (a *Agent) toolBrowser(ctx context.Context, argsJSON string) toolResult {
 	var args browser.BrowserArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return toolResult{output: err.Error(), isErr: true}
 	}
 
-	out, details, err := browser.ExecuteBrowser(context.Background(), a.workDir, args)
+	out, details, err := browser.ExecuteBrowser(ctx, a.workDir, args)
 	if err != nil {
+		if ctx.Err() != nil {
+			return toolResult{output: "[interrupted]", isErr: true}
+		}
 		return toolResult{output: err.Error(), isErr: true}
 	}
 

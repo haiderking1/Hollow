@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"reflect"
 	"strings"
 	"sync"
@@ -102,6 +103,11 @@ type Agent struct {
 
 	// activeTools maps in-flight tool call IDs to tool names for streaming UI.
 	activeTools map[string]string
+
+	// activeBashCmd is the foreground shell command for the current tool call.
+	// Abort kills it explicitly so cancel stops long-running commands promptly.
+	activeBashMu  sync.Mutex
+	activeBashCmd *exec.Cmd
 
 	// maxIterations caps model calls per turn when > 0 (used by review and
 	// curator forks; the main agent runs unbounded).
@@ -257,6 +263,7 @@ func (a *Agent) Abort() {
 	compactionCancel := a.compactionCancel
 	userAbortCancel := a.userAbortCancel
 	a.mu.Unlock()
+	a.killActiveBash()
 	if userAbortCancel != nil {
 		userAbortCancel()
 	}
@@ -283,6 +290,7 @@ func (a *Agent) AbortAndWait() {
 	compactionCancel := a.compactionCancel
 	userAbortCancel := a.userAbortCancel
 	a.mu.Unlock()
+	a.killActiveBash()
 	if userAbortCancel != nil {
 		userAbortCancel()
 	}

@@ -60,15 +60,15 @@ func (a *Agent) dispatchTool(ctx context.Context, id, name, argsJSON string) too
 	case "glob":
 		return a.toolGlob(argsJSON)
 	case "grep":
-		return a.toolGrep(argsJSON)
+		return a.toolGrep(ctx, argsJSON)
 	case "bash":
 		return a.toolBash(ctx, id, argsJSON)
 	case "web_search":
-		return a.toolWebSearch(argsJSON)
+		return a.toolWebSearch(ctx, argsJSON)
 	case "web_fetch":
-		return a.toolWebFetch(argsJSON)
+		return a.toolWebFetch(ctx, argsJSON)
 	case "browser":
-		return a.toolBrowser(argsJSON)
+		return a.toolBrowser(ctx, argsJSON)
 	case "agent_swarm":
 		return a.toolAgentSwarm(ctx, id, argsJSON, 0)
 	case "skills_list":

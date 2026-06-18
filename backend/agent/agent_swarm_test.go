@@ -106,7 +106,7 @@ func TestToolGlobAndGrep(t *testing.T) {
 		t.Fatalf("glob did not find go files: %q", glob.output)
 	}
 
-	grep := a.toolGrep(`{"pattern":"(?i)logger","include":"*.go"}`)
+	grep := a.toolGrep(context.Background(), `{"pattern":"(?i)logger","include":"*.go"}`)
 	if grep.isErr {
 		t.Fatalf("grep error: %s", grep.output)
 	}

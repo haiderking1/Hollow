@@ -46,7 +46,7 @@ func webSearchTool() opencode.Tool {
 	}
 }
 
-func (a *Agent) toolWebSearch(argsJSON string) toolResult {
+func (a *Agent) toolWebSearch(ctx context.Context, argsJSON string) toolResult {
 	var args struct {
 		Query        string   `json:"query"`
 		MaxResults   int      `json:"max_results"`
@@ -58,13 +58,16 @@ func (a *Agent) toolWebSearch(argsJSON string) toolResult {
 		return toolResult{output: err.Error(), isErr: true}
 	}
 
-	results, err := web.SearchWeb(context.Background(), args.Query, web.SearchOptions{
+	results, err := web.SearchWeb(ctx, args.Query, web.SearchOptions{
 		MaxResults:   args.MaxResults,
 		Site:         args.Site,
 		ExcludeSites: args.ExcludeSites,
 		Engines:      args.Engines,
 	})
 	if err != nil {
+		if ctx.Err() != nil {
+			return toolResult{output: "[interrupted]", isErr: true}
+		}
 		return toolResult{output: err.Error(), isErr: true}
 	}
 	return toolResult{output: web.FormatSearchResults(results)}

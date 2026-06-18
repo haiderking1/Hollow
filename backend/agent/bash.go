@@ -78,6 +78,8 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 	if err := cmd.Start(); err != nil {
 		return toolResult{output: err.Error(), isErr: true}
 	}
+	a.registerBashCmd(cmd)
+	defer a.unregisterBashCmd(cmd)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -89,7 +91,16 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 	go copyOut(stderr)
 
 	started := time.Now()
-	err = cmd.Wait()
+	waitDone := make(chan error, 1)
+	go func() { waitDone <- cmd.Wait() }()
+
+	var waitErr error
+	select {
+	case <-ctx.Done():
+		_ = killProcessGroup(cmd)
+		waitErr = <-waitDone
+	case waitErr = <-waitDone:
+	}
 	wg.Wait()
 	duration := time.Since(started)
 	text, _ := SanitizeBashOutput(sw.String())
@@ -104,19 +115,42 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 	}
 
 	exitCode := 0
-	if err != nil {
+	if waitErr != nil {
 		exitCode = -1
 		var ee *exec.ExitError
-		if errors.As(err, &ee) {
+		if errors.As(waitErr, &ee) {
 			exitCode = ee.ExitCode()
 		}
 	}
 	a.recordCommandRun(args.Command, exitCode, text, duration)
 
-	if err != nil {
-		return toolResult{output: fmt.Sprintf("%v\n%s", err, text), isErr: true}
+	if waitErr != nil {
+		return toolResult{output: fmt.Sprintf("%v\n%s", waitErr, text), isErr: true}
 	}
 	return toolResult{output: text}
+}
+
+func (a *Agent) registerBashCmd(cmd *exec.Cmd) {
+	a.activeBashMu.Lock()
+	a.activeBashCmd = cmd
+	a.activeBashMu.Unlock()
+}
+
+func (a *Agent) unregisterBashCmd(cmd *exec.Cmd) {
+	a.activeBashMu.Lock()
+	if a.activeBashCmd == cmd {
+		a.activeBashCmd = nil
+	}
+	a.activeBashMu.Unlock()
+}
+
+func (a *Agent) killActiveBash() {
+	a.activeBashMu.Lock()
+	cmd := a.activeBashCmd
+	a.activeBashMu.Unlock()
+	if cmd != nil {
+		_ = killProcessGroup(cmd)
+	}
 }
 
 // bashStreamWriter accumulates command output up to a cap while streaming each

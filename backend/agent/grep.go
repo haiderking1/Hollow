@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -39,7 +40,7 @@ const (
 	maxGrepFileSize = 2_000_000
 )
 
-func (a *Agent) toolGrep(argsJSON string) toolResult {
+func (a *Agent) toolGrep(ctx context.Context, argsJSON string) toolResult {
 	var args struct {
 		Pattern string `json:"pattern"`
 		Path    string `json:"path"`
@@ -69,6 +70,9 @@ func (a *Agent) toolGrep(argsJSON string) toolResult {
 	var out []string
 	truncated := false
 	walkErr := filepath.WalkDir(rootAbs, func(p string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return nil
 		}
@@ -104,6 +108,9 @@ func (a *Agent) toolGrep(argsJSON string) toolResult {
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		lineNo := 0
 		for scanner.Scan() {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			lineNo++
 			line := scanner.Text()
 			if re.MatchString(line) {
@@ -117,6 +124,9 @@ func (a *Agent) toolGrep(argsJSON string) toolResult {
 		return nil
 	})
 	if walkErr != nil {
+		if ctx.Err() != nil {
+			return toolResult{output: "[interrupted]", isErr: true}
+		}
 		return toolResult{output: walkErr.Error(), isErr: true}
 	}
 

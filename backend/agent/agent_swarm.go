@@ -759,7 +759,7 @@ func (a *Agent) runPlannerLoop(ctx context.Context, prompt string) (output strin
 			if id == "" {
 				id = fmt.Sprintf("planner_call_%d", idx)
 			}
-			result := a.executePlannerTool(call.Function.Name, call.Function.Arguments)
+			result := a.executePlannerTool(ctx, call.Function.Name, call.Function.Arguments)
 			var toolMsg opencode.Message
 			if len(result.content) > 0 {
 				toolMsg = opencode.Message{
@@ -781,7 +781,7 @@ func (a *Agent) runPlannerLoop(ctx context.Context, prompt string) (output strin
 	}
 }
 
-func (a *Agent) executePlannerTool(name, argsJSON string) toolResult {
+func (a *Agent) executePlannerTool(ctx context.Context, name, argsJSON string) toolResult {
 	switch name {
 	case "read_file":
 		return a.toolReadFile(argsJSON)
@@ -790,7 +790,7 @@ func (a *Agent) executePlannerTool(name, argsJSON string) toolResult {
 	case "glob":
 		return a.toolGlob(argsJSON)
 	case "grep":
-		return a.toolGrep(argsJSON)
+		return a.toolGrep(ctx, argsJSON)
 	default:
 		return toolResult{output: fmt.Sprintf("tool %q is not available to the planner (read-only: read_file, list_dir, glob, grep)", name), isErr: true}
 	}
