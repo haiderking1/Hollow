@@ -15,7 +15,11 @@ import (
 	"github.com/enough/enough/backend/opencode"
 )
 
-const maxBashOutput = 32_000
+const (
+	maxBashOutput        = 32_000
+	exitStdioGrace       = 100 * time.Millisecond // Flame: don't hang on inherited stdio after shell exit
+	bashUpdateThrottle   = 100 * time.Millisecond
+)
 
 func bashTool() opencode.Tool {
 	return opencode.Tool{
@@ -59,12 +63,15 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 	)
 	configureProcGroup(cmd)
 
-	sw := &bashStreamWriter{max: maxBashOutput, onChunk: func(chunk string) {
+	delta := newBashDeltaEmitter(func(chunk string) {
 		clean, _ := SanitizeBashOutput(chunk)
 		if clean != "" {
 			a.toolDelta(id, clean)
 		}
-	}}
+	})
+	defer delta.flush()
+
+	sw := &bashStreamWriter{max: maxBashOutput, onChunk: delta.add}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -83,7 +90,7 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	copyOut := func(r io.Reader) {
+	copyOut := func(r io.ReadCloser) {
 		defer wg.Done()
 		_, _ = io.Copy(sw, r)
 	}
@@ -91,17 +98,42 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 	go copyOut(stderr)
 
 	started := time.Now()
-	waitDone := make(chan error, 1)
-	go func() { waitDone <- cmd.Wait() }()
+	copyDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(copyDone)
+	}()
+
+	exitDone := make(chan error, 1)
+	go func() {
+		exitDone <- cmd.Wait()
+	}()
+
+	closeReadersAfterGrace := func() {
+		select {
+		case <-copyDone:
+		case <-time.After(exitStdioGrace):
+			_ = stdout.Close()
+			_ = stderr.Close()
+			<-copyDone
+		}
+	}
 
 	var waitErr error
 	select {
+	case err := <-exitDone:
+		waitErr = err
+		closeReadersAfterGrace()
+	case <-copyDone:
+		waitErr = <-exitDone
 	case <-ctx.Done():
 		_ = killProcessGroup(cmd)
-		waitErr = <-waitDone
-	case waitErr = <-waitDone:
+		closeReadersAfterGrace()
+		waitErr = <-exitDone
 	}
-	wg.Wait()
+
+	sw.Finalize()
+	delta.flush()
 	duration := time.Since(started)
 	text, _ := SanitizeBashOutput(sw.String())
 
@@ -160,6 +192,7 @@ type bashStreamWriter struct {
 	mu        sync.Mutex
 	buf       strings.Builder
 	max       int
+	total     int
 	truncated bool
 	onChunk   func(string)
 }
@@ -168,6 +201,7 @@ const truncMarker = "\n... truncated ..."
 
 func (w *bashStreamWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
+	w.total += len(p)
 	var emit string
 	if !w.truncated {
 		room := w.max - w.buf.Len()
@@ -196,8 +230,77 @@ func (w *bashStreamWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func (w *bashStreamWriter) Finalize() {
+	w.mu.Lock()
+	var emit string
+	if w.total > w.max && !w.truncated {
+		w.truncated = true
+		w.buf.WriteString(truncMarker)
+		emit = truncMarker
+	}
+	w.mu.Unlock()
+	if emit != "" && w.onChunk != nil {
+		w.onChunk(emit)
+	}
+}
+
 func (w *bashStreamWriter) String() string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.buf.String()
+}
+
+// bashDeltaEmitter throttles live bash output updates (Flame uses 100ms) so the
+// TUI event channel is not flooded and copy goroutines cannot block on emit.
+type bashDeltaEmitter struct {
+	mu      sync.Mutex
+	emit    func(string)
+	pending strings.Builder
+	lastAt  time.Time
+	timer   *time.Timer
+}
+
+func newBashDeltaEmitter(emit func(string)) *bashDeltaEmitter {
+	return &bashDeltaEmitter{emit: emit}
+}
+
+func (e *bashDeltaEmitter) add(chunk string) {
+	if chunk == "" || e.emit == nil {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.pending.WriteString(chunk)
+	delay := bashUpdateThrottle - time.Since(e.lastAt)
+	if delay <= 0 {
+		e.flushLocked()
+		return
+	}
+	if e.timer == nil {
+		e.timer = time.AfterFunc(delay, func() {
+			e.mu.Lock()
+			defer e.mu.Unlock()
+			e.timer = nil
+			e.flushLocked()
+		})
+	}
+}
+
+func (e *bashDeltaEmitter) flush() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.timer != nil {
+		e.timer.Stop()
+		e.timer = nil
+	}
+	e.flushLocked()
+}
+
+func (e *bashDeltaEmitter) flushLocked() {
+	if e.pending.Len() == 0 {
+		return
+	}
+	e.emit(e.pending.String())
+	e.pending.Reset()
+	e.lastAt = time.Now()
 }

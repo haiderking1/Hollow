@@ -202,3 +202,12 @@ func TestMemoryAuthorityNoteOnCompaction(t *testing.T) {
 		t.Fatal("note added while memory disabled")
 	}
 }
+
+func TestSystemPromptIncludesMCPFilterDoctrine(t *testing.T) {
+	prompt := BuildSessionSystemPrompt(SystemPromptInputs{WorkDir: t.TempDir(), Cfg: testRuntime()})
+	for _, required := range []string{"more than 50 rows or 8KB", "enough mcp call", "sdk.runBash", "summary JSON"} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("MCP doctrine missing %q", required)
+		}
+	}
+}

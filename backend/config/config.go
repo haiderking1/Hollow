@@ -55,9 +55,9 @@ type EvidenceConfig struct {
 
 	// ParallelForks when true (default) spawns parallel same-model workers in
 	// git worktrees after repeated verify failures (same locked goal).
-	ParallelForks *bool `json:"parallel_forks_enabled,omitempty"`
-	StuckAfterFailures int `json:"stuck_after_failures,omitempty"`
-	ParallelForkCount  int `json:"parallel_fork_count,omitempty"`
+	ParallelForks      *bool `json:"parallel_forks_enabled,omitempty"`
+	StuckAfterFailures int   `json:"stuck_after_failures,omitempty"`
+	ParallelForkCount  int   `json:"parallel_fork_count,omitempty"`
 }
 
 // ContinuityEnabled resolves the default-true tri-state.
@@ -68,15 +68,15 @@ func (e EvidenceConfig) ContinuityEnabled() bool {
 func DefaultEvidence() EvidenceConfig {
 	trueVal := true
 	return EvidenceConfig{
-		Enabled:              true,
-		StrictVerifyReset:    true,
-		MaxCompletionRounds:  12,
-		VerifierEnabled:      true,
-		GoalLock:             &trueVal,
-		StepScorer:           &trueVal,
-		ParallelForks:        &trueVal,
-		StuckAfterFailures:   2,
-		ParallelForkCount:    4,
+		Enabled:             true,
+		StrictVerifyReset:   true,
+		MaxCompletionRounds: 12,
+		VerifierEnabled:     true,
+		GoalLock:            &trueVal,
+		StepScorer:          &trueVal,
+		ParallelForks:       &trueVal,
+		StuckAfterFailures:  2,
+		ParallelForkCount:   4,
 	}
 }
 
@@ -130,6 +130,12 @@ type PluginsSettings struct {
 	Disabled []string `json:"disabled"`
 }
 
+type WorkflowSettings struct {
+	Ultracode     bool     `json:"ultracode"`
+	AltScreen     bool     `json:"alt_screen"`
+	AlwaysApprove []string `json:"always_approve,omitempty"`
+}
+
 // MemorySettings controls the built-in persistent memory (MEMORY.md/USER.md)
 // and the background self-improvement review nudges. Unlike Hermes, Enough
 // defaults memory ON; the semantics otherwise match Hermes' built-in memory.
@@ -141,9 +147,9 @@ type MemorySettings struct {
 	NudgeInterval int `json:"nudge_interval"`
 	// SkillNudgeInterval is the number of tool iterations within turns
 	// between background skill reviews. 0 disables the skill review trigger.
-	SkillNudgeInterval int `json:"skill_nudge_interval"`
-	MemoryCharLimit    int `json:"memory_char_limit"`
-	UserCharLimit      int `json:"user_char_limit"`
+	SkillNudgeInterval int  `json:"skill_nudge_interval"`
+	MemoryCharLimit    int  `json:"memory_char_limit"`
+	UserCharLimit      int  `json:"user_char_limit"`
 	WriteApproval      bool `json:"write_approval"`
 }
 
@@ -202,18 +208,19 @@ type MCPServerConfig struct {
 
 // Config holds non-secret settings persisted to disk.
 type Config struct {
-	Provider      string              `json:"provider,omitempty"`
-	Endpoint      string              `json:"endpoint"`
-	Model         string              `json:"model"`
-	ThinkingLevel string              `json:"thinking_level,omitempty"`
-	HideThinking  bool                `json:"hide_thinking,omitempty"`
-	Compaction    *CompactionSettings `json:"compaction,omitempty"`
-	Evidence      *EvidenceConfig     `json:"evidence,omitempty"`
-	Skills        *SkillsSettings     `json:"skills,omitempty"`
-	Memory        *MemorySettings     `json:"memory,omitempty"`
-	Curator       *CuratorSettings    `json:"curator,omitempty"`
-	Agent         *AgentSettings      `json:"agent,omitempty"`
-	Plugins       *PluginsSettings    `json:"plugins,omitempty"`
+	Provider      string                     `json:"provider,omitempty"`
+	Endpoint      string                     `json:"endpoint"`
+	Model         string                     `json:"model"`
+	ThinkingLevel string                     `json:"thinking_level,omitempty"`
+	HideThinking  bool                       `json:"hide_thinking,omitempty"`
+	Compaction    *CompactionSettings        `json:"compaction,omitempty"`
+	Evidence      *EvidenceConfig            `json:"evidence,omitempty"`
+	Skills        *SkillsSettings            `json:"skills,omitempty"`
+	Memory        *MemorySettings            `json:"memory,omitempty"`
+	Curator       *CuratorSettings           `json:"curator,omitempty"`
+	Agent         *AgentSettings             `json:"agent,omitempty"`
+	Plugins       *PluginsSettings           `json:"plugins,omitempty"`
+	Workflows     *WorkflowSettings          `json:"workflows,omitempty"`
 	MCPServers    map[string]MCPServerConfig `json:"mcp_servers,omitempty"`
 
 	// legacy field — migrated to secrets store on load, never written back
@@ -222,20 +229,21 @@ type Config struct {
 
 // Runtime bundles config with the in-memory API key (never saved to config.json).
 type Runtime struct {
-	Provider      string
-	Endpoint      string
-	Model         string
-	APIKey        string
-	ThinkingLevel string
-	HideThinking  bool
-	Compaction    CompactionSettings
-	Evidence      EvidenceConfig
-	Skills        SkillsSettings
-	Memory        MemorySettings
-	Curator       CuratorSettings
-	Agent         AgentSettings
-	Plugins       PluginsSettings
-	MCPServers    map[string]MCPServerConfig
+	Provider              string
+	Endpoint              string
+	Model                 string
+	APIKey                string
+	ThinkingLevel         string
+	HideThinking          bool
+	Compaction            CompactionSettings
+	Evidence              EvidenceConfig
+	Skills                SkillsSettings
+	Memory                MemorySettings
+	Curator               CuratorSettings
+	Agent                 AgentSettings
+	Plugins               PluginsSettings
+	Workflows             WorkflowSettings
+	MCPServers            map[string]MCPServerConfig
 	PreloadedSkills       []string
 	PreloadedSkillsPrompt string
 }
@@ -276,6 +284,9 @@ func Default() Config {
 		Plugins: &PluginsSettings{
 			Disabled: []string{},
 		},
+		Workflows: &WorkflowSettings{
+			AlwaysApprove: []string{},
+		},
 		MCPServers: make(map[string]MCPServerConfig),
 	}
 }
@@ -293,19 +304,20 @@ func Path() (string, error) {
 }
 
 type fileConfig struct {
-	Provider      string              `json:"provider,omitempty"`
-	Endpoint      string              `json:"endpoint"`
-	Model         string              `json:"model"`
-	ThinkingLevel string              `json:"thinking_level,omitempty"`
-	HideThinking  bool                `json:"hide_thinking,omitempty"`
-	APIKey        string              `json:"api_key,omitempty"`
-	Compaction    *CompactionSettings `json:"compaction,omitempty"`
-	Evidence      *EvidenceConfig     `json:"evidence,omitempty"`
-	Skills        *SkillsSettings     `json:"skills,omitempty"`
-	Memory        *MemorySettings     `json:"memory,omitempty"`
-	Curator       *CuratorSettings    `json:"curator,omitempty"`
-	Agent         *AgentSettings      `json:"agent,omitempty"`
-	Plugins       *PluginsSettings    `json:"plugins,omitempty"`
+	Provider      string                     `json:"provider,omitempty"`
+	Endpoint      string                     `json:"endpoint"`
+	Model         string                     `json:"model"`
+	ThinkingLevel string                     `json:"thinking_level,omitempty"`
+	HideThinking  bool                       `json:"hide_thinking,omitempty"`
+	APIKey        string                     `json:"api_key,omitempty"`
+	Compaction    *CompactionSettings        `json:"compaction,omitempty"`
+	Evidence      *EvidenceConfig            `json:"evidence,omitempty"`
+	Skills        *SkillsSettings            `json:"skills,omitempty"`
+	Memory        *MemorySettings            `json:"memory,omitempty"`
+	Curator       *CuratorSettings           `json:"curator,omitempty"`
+	Agent         *AgentSettings             `json:"agent,omitempty"`
+	Plugins       *PluginsSettings           `json:"plugins,omitempty"`
+	Workflows     *WorkflowSettings          `json:"workflows,omitempty"`
 	MCPServers    map[string]MCPServerConfig `json:"mcp_servers,omitempty"`
 }
 
@@ -350,6 +362,9 @@ func Load() (Config, error) {
 					}
 					if raw.Agent != nil {
 						cfg.Agent = raw.Agent
+					}
+					if raw.Workflows != nil {
+						cfg.Workflows = raw.Workflows
 					}
 					if cfg.Endpoint == "" {
 						cfg.Endpoint = DefaultEndpoint
@@ -426,6 +441,9 @@ func Load() (Config, error) {
 	if raw.Plugins != nil {
 		cfg.Plugins = raw.Plugins
 	}
+	if raw.Workflows != nil {
+		cfg.Workflows = raw.Workflows
+	}
 	if raw.MCPServers != nil {
 		cfg.MCPServers = raw.MCPServers
 	} else {
@@ -493,6 +511,11 @@ func Load() (Config, error) {
 			cfg.Plugins.Disabled = []string{}
 		}
 	}
+	if cfg.Workflows == nil {
+		cfg.Workflows = &WorkflowSettings{AlwaysApprove: []string{}}
+	} else if cfg.Workflows.AlwaysApprove == nil {
+		cfg.Workflows.AlwaysApprove = []string{}
+	}
 
 	// one-time migration: move api key from config.json into secret store
 	if raw.APIKey != "" && !secrets.HasAPIKey() {
@@ -550,6 +573,9 @@ func Save(cfg Config) error {
 			Disabled: []string{},
 		}
 	}
+	if cfg.Workflows == nil {
+		cfg.Workflows = &WorkflowSettings{AlwaysApprove: []string{}}
+	}
 	if cfg.MCPServers == nil {
 		cfg.MCPServers = make(map[string]MCPServerConfig)
 	}
@@ -581,6 +607,7 @@ func Save(cfg Config) error {
 		Curator:       cfg.Curator,
 		Agent:         cfg.Agent,
 		Plugins:       cfg.Plugins,
+		Workflows:     cfg.Workflows,
 		MCPServers:    cfg.MCPServers,
 	}
 
@@ -683,6 +710,11 @@ func LoadRuntime() (Runtime, error) {
 	pl := PluginsSettings{
 		Disabled: []string{},
 	}
+
+	wf := WorkflowSettings{AlwaysApprove: []string{}}
+	if cfg.Workflows != nil {
+		wf = *cfg.Workflows
+	}
 	if cfg.Plugins != nil {
 		pl = *cfg.Plugins
 	}
@@ -706,6 +738,7 @@ func LoadRuntime() (Runtime, error) {
 		Curator:       cur,
 		Agent:         ag,
 		Plugins:       pl,
+		Workflows:     wf,
 		MCPServers:    mcpServers,
 	}, nil
 }

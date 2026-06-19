@@ -61,6 +61,15 @@ func (a *Agent) guardTool(name, argsJSON string) *toolResult {
 			isErr:  true,
 		}
 	}
+	if a.readonlyRole && name == "bash" {
+		var args struct {
+			Command string `json:"command"`
+		}
+		_ = json.Unmarshal([]byte(argsJSON), &args)
+		if violation := readonlyBashViolation(args.Command); violation != "" {
+			return &toolResult{output: "REJECTED: read-only role cannot run " + violation, isErr: true}
+		}
+	}
 
 	if name != "write_file" && name != "edit_file" {
 		return nil
@@ -88,6 +97,23 @@ func (a *Agent) guardTool(name, argsJSON string) *toolResult {
 		}
 	}
 	return nil
+}
+
+func readonlyBashViolation(command string) string {
+	lower := strings.ToLower(command)
+	blocked := []string{
+		"git checkout", "git switch", "git reset", "git clean", "git commit",
+		"git merge", "git rebase", "git pull", "git fetch", "gh pr checkout",
+		"rm ", "rm\t", "mv ", "cp ", "mkdir ", "touch ", "truncate ",
+		"sed -i", "perl -pi", "tee ", "chmod ", "chown ",
+		">>", " > ",
+	}
+	for _, token := range blocked {
+		if strings.Contains(lower, token) {
+			return fmt.Sprintf("mutating command %q", token)
+		}
+	}
+	return ""
 }
 
 // recordEvidence appends a ledger entry for a successful tool execution.

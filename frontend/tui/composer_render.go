@@ -84,7 +84,7 @@ func (a *App) composerAttachmentLines(contentWidth int) []string {
 
 func (a *App) composerUsesEditorLayout() bool {
 	switch a.mode {
-	case modePluginsPicker, modeConnectCodex, modeWriteApproval:
+	case modePluginsPicker, modeConnectCodex, modeWriteApproval, modeWorkflowApproval, modeWorkflowPanel:
 		return false
 	default:
 		return true

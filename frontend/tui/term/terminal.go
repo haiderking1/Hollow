@@ -3,9 +3,12 @@ package term
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
@@ -21,6 +24,11 @@ type Terminal struct {
 
 	onInput  func([]byte)
 	onResize func()
+
+	started   bool
+	altScreen bool
+	pauseRead bool
+	pauseAck  chan struct{}
 }
 
 func New() (*Terminal, error) {
@@ -35,10 +43,24 @@ func New() (*Terminal, error) {
 	}
 
 	return &Terminal{
-		fd:     fd,
-		width:  w,
-		height: h,
+		fd:        fd,
+		width:     w,
+		height:    h,
+		altScreen: AltScreenRequested(),
 	}, nil
+}
+
+func AltScreenRequested() bool {
+	return envEnabled("ENOUGH_ALT_SCREEN") || envEnabled("ENOUGH_NO_FLICKER")
+}
+
+func envEnabled(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 // CellPixels reports the terminal cell size in pixels via TIOCGWINSZ. Foot and
@@ -73,13 +95,16 @@ func (t *Terminal) Start(onInput func([]byte), onResize func()) error {
 		return err
 	}
 	t.oldState = old
+	t.started = true
 
 	if w, h, err := term.GetSize(t.fd); err == nil {
 		t.width = w
 		t.height = h
 	}
 
-	// Flame ProcessTerminal.start: bracketed paste only — no alt-screen, no scrollback clear.
+	if t.altScreen {
+		_, _ = fmt.Fprint(os.Stdout, "\x1b[?1049h\x1b[2J\x1b[H")
+	}
 	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004h")
 	t.hideCursor()
 
@@ -107,6 +132,28 @@ func (t *Terminal) Start(onInput func([]byte), onResize func()) error {
 func (t *Terminal) readLoop() {
 	buf := make([]byte, 256)
 	for {
+		t.mu.Lock()
+		paused := t.pauseRead
+		if paused && t.pauseAck != nil {
+			close(t.pauseAck)
+			t.pauseAck = nil
+		}
+		t.mu.Unlock()
+		if paused {
+			time.Sleep(20 * time.Millisecond)
+			continue
+		}
+		poll := []unix.PollFd{{Fd: int32(t.fd), Events: unix.POLLIN}}
+		ready, err := unix.Poll(poll, 50)
+		if err != nil {
+			if err == unix.EINTR {
+				continue
+			}
+			return
+		}
+		if ready == 0 || poll[0].Revents&unix.POLLIN == 0 {
+			continue
+		}
 		n, err := os.Stdin.Read(buf)
 		if err != nil || n == 0 {
 			return
@@ -135,9 +182,83 @@ func (t *Terminal) ShowCursor() {
 
 func (t *Terminal) Stop() {
 	t.ShowCursor()
-	// Flame ProcessTerminal.stop: disable bracketed paste, restore raw mode.
 	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004l")
+	t.mu.Lock()
+	alt := t.altScreen
+	t.started = false
+	t.mu.Unlock()
+	if alt {
+		_, _ = fmt.Fprint(os.Stdout, "\x1b[?1049l")
+	}
 	if t.oldState != nil {
 		_ = term.Restore(t.fd, t.oldState)
 	}
+}
+
+func (t *Terminal) SetAltScreen(enabled bool) {
+	t.mu.Lock()
+	if t.altScreen == enabled {
+		t.mu.Unlock()
+		return
+	}
+	t.altScreen = enabled
+	started := t.started
+	t.mu.Unlock()
+	if !started {
+		return
+	}
+	if enabled {
+		t.Write("\x1b[?1049h\x1b[2J\x1b[H")
+	} else {
+		t.Write("\x1b[?1049l")
+	}
+}
+
+func (t *Terminal) AltScreen() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.altScreen
+}
+
+func (t *Terminal) RunExternal(name string, args ...string) error {
+	t.mu.Lock()
+	t.pauseRead = true
+	ack := make(chan struct{})
+	t.pauseAck = ack
+	alt := t.altScreen
+	t.mu.Unlock()
+	select {
+	case <-ack:
+	case <-time.After(time.Second):
+	}
+
+	t.ShowCursor()
+	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004l")
+	if alt {
+		_, _ = fmt.Fprint(os.Stdout, "\x1b[?1049l")
+	}
+	if t.oldState != nil {
+		_ = term.Restore(t.fd, t.oldState)
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	err := cmd.Run()
+
+	old, rawErr := term.MakeRaw(t.fd)
+	if rawErr == nil {
+		t.oldState = old
+	}
+	if alt {
+		_, _ = fmt.Fprint(os.Stdout, "\x1b[?1049h\x1b[2J\x1b[H")
+	}
+	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004h")
+	t.hideCursor()
+	t.mu.Lock()
+	t.pauseRead = false
+	t.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	return rawErr
 }

@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 
+	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/web"
 	"github.com/enough/enough/frontend/tui/markdown"
 	"github.com/enough/enough/frontend/tui/term"
@@ -18,6 +19,9 @@ func RunWithPreloads(preloads []string) error {
 	t, err := term.New()
 	if err != nil {
 		return err
+	}
+	if cfg, loadErr := config.Load(); loadErr == nil && cfg.Workflows != nil && cfg.Workflows.AltScreen {
+		t.SetAltScreen(true)
 	}
 
 	markdown.InitTerminalCapabilities(int(os.Stdin.Fd()))

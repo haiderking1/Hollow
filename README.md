@@ -70,12 +70,34 @@ Each task has:
 Useful options:
 
 - `shared_context`: prepended to every worker prompt.
-- `max_concurrency`: number of workers to run at once. Default: `8`.
+- `max_concurrency`: number of workers to run at once. Default: `16`.
 - `retry`: worker retry count for stream/API errors or empty output. Default: `3`.
 - `max_turns_per_agent`: optional cap; workers otherwise run to completion.
 - `isolate: "worktree"`: runs each worker in a separate git worktree/branch. Clean worktrees are removed; dirty worktrees are reported and left for review.
 
 Nested swarms are available up to depth `3`. Worktree-isolated workers disable nested `agent_swarm` so nested edits cannot escape the isolated worktree. Without worktree isolation, a swarm call rejects tasks that appear to target the same path; split the work or use `isolate: "worktree"`.
+
+## Dynamic workflows
+
+`/workflow <task>` asks the main agent to write a task-specific JavaScript orchestration program under `.enough/workflows/<id>/workflow.js`. Enough validates and shows the script before execution; use `--yes` to run immediately.
+
+The sandboxed workflow SDK provides `spawnAgent`, `pipeline`, `runBash`, `fetchJSON`, `today`, and `log`. `pipeline()` runs role-specific subjobs through a dynamic 16-slot pool, validates optional JSON Schemas, and lets later stages route from prior structured results. Workflows run in the background, so the normal composer remains available.
+
+Commands:
+
+- `/workflows` — list runs and open phase/agent details.
+- `/workflow-cancel` — stop the active workflow.
+- `/workflow-resume [id]` — resume a paused checkpoint without rerunning completed subjob keys.
+- `/workflow-save <name>` — save the last script as a project slash command.
+- `/effort ultracode on|off` — enable natural-language workflow triggering.
+
+Saved project workflows live under `.enough/workflows/saved/`; personal workflows live under `~/.enough/workflows/saved/`. Project names win collisions. A complete reference is in `examples/workflows/open-pr-audit/workflow.js`.
+
+Workflow parallelism is intentionally not cost-throttled. The default ceiling is 16 concurrent agents and the 1000-agent total is a runaway-loop fuse. Provider quota errors checkpoint and pause the run; they do not trigger preemptive slowdown.
+
+## Alternate-screen TUI
+
+Use `/tui alt-screen on` or launch with `ENOUGH_ALT_SCREEN=1` (`ENOUGH_NO_FLICKER=1` is an alias). Alternate-screen mode prevents pre-launch shell history from appearing in Enough scrollback and restores the previous terminal display on exit. See `docs/terminal.md` for tmux-over-SSH copy-mode setup.
 
 ## MCP Support
 

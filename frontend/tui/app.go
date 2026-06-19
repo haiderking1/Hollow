@@ -88,6 +88,7 @@ type App struct {
 	running                  bool
 	compacting               bool
 	loop                     loopState
+	workflow                 workflowState
 	forceAssistantBubble     bool
 	compactionLabel          string
 	compactionFrame          int
@@ -102,18 +103,13 @@ type App struct {
 	compactionQueuedMessages []queuedMessage
 	pendingAttachments       []pendingAttachment
 	agentCh                  <-chan core.Event
+	workflowCh               <-chan core.Event
 	agent                    *agent.Agent
 	session                  *session.Manager
 
 	thinkingLevel opencode.ThinkingLevel
 	hideThinking  bool
 	toolsExpanded bool
-
-	// evidenceCount is the current turn's evidence ledger size (v2 runtime).
-	evidenceCount int
-
-	// obligationState is the latest obligation snapshot for the current turn.
-	obligationState *core.ObligationEvent
 
 	chatRevision  uint64
 	chatCache     chatRenderCache
@@ -228,6 +224,12 @@ func (a *App) run() error {
 	}
 
 	a.loadThinkingSettings()
+	if cfg, err := config.Load(); err == nil && cfg.Workflows != nil {
+		a.workflow.ultracode = cfg.Workflows.Ultracode
+		if cfg.Workflows.AltScreen && os.Getenv("TMUX") != "" {
+			a.appendMessage("system", "alt-screen + tmux: use tmux copy mode (Ctrl+b [); see docs/terminal.md")
+		}
+	}
 	a.startModelFetch()
 
 	if !auth.Connected() {
@@ -258,6 +260,7 @@ func (a *App) run() error {
 	for !a.quit {
 		a.mu.Lock()
 		agentCh := a.agentCh
+		workflowCh := a.workflowCh
 		a.mu.Unlock()
 
 		select {
@@ -291,6 +294,27 @@ func (a *App) run() error {
 				}
 			}
 		agentEventsDone:
+			a.requestRender()
+
+		case e, ok := <-workflowCh:
+			if !ok {
+				a.finishWorkflowRun()
+			} else {
+				a.handleWorkflowEvent(e)
+				for {
+					select {
+					case e, ok = <-workflowCh:
+						if !ok {
+							a.finishWorkflowRun()
+							goto workflowEventsDone
+						}
+						a.handleWorkflowEvent(e)
+					default:
+						goto workflowEventsDone
+					}
+				}
+			}
+		workflowEventsDone:
 			a.requestRender()
 
 		case text := <-a.notifyCh:
@@ -389,6 +413,9 @@ func (a *App) finishAgentRun() {
 	a.agentCh = nil
 	a.stopAgentActivity()
 	a.mu.Unlock()
+	if a.finishWorkflowDraft() {
+		return
+	}
 	if a.tryContinueLoop() {
 		return
 	}
@@ -453,6 +480,16 @@ func (a *App) handleKey(k parsedKey) bool {
 		}
 		return false
 	}
+	if mode == modeWorkflowApproval {
+		a.handleWorkflowApprovalKey(k)
+		return false
+	}
+	if mode == modeWorkflowPanel || mode == modeWorkflowSave {
+		if a.handleWorkflowPanelKey(k) {
+			a.requestRender()
+			return false
+		}
+	}
 
 	if !running && mode == modeSessionPicker {
 		if a.sessionPickerConfirmDelete != "" {
@@ -501,6 +538,14 @@ func (a *App) handleKey(k parsedKey) bool {
 
 	case keyCtrlD:
 		return a.handleCtrlD()
+	}
+
+	if !running && mode == modeTask && k.action == keyDown && strings.TrimSpace(a.editor.Value()) == "" &&
+		(a.workflow.active || a.workflow.paused) {
+		a.openWorkflowPanel()
+		a.workflow.panelLevel = 0
+		a.requestRender()
+		return false
 	}
 
 	if !running && a.slashActive() {
@@ -552,7 +597,7 @@ func (a *App) handleKey(k parsedKey) bool {
 		}
 	}
 
-	if !running && a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modePluginsPicker && a.mode != modePluginsSecret && a.mode != modeWriteApproval {
+	if !running && a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modePluginsPicker && a.mode != modePluginsSecret && a.mode != modeWriteApproval && a.mode != modeWorkflowApproval && a.mode != modeWorkflowPanel {
 		switch k.action {
 		case keyShiftTab:
 			a.cycleThinkingLevel()
@@ -570,7 +615,8 @@ func (a *App) handleKey(k parsedKey) bool {
 	}
 
 	loopCancel := running && isLoopCancelCommand(a.editor.Value())
-	if k.action == keyEnter && (!running || a.compacting || loopCancel) && a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modeWriteApproval {
+	workflowControl := running && isWorkflowControlCommand(a.editor.Value())
+	if k.action == keyEnter && (!running || a.compacting || loopCancel || workflowControl) && a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modeWriteApproval && a.mode != modeWorkflowApproval && a.mode != modeWorkflowPanel && a.mode != modeWorkflowSave {
 		a.handleSubmit()
 		a.requestRender()
 		return false
@@ -582,7 +628,7 @@ func (a *App) handleKey(k parsedKey) bool {
 		return false
 	}
 
-	if a.mode == modeSessionPicker || a.mode == modeModelPicker || a.mode == modeConnectPicker || a.mode == modeConnectCodex || a.mode == modePluginsPicker {
+	if a.mode == modeSessionPicker || a.mode == modeModelPicker || a.mode == modeConnectPicker || a.mode == modeConnectCodex || a.mode == modePluginsPicker || a.mode == modeWorkflowPanel || a.mode == modeWorkflowApproval {
 		return false
 	}
 
@@ -616,15 +662,20 @@ func (a *App) applyEditorKey(k parsedKey) {
 		a.editor.Home()
 	case keyEnd:
 		a.editor.End()
-	case keyCtrlV, keyPaste:
-		if a.tryAttachClipboardImage() {
-			break
-		}
-		if k.action == keyPaste {
-			a.editor.InsertPaste(k.paste)
-		} else if text, err := readClipboardText(); err == nil && text != "" {
-			a.editor.InsertPaste(text)
-		}
+	case keyCtrlV:
+		a.tryAttachClipboardImage()
+	case keyCtrlShiftV, keyPaste:
+		a.pasteComposerText(k.paste)
+	}
+}
+
+func (a *App) pasteComposerText(bracketed string) {
+	if bracketed != "" {
+		a.editor.InsertPaste(bracketed)
+		return
+	}
+	if text, err := readClipboardText(); err == nil && text != "" {
+		a.editor.InsertPaste(text)
 	}
 }
 
@@ -675,6 +726,20 @@ func (a *App) buildLines() (out []string, stablePrefix int) {
 		out = append(out, clampSplitLines(strings.Split(picker, "\n"), w)...)
 	}
 
+	if picker := a.renderWorkflowApproval(w); picker != "" {
+		if len(out) > 0 {
+			out = append(out, "")
+		}
+		out = append(out, clampSplitLines(strings.Split(picker, "\n"), w)...)
+	}
+
+	if panel := a.renderWorkflowPanel(w); panel != "" {
+		if len(out) > 0 {
+			out = append(out, "")
+		}
+		out = append(out, clampSplitLines(strings.Split(panel, "\n"), w)...)
+	}
+
 	if a.mode == modeTreePicker {
 		if picker := a.renderTreePicker(w); picker != "" {
 			if len(out) > 0 {
@@ -696,6 +761,13 @@ func (a *App) buildLines() (out []string, stablePrefix int) {
 			out = append(out, "")
 		}
 		out = append(out, clampSplitLines([]string{loader}, w)...)
+	}
+
+	if taskLine := a.renderWorkflowTaskLine(w); taskLine != "" {
+		if len(out) > 0 {
+			out = append(out, "")
+		}
+		out = append(out, taskLine)
 	}
 
 	composer := a.composerLines(w)
@@ -758,6 +830,15 @@ func (a *App) renderTaskInputRaw() string {
 		prompt := a.styles.InputPrompt.Render("❯ ")
 		hint := "y approve · n reject · d diff · esc later"
 		return prompt + a.styles.InputCaret.Render("▎") + "  " + a.styles.InputHint.Render(hint)
+	}
+	if a.mode == modeWorkflowApproval {
+		prompt := a.styles.InputPrompt.Render("❯ ")
+		hint := "enter/y run · a always · v view · e edit · n/esc deny"
+		return prompt + a.styles.InputCaret.Render("▎") + "  " + a.styles.InputHint.Render(hint)
+	}
+	if a.mode == modeWorkflowPanel {
+		prompt := a.styles.InputPrompt.Render("… ")
+		return prompt + a.styles.InputCaret.Render("▎") + "  " + a.styles.InputHint.Render("workflow controls · ? help · esc back")
 	}
 
 	return ""
@@ -842,6 +923,11 @@ func (a *App) handleSubmit() {
 
 	if strings.HasPrefix(raw, "/") {
 		a.handleSlash(raw)
+		return
+	}
+
+	if task, ok := isUltracodePrompt(raw, a.workflow.ultracode); ok {
+		a.startWorkflow(task)
 		return
 	}
 

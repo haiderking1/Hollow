@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/skills"
+	workflowpkg "github.com/enough/enough/backend/workflow"
 )
 
 const slashMenuVisible = 5
@@ -54,6 +55,15 @@ func (a *App) filteredSlashCommands() []slashCommand {
 	for _, cmd := range slashCommands {
 		if filter == "" || strings.HasPrefix(cmd.name, filter) {
 			out = append(out, cmd)
+		}
+	}
+	for _, saved := range workflowpkg.ScanSaved(a.workDir()) {
+		if filter == "" || strings.HasPrefix(saved.Name, filter) {
+			desc := saved.Meta.Description
+			if desc == "" {
+				desc = "run saved dynamic workflow"
+			}
+			out = append(out, slashCommand{name: saved.Name, desc: desc})
 		}
 	}
 

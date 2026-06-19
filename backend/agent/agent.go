@@ -53,6 +53,7 @@ type Agent struct {
 	// allowedTools, when non-nil, restricts this agent to the listed tools
 	// (used by the verifier role). Enforced in guardTool, not by prompt.
 	allowedTools map[string]bool
+	readonlyRole bool
 
 	// lastUserPrompt is the task text of the current turn, handed to the
 	// verifier as context.

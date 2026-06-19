@@ -75,3 +75,31 @@ func TestKeyReaderKittyEscape(t *testing.T) {
 		t.Fatalf("expected escape, got %v", keys)
 	}
 }
+
+func TestKeyReaderCtrlV(t *testing.T) {
+	kr := newKeyReader()
+	for _, seq := range [][]byte{{22}, []byte("\x1b[118;5u")} {
+		keys, needsFlush := kr.feed(seq)
+		if needsFlush || len(keys) != 1 || keys[0].action != keyCtrlV {
+			t.Fatalf("seq %q: expected ctrl+v, got keys=%v flush=%v", seq, keys, needsFlush)
+		}
+	}
+}
+
+func TestKeyReaderCtrlShiftV(t *testing.T) {
+	kr := newKeyReader()
+	for _, seq := range [][]byte{[]byte("\x1b[118;6u"), []byte("\x1b[86;6u")} {
+		keys, needsFlush := kr.feed(seq)
+		if needsFlush || len(keys) != 1 || keys[0].action != keyCtrlShiftV {
+			t.Fatalf("seq %q: expected ctrl+shift+v, got keys=%v flush=%v", seq, keys, needsFlush)
+		}
+	}
+}
+
+func TestKeyReaderBracketedPaste(t *testing.T) {
+	kr := newKeyReader()
+	keys, needsFlush := kr.feed([]byte("\x1b[200~hello\nworld\x1b[201~"))
+	if needsFlush || len(keys) != 1 || keys[0].action != keyPaste || keys[0].paste != "hello\nworld" {
+		t.Fatalf("expected bracketed paste, got keys=%v flush=%v", keys, needsFlush)
+	}
+}

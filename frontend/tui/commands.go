@@ -25,6 +25,67 @@ func (a *App) handleSlash(input string) {
 		a.startLoop(arg)
 	case "loop-cancel", "cancel-loop":
 		a.cancelLoop()
+	case "workflow":
+		a.startWorkflow(arg)
+	case "workflow-cancel":
+		a.cancelWorkflow()
+	case "workflow-resume":
+		a.resumeWorkflow(arg)
+	case "workflows":
+		a.openWorkflowPanel()
+	case "workflow-save":
+		if arg != "" {
+			a.saveLastWorkflow(arg, true)
+		} else {
+			a.mode = modeWorkflowSave
+			a.workflow.saveProject = true
+			a.workflow.saveStatus = ""
+			a.editor = NewTaskEditor()
+		}
+	case "workflow-run":
+		a.runExistingWorkflow(arg)
+	case "effort":
+		parts := strings.Fields(strings.ToLower(arg))
+		if len(parts) != 2 || parts[0] != "ultracode" || (parts[1] != "on" && parts[1] != "off") {
+			a.appendMessage("error", "Usage: /effort ultracode on|off")
+			return
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			a.appendMessage("error", err.Error())
+			return
+		}
+		if cfg.Workflows == nil {
+			cfg.Workflows = &config.WorkflowSettings{}
+		}
+		cfg.Workflows.Ultracode = parts[1] == "on"
+		if err := config.Save(cfg); err != nil {
+			a.appendMessage("error", err.Error())
+			return
+		}
+		a.workflow.ultracode = cfg.Workflows.Ultracode
+		a.appendMessage("system", "ultracode "+parts[1])
+	case "tui":
+		parts := strings.Fields(strings.ToLower(arg))
+		if len(parts) != 2 || (parts[0] != "alt-screen" && parts[0] != "fullscreen") || (parts[1] != "on" && parts[1] != "off") {
+			a.appendMessage("error", "Usage: /tui alt-screen on|off")
+			return
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			a.appendMessage("error", err.Error())
+			return
+		}
+		if cfg.Workflows == nil {
+			cfg.Workflows = &config.WorkflowSettings{}
+		}
+		cfg.Workflows.AltScreen = parts[1] == "on"
+		if err := config.Save(cfg); err != nil {
+			a.appendMessage("error", err.Error())
+			return
+		}
+		a.term.SetAltScreen(cfg.Workflows.AltScreen)
+		a.appendMessage("system", "alternate screen "+parts[1])
 	case "connect":
 		if arg != "" {
 			a.saveAPIKey(arg)
@@ -549,6 +610,14 @@ func (a *App) handleSlash(input string) {
 		}
 		a.requestRender()
 	default:
+		if saved, ok := a.savedWorkflow(name); ok {
+			if a.workflow.active || a.workflow.writing {
+				a.appendMessage("error", "workflow already running — /workflow-cancel first")
+				return
+			}
+			a.startSavedWorkflow(saved, arg)
+			return
+		}
 		isSkillCmd := false
 		skillName := ""
 		if strings.HasPrefix(name, "skill:") {

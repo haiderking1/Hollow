@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	defaultSwarmConcurrency = 8
+	defaultSwarmConcurrency = 16
 	maxSwarmWorkers         = 100
 	maxSwarmDepth           = 3
 	defaultSwarmRetries     = 3
@@ -87,7 +87,7 @@ func agentSwarmTool() opencode.Tool {
 					},
 					"max_concurrency": {
 						"type": "number",
-						"description": "Maximum number of agents running at the same time. Defaults to 8."
+						"description": "Maximum number of agents running at the same time. Defaults to 16."
 					},
 					"retry": {
 						"type": "number",

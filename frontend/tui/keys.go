@@ -2,6 +2,7 @@ package tui
 
 import (
 	"bytes"
+	"strconv"
 	"time"
 	"unicode/utf8"
 )
@@ -30,6 +31,7 @@ const (
 	keyRune
 	keyPaste
 	keyCtrlV
+	keyCtrlShiftV
 )
 
 type parsedKey struct {
@@ -101,6 +103,21 @@ func (kr *keyReader) parseOne() (parsedKey, int) {
 		if end >= 5 {
 			return parsedKey{action: keyCtrlBackspace}, end + 1
 		}
+	}
+
+	// Kitty keyboard protocol: ESC [ <codepoint> ; <mod> u
+	// mod is 1-indexed bitmask: ctrl=4, shift=1 → ctrl=5, ctrl+shift=6.
+	if k, n := parseKittyKeyU(b, 118, 5, keyCtrlV); n > 0 {
+		return k, n
+	}
+	if k, n := parseKittyKeyU(b, 86, 5, keyCtrlV); n > 0 {
+		return k, n
+	}
+	if k, n := parseKittyKeyU(b, 118, 6, keyCtrlShiftV); n > 0 {
+		return k, n
+	}
+	if k, n := parseKittyKeyU(b, 86, 6, keyCtrlShiftV); n > 0 {
+		return k, n
 	}
 
 	switch b[0] {
@@ -229,6 +246,34 @@ func csiSequenceLength(b []byte) int {
 		}
 	}
 	return 0
+}
+
+func parseKittyKeyU(b []byte, codepoint, modifier int, action keyAction) (parsedKey, int) {
+	if len(b) < 7 || b[0] != 27 || b[1] != '[' {
+		return parsedKey{}, 0
+	}
+	end := bytes.IndexByte(b, 'u')
+	if end < 0 {
+		return parsedKey{}, 0
+	}
+	seq := b[:end+1]
+	parts := bytes.Split(seq[2:end], []byte{';'})
+	if len(parts) != 2 {
+		return parsedKey{}, 0
+	}
+	cp, err := strconv.Atoi(string(parts[0]))
+	if err != nil || cp != codepoint {
+		return parsedKey{}, 0
+	}
+	modPart := parts[1]
+	if i := bytes.IndexByte(modPart, ':'); i >= 0 {
+		modPart = modPart[:i]
+	}
+	mod, err := strconv.Atoi(string(modPart))
+	if err != nil || mod != modifier {
+		return parsedKey{}, 0
+	}
+	return parsedKey{action: action}, end + 1
 }
 
 func kittyEscapeLength(b []byte) int {

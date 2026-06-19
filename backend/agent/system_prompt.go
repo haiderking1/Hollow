@@ -66,6 +66,19 @@ const MemoryGuidance = "You have persistent memory across sessions. Save durable
 	"session. Spelling notes like 'lowercase h' mean write the full name that way (e.g. " +
 	"'haider') — not a nickname from the initial letter."
 
+const mcpFilterGuidance = `## MCP result hygiene
+
+Never return an unbounded MCP query directly into the conversation. If a query may return more than 50 rows or 8KB, first write and run a short filtering script. The script must call the MCP server through bash with:
+
+  enough mcp call <server.tool> '<json>'
+
+Filter, aggregate, sample, or paginate in code and print only compact summary JSON. Read that summary into context, not the raw rows.
+
+Bad: call an MCP database/search tool and let thousands of rows enter model context.
+Good: bash runs a Python, shell, or Go script which calls enough mcp call, keeps only relevant rows/counts/samples, then prints a small JSON object.
+
+For dynamic workflows, pre-fetch data in the orchestration script with sdk.runBash or sdk.fetchJSON, derive structured maps/clusters there, and pass only the relevant slice to each subagent.`
+
 const contextFileMaxChars = 24000
 
 // SystemPromptInputs collects everything the tiered builder reads.
@@ -78,7 +91,7 @@ type SystemPromptInputs struct {
 	Store     *memory.Store
 	SessionID string
 	// Now anchors the volatile date line. Zero value means time.Now().
-	Now time.Time
+	Now                   time.Time
 	PreloadedSkillsPrompt string
 }
 
@@ -140,6 +153,7 @@ func buildStableTier(in SystemPromptInputs) string {
 	if in.PreloadedSkillsPrompt != "" {
 		parts = append(parts, in.PreloadedSkillsPrompt)
 	}
+	parts = append(parts, mcpFilterGuidance)
 
 	return strings.Join(parts, "\n\n")
 }

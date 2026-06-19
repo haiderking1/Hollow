@@ -144,10 +144,6 @@ func (a *App) renderFooter(width int) []string {
 	}
 	rightSide = fmt.Sprintf("(%s) %s", footerProviderLabel(provider, endpoint), rightSide)
 
-	if a.evidenceCount > 0 {
-		statsLeft += a.styles.LogDim.Render(fmt.Sprintf(" · ev %d", a.evidenceCount))
-	}
-
 	if a.loop.active {
 		current := a.loop.iteration + 1
 		label := fmt.Sprintf(" · loop %d", current)
@@ -156,6 +152,15 @@ func (a *App) renderFooter(width int) []string {
 		}
 		if a.running {
 			label += " · running"
+		}
+		statsLeft += a.styles.LogDim.Render(label)
+	}
+
+	if a.workflow.active || a.workflow.paused {
+		s := a.workflowSnapshot()
+		label := fmt.Sprintf(" · workflow %s · %s · %d running · %d queued", s.Name, s.Phase, s.Running, s.Queued)
+		if s.Status == "paused" {
+			label = fmt.Sprintf(" · workflow %s · paused", s.Name)
 		}
 		statsLeft += a.styles.LogDim.Render(label)
 	}
@@ -169,8 +174,7 @@ func (a *App) renderFooter(width int) []string {
 	pwd := footerPWD(a.session.CWD())
 	pwdLine := a.styles.LogDim.Render(term.TruncateWidth(pwd, width))
 
-	lines := a.renderObligations(width)
-	return append(lines, pwdLine, statsLine)
+	return []string{pwdLine, statsLine}
 }
 
 func footerJoin(width int, left, right string) string {

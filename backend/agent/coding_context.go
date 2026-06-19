@@ -124,7 +124,7 @@ func DetectIsCoding(workDir string, cfg config.Runtime) bool {
 
 	home, _ := os.UserHomeDir()
 	gitRoot := findGitRoot(workDir)
-	if gitRoot != "" && gitRoot == home {
+	if gitRoot != "" && (gitRoot == home || gitRoot == filepath.Clean(os.TempDir())) {
 		gitRoot = ""
 	}
 

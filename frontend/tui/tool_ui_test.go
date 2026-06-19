@@ -131,4 +131,3 @@ func TestRenderBrowserListUsesDetails(t *testing.T) {
 		t.Errorf("expected output to contain '1 tab(s)', got:\n%s", plain)
 	}
 }
-

@@ -35,8 +35,6 @@ func (a *App) startAgentLoopContinuation(task string, iteration int) {
 func (a *App) startAgentRun(run func(*agent.Agent, config.Runtime, func(core.Event)) error) {
 	a.running = true
 	a.beginAgentActivity()
-	a.evidenceCount = 0
-	a.obligationState = nil
 	ch := make(chan core.Event, 64)
 	a.agentCh = ch
 
@@ -169,18 +167,6 @@ func (a *App) handleAgentEvent(e core.Event) {
 	case core.EventToolDelta:
 		if ev, ok := e.Data.(core.ToolCallEvent); ok {
 			a.handleToolDelta(ev)
-		}
-
-	case core.EventEvidenceAppend:
-		if ev, ok := e.Data.(core.EvidenceEvent); ok {
-			a.evidenceCount = ev.Count
-			a.bumpChat() // footer cache keys off chatRevision
-		}
-
-	case core.EventObligationUpdate:
-		if ev, ok := e.Data.(core.ObligationEvent); ok {
-			a.setObligationState(ev)
-			a.bumpChat()
 		}
 
 	case core.EventToolResult:

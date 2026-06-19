@@ -13,6 +13,9 @@ const (
 	modePluginsPicker
 	modePluginsSecret
 	modeWriteApproval
+	modeWorkflowApproval
+	modeWorkflowPanel
+	modeWorkflowSave
 )
 
 type slashCommand struct {
@@ -23,6 +26,14 @@ type slashCommand struct {
 var slashCommands = []slashCommand{
 	{name: "loop", desc: "hammer a task until done (--max N optional)"},
 	{name: "loop-cancel", desc: "cancel an active /loop"},
+	{name: "workflow", desc: "write and run a dynamic workflow (--yes optional)"},
+	{name: "workflow-cancel", desc: "stop the active workflow and child agents"},
+	{name: "workflow-resume", desc: "resume a paused workflow"},
+	{name: "workflows", desc: "open workflow progress and controls"},
+	{name: "workflow-save", desc: "save the last workflow as a slash command"},
+	{name: "workflow-run", desc: "run an existing workflow.js ([path] [--yes])"},
+	{name: "effort", desc: "toggle ultracode workflow planning"},
+	{name: "tui", desc: "terminal UI settings (alt-screen on|off)"},
 	{name: "connect", desc: "link OpenCode Go/Zen API key or OpenAI Codex OAuth"},
 	{name: "model", desc: "pick provider and model"},
 	{name: "plugins", desc: "browse and install MCP servers, skills, and more"},

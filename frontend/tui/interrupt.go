@@ -10,6 +10,14 @@ func (a *App) handleInterrupt() {
 		a.deferWriteApproval()
 		return
 	}
+	if a.mode == modeWorkflowApproval {
+		a.denyWorkflow()
+		return
+	}
+	if a.mode == modeWorkflowPanel || a.mode == modeWorkflowSave {
+		a.handleWorkflowPanelKey(parsedKey{action: keyEscape})
+		return
+	}
 	if a.loop.active && a.running {
 		a.loop.aborted = true
 		a.bumpChat()
@@ -98,6 +106,9 @@ func (a *App) handleCtrlD() bool {
 	if a.mode == modeWriteApproval {
 		return false
 	}
+	if a.mode == modeWorkflowApproval || a.mode == modeWorkflowPanel || a.mode == modeWorkflowSave {
+		return false
+	}
 	if strings.TrimSpace(a.editor.Value()) != "" {
 		return false
 	}
@@ -129,4 +140,11 @@ func (a *App) shutdown() {
 		a.codexOAuthCancel()
 	}
 	a.abortAgentAndWait()
+	if a.workflow.runtime != nil && a.workflow.active {
+		if a.workflow.runtime.Snapshot().Status == "paused" {
+			a.workflow.runtime.CheckpointAndStop("user")
+		} else {
+			a.workflow.runtime.Cancel()
+		}
+	}
 }
