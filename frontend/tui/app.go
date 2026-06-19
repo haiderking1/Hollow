@@ -65,28 +65,30 @@ type App struct {
 	treePickerChoice  int
 	treePickerTarget  string
 
-	modelRegistry            *opencode.Registry
-	modelPickerFilter        string
+	modelRegistry             *opencode.Registry
+	modelPickerFilter         string
 	modelPickerProviderCursor int
-	modelPickerCursor        int
-	modelPickerFocus         modelPickerFocus
-	modelPickerStatus        string
-	modelPickerThinking      opencode.ThinkingLevel
+	modelPickerCursor         int
+	modelPickerFocus          modelPickerFocus
+	modelPickerStatus         string
+	modelPickerThinking       opencode.ThinkingLevel
 
-	connectPickerCursor int
-	connectPickerStatus string
+	connectPickerCursor   int
+	connectPickerStatus   string
 	connectTargetProvider string
-	codexOAuthCancel    context.CancelFunc
+	codexOAuthCancel      context.CancelFunc
 
-	pluginsPickerTab           int
-	pluginsPickerCursor        int
-	pluginsPickerFocus         pluginsPickerFocus
-	pluginsPickerFilter        string
-	pluginsPickerStatus        string
+	pluginsPickerTab      int
+	pluginsPickerCursor   int
+	pluginsPickerFocus    pluginsPickerFocus
+	pluginsPickerFilter   string
+	pluginsPickerStatus   string
 	pluginsPendingEntryID string
 
 	running                  bool
 	compacting               bool
+	loop                     loopState
+	forceAssistantBubble     bool
 	compactionLabel          string
 	compactionFrame          int
 	activityPhase            activityPhase
@@ -387,6 +389,9 @@ func (a *App) finishAgentRun() {
 	a.agentCh = nil
 	a.stopAgentActivity()
 	a.mu.Unlock()
+	if a.tryContinueLoop() {
+		return
+	}
 	a.tryDrainCompactionQueue()
 }
 
@@ -564,7 +569,8 @@ func (a *App) handleKey(k parsedKey) bool {
 		}
 	}
 
-	if k.action == keyEnter && (!running || a.compacting) && a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modeWriteApproval {
+	loopCancel := running && isLoopCancelCommand(a.editor.Value())
+	if k.action == keyEnter && (!running || a.compacting || loopCancel) && a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modeWriteApproval {
 		a.handleSubmit()
 		a.requestRender()
 		return false
@@ -822,6 +828,15 @@ func (a *App) handleSubmit() {
 
 	if a.mode == modePluginsSecret {
 		a.savePluginsSecret(raw)
+		return
+	}
+
+	if a.loop.active {
+		if isLoopCancelCommand(raw) {
+			a.handleSlash(raw)
+		} else {
+			a.appendMessage("error", "loop active — use /loop-cancel")
+		}
 		return
 	}
 

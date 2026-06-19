@@ -10,6 +10,12 @@ func (a *App) handleInterrupt() {
 		a.deferWriteApproval()
 		return
 	}
+	if a.loop.active && a.running {
+		a.loop.aborted = true
+		a.bumpChat()
+		a.abortAgent()
+		return
+	}
 	if a.compacting {
 		a.mu.Lock()
 		ag := a.agent
@@ -55,6 +61,10 @@ func (a *App) handleInterrupt() {
 
 func (a *App) handleCtrlC() bool {
 	if a.running {
+		if a.loop.active {
+			a.loop.aborted = true
+			a.bumpChat()
+		}
 		a.abortAgent()
 		return false
 	}

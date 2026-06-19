@@ -12,6 +12,27 @@ import (
 )
 
 func (a *App) startAgent(task string, attachments []agent.UserAttachment) {
+	a.startAgentRun(func(ag *agent.Agent, cfg config.Runtime, emit func(core.Event)) error {
+		return ag.Prompt(context.Background(), cfg, task, attachments, emit)
+	})
+}
+
+func (a *App) startLoopAgent(task string) {
+	a.loop.lastRunErrored = false
+	a.startAgentRun(func(ag *agent.Agent, cfg config.Runtime, emit func(core.Event)) error {
+		return ag.LoopPrompt(context.Background(), cfg, task, emit)
+	})
+}
+
+func (a *App) startAgentLoopContinuation(task string, iteration int) {
+	a.loop.lastRunErrored = false
+	a.forceAssistantBubble = true
+	a.startAgentRun(func(ag *agent.Agent, cfg config.Runtime, emit func(core.Event)) error {
+		return ag.LoopContinue(context.Background(), cfg, task, iteration, emit)
+	})
+}
+
+func (a *App) startAgentRun(run func(*agent.Agent, config.Runtime, func(core.Event)) error) {
 	a.running = true
 	a.beginAgentActivity()
 	a.evidenceCount = 0
@@ -47,8 +68,7 @@ func (a *App) startAgent(task string, attachments []agent.UserAttachment) {
 		}
 
 		ag := a.ensureAgent(cfg)
-
-		_ = ag.Prompt(context.Background(), cfg, task, attachments, emit)
+		_ = run(ag, cfg, emit)
 	}()
 }
 
@@ -118,7 +138,13 @@ func (a *App) handleAgentEvent(e core.Event) {
 
 	case core.EventAssistantStart:
 		a.onAssistantStreamStart()
-		a.ensureAssistantBubble()
+		if a.forceAssistantBubble {
+			a.messages = append(a.messages, chatMsg{role: "assistant"})
+			a.forceAssistantBubble = false
+			a.bumpChat()
+		} else {
+			a.ensureAssistantBubble()
+		}
 
 	case core.EventAssistantThinkingDelta:
 		if delta, ok := e.Data.(string); ok {
@@ -169,6 +195,10 @@ func (a *App) handleAgentEvent(e core.Event) {
 
 	case core.EventError:
 		if text, ok := e.Data.(string); ok {
+			if a.loop.active {
+				a.loop.lastRunErrored = true
+				a.bumpChat()
+			}
 			a.appendMessage("error", text)
 		}
 

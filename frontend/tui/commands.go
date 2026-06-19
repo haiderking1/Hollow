@@ -21,6 +21,10 @@ func (a *App) handleSlash(input string) {
 	arg = strings.TrimSpace(arg)
 
 	switch name {
+	case "loop":
+		a.startLoop(arg)
+	case "loop-cancel", "cancel-loop":
+		a.cancelLoop()
 	case "connect":
 		if arg != "" {
 			a.saveAPIKey(arg)

@@ -60,10 +60,10 @@ type Agent struct {
 
 	lockedGoal string
 
-	verifyFailures           int
-	parallelForksAttempted   bool
-	turnCtx                  context.Context
-	step                     stepTracker
+	verifyFailures         int
+	parallelForksAttempted bool
+	turnCtx                context.Context
+	step                   stepTracker
 
 	// completionRounds counts worker/verifier cycles this turn, capped by
 	// cfg.Evidence.MaxCompletionRounds.
@@ -404,6 +404,10 @@ type UserAttachment struct {
 // Prompt appends a user message and runs the agent loop until the model stops
 // calling tools or the context is cancelled.
 func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string, attachments []UserAttachment, emit func(core.Event)) error {
+	return a.prompt(ctx, cfg, userText, attachments, "", emit)
+}
+
+func (a *Agent) prompt(ctx context.Context, cfg config.Runtime, userText string, attachments []UserAttachment, runtimeNotice string, emit func(core.Event)) error {
 	a.mu.Lock()
 	if a.busy {
 		a.mu.Unlock()
@@ -536,6 +540,17 @@ func (a *Agent) Prompt(ctx context.Context, cfg config.Runtime, userText string,
 		a.messages = append(a.messages, lockMsg)
 		a.mu.Unlock()
 		a.persist(lockMsg)
+	}
+
+	if strings.TrimSpace(runtimeNotice) != "" {
+		noticeMsg := opencode.Message{
+			Role:    "user",
+			Content: opencode.StringContent(runtimeNotice),
+		}
+		a.mu.Lock()
+		a.messages = append(a.messages, noticeMsg)
+		a.mu.Unlock()
+		a.persist(noticeMsg)
 	}
 
 	defer func() {

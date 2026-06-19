@@ -225,7 +225,7 @@ func (a *App) resumeSession(path string) {
 	a.session = sm
 	a.messages = nil
 	for _, line := range sm.ChatLines() {
-		if msg, ok := chatMsgFromSessionLine(line, false); ok {
+		if msg, ok := chatMsgFromSessionLine(line, true); ok {
 			a.messages = append(a.messages, msg)
 		}
 	}

@@ -148,6 +148,18 @@ func (a *App) renderFooter(width int) []string {
 		statsLeft += a.styles.LogDim.Render(fmt.Sprintf(" · ev %d", a.evidenceCount))
 	}
 
+	if a.loop.active {
+		current := a.loop.iteration + 1
+		label := fmt.Sprintf(" · loop %d", current)
+		if a.loop.maxIterations > 0 {
+			label += fmt.Sprintf("/%d", a.loop.maxIterations)
+		}
+		if a.running {
+			label += " · running"
+		}
+		statsLeft += a.styles.LogDim.Render(label)
+	}
+
 	if pending := approval.PendingTotalCount(); pending > 0 {
 		statsLeft += a.styles.FooterWarn.Render(fmt.Sprintf(" · pending %d", pending))
 	}

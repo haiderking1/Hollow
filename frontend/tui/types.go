@@ -21,6 +21,8 @@ type slashCommand struct {
 }
 
 var slashCommands = []slashCommand{
+	{name: "loop", desc: "hammer a task until done (--max N optional)"},
+	{name: "loop-cancel", desc: "cancel an active /loop"},
 	{name: "connect", desc: "link OpenCode Go/Zen API key or OpenAI Codex OAuth"},
 	{name: "model", desc: "pick provider and model"},
 	{name: "plugins", desc: "browse and install MCP servers, skills, and more"},
