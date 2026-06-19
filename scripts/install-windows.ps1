@@ -63,14 +63,14 @@ function Install-Git {
             Write-Success "Git found ($version)"
             return $true
         }
-        Write-Warn "git on PATH but bash.exe not found — downloading PortableGit..."
+        Write-Warn "git on PATH but bash.exe not found - downloading PortableGit..."
     }
 
     $EnoughHome = Join-Path $env:LOCALAPPDATA "enough"
     $gitDir = Join-Path $EnoughHome "git"
 
     Write-Info "Downloading PortableGit to $gitDir\ ..."
-    Write-Info "(no admin rights required; isolated from any system Git install)"
+    Write-Info '(no admin rights required; isolated from any system Git install)'
 
     try {
         $arch = Get-WindowsArch
