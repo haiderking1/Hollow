@@ -487,9 +487,11 @@ func (a *App) handleKey(k parsedKey) bool {
 		if a.handleCtrlD() {
 			return true
 		}
-		a.editor.Delete()
-		a.requestRender()
-		return false
+		if a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modePluginsPicker && a.mode != modeWorkflowPanel && a.mode != modeWorkflowApproval && a.mode != modeWorkflowSave {
+			a.editor.Delete()
+			a.requestRender()
+			return false
+		}
 	}
 
 	if mode == modeWriteApproval {
