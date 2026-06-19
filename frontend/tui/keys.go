@@ -33,6 +33,15 @@ const (
 	keyPaste
 	keyCtrlV
 	keyCtrlShiftV
+	keyWordLeft
+	keyWordRight
+	keyLineStart
+	keyLineEnd
+	keyDeleteWordBackward
+	keyDeleteWordForward
+	keyDeleteToLineStart
+	keyDeleteToLineEnd
+	keyUndo
 )
 
 type parsedKey struct {
@@ -1145,8 +1154,6 @@ func SeqToParsedKey(seq string) parsedKey {
 		return parsedKey{action: keyEnter}
 	case "backspace":
 		return parsedKey{action: keyBackspace}
-	case "ctrl+backspace":
-		return parsedKey{action: keyCtrlBackspace}
 	case "delete":
 		return parsedKey{action: keyDelete}
 	case "tab":
@@ -1159,14 +1166,30 @@ func SeqToParsedKey(seq string) parsedKey {
 		return parsedKey{action: keyUp}
 	case "down":
 		return parsedKey{action: keyDown}
-	case "left":
+	case "left", "ctrl+b":
 		return parsedKey{action: keyLeft}
-	case "right":
+	case "right", "ctrl+f":
 		return parsedKey{action: keyRight}
-	case "home":
-		return parsedKey{action: keyHome}
-	case "end":
-		return parsedKey{action: keyEnd}
+	case "alt+left", "ctrl+left", "alt+b":
+		return parsedKey{action: keyWordLeft}
+	case "alt+right", "ctrl+right", "alt+f":
+		return parsedKey{action: keyWordRight}
+	case "home", "ctrl+a":
+		return parsedKey{action: keyLineStart}
+	case "end", "ctrl+e":
+		return parsedKey{action: keyLineEnd}
+	case "ctrl+w", "alt+backspace", "ctrl+backspace":
+		return parsedKey{action: keyDeleteWordBackward}
+	case "alt+d", "alt+delete":
+		return parsedKey{action: keyDeleteWordForward}
+	case "ctrl+u":
+		return parsedKey{action: keyDeleteToLineStart}
+	case "ctrl+k":
+		return parsedKey{action: keyDeleteToLineEnd}
+	case "ctrl+-":
+		return parsedKey{action: keyUndo}
+	case "space", "shift+space":
+		return parsedKey{action: keyRune, r: ' '}
 	}
 
 	runes := []rune(keyId)

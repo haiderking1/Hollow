@@ -484,7 +484,12 @@ func (a *App) handleKey(k parsedKey) bool {
 	case keyCtrlC:
 		return a.handleCtrlC()
 	case keyCtrlD:
-		return a.handleCtrlD()
+		if a.handleCtrlD() {
+			return true
+		}
+		a.editor.Delete()
+		a.requestRender()
+		return false
 	}
 
 	if mode == modeWriteApproval {
@@ -663,10 +668,24 @@ func (a *App) applyEditorKey(k parsedKey) {
 		a.editor.MoveLeft()
 	case keyRight:
 		a.editor.MoveRight()
-	case keyHome:
+	case keyHome, keyLineStart:
 		a.editor.Home()
-	case keyEnd:
+	case keyEnd, keyLineEnd:
 		a.editor.End()
+	case keyWordLeft:
+		a.editor.MoveWordLeft()
+	case keyWordRight:
+		a.editor.MoveWordRight()
+	case keyDeleteWordBackward:
+		a.editor.DeleteWordBackward()
+	case keyDeleteWordForward:
+		a.editor.DeleteWordForward()
+	case keyDeleteToLineStart:
+		a.editor.DeleteToLineStart()
+	case keyDeleteToLineEnd:
+		a.editor.DeleteToLineEnd()
+	case keyUndo:
+		a.editor.Undo()
 	case keyCtrlV:
 		a.tryAttachClipboardImage()
 	case keyCtrlShiftV, keyPaste:
