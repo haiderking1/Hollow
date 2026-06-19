@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 
 	"github.com/enough/enough/backend/config"
+	"github.com/enough/enough/backend/fslock"
 )
 
 func withFileLock(path string, f func() (SkillManageResult, error)) (SkillManageResult, error) {
@@ -25,12 +25,12 @@ func withFileLock(path string, f func() (SkillManageResult, error)) (SkillManage
 		_ = os.Remove(lockPath)
 	}()
 
-	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX)
+	err = fslock.Lock(file)
 	if err != nil {
 		return SkillManageResult{Success: false, Error: "failed to acquire file lock: " + err.Error()}, nil
 	}
 	defer func() {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+		_ = fslock.Unlock(file)
 	}()
 
 	return f()

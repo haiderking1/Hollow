@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
-	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -29,6 +26,8 @@ type Terminal struct {
 	altScreen bool
 	pauseRead bool
 	pauseAck  chan struct{}
+
+	stopResize chan struct{}
 }
 
 func New() (*Terminal, error) {
@@ -61,17 +60,6 @@ func envEnabled(name string) bool {
 	default:
 		return false
 	}
-}
-
-// CellPixels reports the terminal cell size in pixels via TIOCGWINSZ. Foot and
-// most modern terminals populate the pixel fields; returns (0, 0) when they do
-// not (e.g. some multiplexers), letting the caller fall back to a query/default.
-func (t *Terminal) CellPixels() (w, h int) {
-	ws, err := unix.IoctlGetWinsize(t.fd, unix.TIOCGWINSZ)
-	if err != nil || ws.Col == 0 || ws.Row == 0 || ws.Xpixel == 0 || ws.Ypixel == 0 {
-		return 0, 0
-	}
-	return int(ws.Xpixel) / int(ws.Col), int(ws.Ypixel) / int(ws.Row)
 }
 
 func (t *Terminal) Columns() int {
@@ -108,64 +96,11 @@ func (t *Terminal) Start(onInput func([]byte), onResize func()) error {
 	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004h")
 	t.hideCursor()
 
-	go t.readLoop()
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGWINCH)
-	go func() {
-		for range sig {
-			if w, h, err := term.GetSize(t.fd); err == nil {
-				t.mu.Lock()
-				t.width = w
-				t.height = h
-				t.mu.Unlock()
-				if t.onResize != nil {
-					t.onResize()
-				}
-			}
-		}
-	}()
+	t.startReadAndResize()
 
 	DrainInput(t.fd, 200*time.Millisecond)
 
 	return nil
-}
-
-func (t *Terminal) readLoop() {
-	buf := make([]byte, 256)
-	for {
-		t.mu.Lock()
-		paused := t.pauseRead
-		if paused && t.pauseAck != nil {
-			close(t.pauseAck)
-			t.pauseAck = nil
-		}
-		t.mu.Unlock()
-		if paused {
-			time.Sleep(20 * time.Millisecond)
-			continue
-		}
-		poll := []unix.PollFd{{Fd: int32(t.fd), Events: unix.POLLIN}}
-		ready, err := unix.Poll(poll, 50)
-		if err != nil {
-			if err == unix.EINTR {
-				continue
-			}
-			return
-		}
-		if ready == 0 || poll[0].Revents&unix.POLLIN == 0 {
-			continue
-		}
-		n, err := os.Stdin.Read(buf)
-		if err != nil || n == 0 {
-			return
-		}
-		if t.onInput != nil {
-			chunk := make([]byte, n)
-			copy(chunk, buf[:n])
-			t.onInput(chunk)
-		}
-	}
 }
 
 func (t *Terminal) Write(data string) {
@@ -185,6 +120,7 @@ func (t *Terminal) ShowCursor() {
 func (t *Terminal) Stop() {
 	t.ShowCursor()
 	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004l\x1b[<u\x1b[>4;0m")
+	
 	t.mu.Lock()
 	t.pauseRead = true
 	ack := make(chan struct{})
@@ -193,6 +129,9 @@ func (t *Terminal) Stop() {
 	t.started = false
 	fd := t.fd
 	t.mu.Unlock()
+
+	t.stopReadAndResize()
+
 	select {
 	case <-ack:
 	case <-time.After(time.Second):
@@ -238,6 +177,9 @@ func (t *Terminal) RunExternal(name string, args ...string) error {
 	t.pauseAck = ack
 	alt := t.altScreen
 	t.mu.Unlock()
+
+	t.stopReadAndResize()
+
 	select {
 	case <-ack:
 	case <-time.After(time.Second):
@@ -265,9 +207,13 @@ func (t *Terminal) RunExternal(name string, args ...string) error {
 	}
 	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004h")
 	t.hideCursor()
+
 	t.mu.Lock()
 	t.pauseRead = false
 	t.mu.Unlock()
+
+	t.startReadAndResize()
+
 	if err != nil {
 		return err
 	}

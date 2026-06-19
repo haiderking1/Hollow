@@ -34,3 +34,32 @@ jobs:
 
       - name: Build
         run: go build -o bin/enough ./cmd/enough
+
+  test-windows:
+    name: Windows Build & Test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Build enough.exe
+        run: go build -o bin/enough.exe ./cmd/enough
+
+      - name: Test shell & fslock packages
+        run: go test ./backend/shell/... ./backend/fslock/...
+
+      - name: Provision Git Bash
+        run: powershell -File scripts/install-windows.ps1 -NonInteractive
+
+      - name: Test Agent Bash command
+        run: go test ./backend/agent/ -run TestBash -count=1
+

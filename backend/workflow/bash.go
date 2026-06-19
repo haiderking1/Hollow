@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/enough/enough/backend/shell"
 )
 
 const maxWorkflowBashOutput = 64 * 1024
@@ -17,13 +19,15 @@ func (r *Runtime) runBash(ctx context.Context, command string) (BashResult, erro
 	if command == "" {
 		return BashResult{}, errors.New("runBash command is empty")
 	}
-	cmd := exec.CommandContext(ctx, "bash", "-lc", command)
-	cmd.Dir = r.workDir
-	cmd.Env = append(os.Environ(), "TERM=dumb", "NO_COLOR=1", "CLICOLOR=0", "FORCE_COLOR=0")
+	cmd, err := shell.CommandContext(ctx, command, true)
+	if err != nil {
+		return BashResult{}, err
+	}
+	cmd.Dir = shell.ResolveSafeCwd(r.workDir)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	err := cmd.Run()
+	err = cmd.Run()
 	exitCode := 0
 	if err != nil {
 		exitCode = -1

@@ -221,6 +221,7 @@ type Config struct {
 	Agent         *AgentSettings             `json:"agent,omitempty"`
 	Plugins       *PluginsSettings           `json:"plugins,omitempty"`
 	Workflows     *WorkflowSettings          `json:"workflows,omitempty"`
+	ShellPath     string                     `json:"shell_path,omitempty"`
 	MCPServers    map[string]MCPServerConfig `json:"mcp_servers,omitempty"`
 
 	// legacy field — migrated to secrets store on load, never written back
@@ -243,16 +244,14 @@ type Runtime struct {
 	Agent                 AgentSettings
 	Plugins               PluginsSettings
 	Workflows             WorkflowSettings
+	ShellPath             string
 	MCPServers            map[string]MCPServerConfig
 	PreloadedSkills       []string
 	PreloadedSkillsPrompt string
 }
 
 func DefaultInlineShellEnabled() bool {
-	if runtime.GOOS == "windows" {
-		return os.Getenv("WSL_DISTRO_NAME") != ""
-	}
-	return runtime.GOOS == "linux"
+	return runtime.GOOS == "linux" || runtime.GOOS == "windows"
 }
 
 func Default() Config {
@@ -318,6 +317,7 @@ type fileConfig struct {
 	Agent         *AgentSettings             `json:"agent,omitempty"`
 	Plugins       *PluginsSettings           `json:"plugins,omitempty"`
 	Workflows     *WorkflowSettings          `json:"workflows,omitempty"`
+	ShellPath     string                     `json:"shell_path,omitempty"`
 	MCPServers    map[string]MCPServerConfig `json:"mcp_servers,omitempty"`
 }
 
@@ -345,6 +345,7 @@ func Load() (Config, error) {
 					cfg.ThinkingLevel = raw.ThinkingLevel
 					cfg.HideThinking = raw.HideThinking
 					cfg.apiKeyLegacy = raw.APIKey
+					cfg.ShellPath = raw.ShellPath
 					if raw.Compaction != nil {
 						cfg.Compaction = raw.Compaction
 					}
@@ -420,6 +421,7 @@ func Load() (Config, error) {
 	cfg.ThinkingLevel = raw.ThinkingLevel
 	cfg.HideThinking = raw.HideThinking
 	cfg.apiKeyLegacy = raw.APIKey
+	cfg.ShellPath = raw.ShellPath
 	if raw.Compaction != nil {
 		cfg.Compaction = raw.Compaction
 	}
@@ -608,6 +610,7 @@ func Save(cfg Config) error {
 		Agent:         cfg.Agent,
 		Plugins:       cfg.Plugins,
 		Workflows:     cfg.Workflows,
+		ShellPath:     cfg.ShellPath,
 		MCPServers:    cfg.MCPServers,
 	}
 
@@ -739,6 +742,7 @@ func LoadRuntime() (Runtime, error) {
 		Agent:         ag,
 		Plugins:       pl,
 		Workflows:     wf,
+		ShellPath:     cfg.ShellPath,
 		MCPServers:    mcpServers,
 	}, nil
 }

@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/enough/enough/backend/agent"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/core"
 	"github.com/enough/enough/backend/session"
+	"github.com/enough/enough/backend/shell"
 	"github.com/enough/enough/backend/skills"
 	"github.com/enough/enough/frontend/tui"
 )
@@ -49,6 +51,18 @@ func main() {
 	if len(os.Args) >= 2 && os.Args[1] == "remove" {
 		runRemoveCLI()
 		return
+	}
+
+	if runtime.GOOS == "windows" {
+		if _, err := shell.ResolveBash(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: Git Bash is required to run Enough.\n\n"+
+				"To install Git and Git Bash, run this command in PowerShell:\n"+
+				"  irm https://raw.githubusercontent.com/haiderking1/Enough/main/scripts/install-windows.ps1 | iex\n\n"+
+				"Or install Git manually and ensure bash.exe is in your PATH,\n"+
+				"or set the ENOUGH_GIT_BASH_PATH environment variable.\n"+
+				"Detailed error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// 2. Parse command-line args

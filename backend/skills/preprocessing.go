@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/enough/enough/backend/shell"
 )
 
 var inlineShellRe = regexp.MustCompile("!`([^`\n]+)`")
@@ -21,10 +21,7 @@ type PreprocessingConfig struct {
 }
 
 func DefaultInlineShellEnabled() bool {
-	if runtime.GOOS == "windows" {
-		return os.Getenv("WSL_DISTRO_NAME") != ""
-	}
-	return runtime.GOOS == "linux"
+	return runtime.GOOS == "linux" || runtime.GOOS == "windows"
 }
 
 func DefaultPreprocessingConfig() PreprocessingConfig {
@@ -50,9 +47,8 @@ func substituteTemplateVars(content, skillDir, sessionId string) string {
 }
 
 func runInlineShell(command, cwd string, timeoutSec int) string {
-	isWSLWindows := runtime.GOOS == "windows" && os.Getenv("WSL_DISTRO_NAME") != ""
-	if runtime.GOOS != "linux" && !isWSLWindows {
-		return "[inline-shell error: inline shell execution is supported on Linux only]"
+	if runtime.GOOS != "linux" && runtime.GOOS != "windows" {
+		return "[inline-shell error: inline shell execution is supported on Linux and Windows only]"
 	}
 
 	if timeoutSec <= 0 {
@@ -62,19 +58,17 @@ func runInlineShell(command, cwd string, timeoutSec int) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "wsl", "bash", "-c", command)
-	} else {
-		cmd = exec.CommandContext(ctx, "bash", "-c", command)
+	cmd, err := shell.CommandContext(ctx, command, false)
+	if err != nil {
+		return fmt.Sprintf("[inline-shell error: %v]", err)
 	}
-	cmd.Dir = cwd
+	cmd.Dir = shell.ResolveSafeCwd(cwd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return fmt.Sprintf("[inline-shell timeout after %ds: %s]", timeoutSec, command)

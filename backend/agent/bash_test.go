@@ -9,12 +9,15 @@ import (
 	"time"
 
 	"github.com/enough/enough/backend/core"
+	"github.com/enough/enough/backend/shell"
 )
 
 func newBashTestAgent(t *testing.T) (*Agent, *eventSink) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
-		t.Skip("bash not available on windows")
+		if _, err := shell.ResolveBash(); err != nil {
+			t.Skipf("bash not available on windows: %v", err)
+		}
 	}
 	a := &Agent{workDir: t.TempDir()}
 	sink := &eventSink{}
@@ -125,12 +128,12 @@ func TestBashCancellationKillsCommand(t *testing.T) {
 func TestBashTruncationConsistent(t *testing.T) {
 	a, sink := newBashTestAgent(t)
 
-	res := a.toolBash(context.Background(), "call_1", `{"command":"yes x | head -c 50000"}`)
+	res := a.toolBash(context.Background(), "call_1", `{"command":"yes x | head -c 500000"}`)
 	if res.isErr {
 		t.Fatalf("unexpected error: %s", res.output)
 	}
 	if !strings.Contains(res.output, "truncated") {
-		t.Fatal("expected truncation marker")
+		t.Fatalf("expected truncation marker, got output of length %d: %q", len(res.output), res.output)
 	}
 	if len(res.output) > maxBashOutput+len(truncMarker)+1 {
 		t.Fatalf("output exceeded cap: %d", len(res.output))

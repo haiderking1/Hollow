@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/enough/enough/backend/shell"
 )
 
 const parallelForkMaxTurns = 20
@@ -170,8 +172,11 @@ func runBashInDir(workDir, command string) (int, string) {
 	if command == "" {
 		return -1, "no verify command"
 	}
-	cmd := exec.Command("bash", "-lc", command)
-	cmd.Dir = workDir
+	cmd, err := shell.CommandContext(context.Background(), command, true)
+	if err != nil {
+		return -1, err.Error()
+	}
+	cmd.Dir = shell.ResolveSafeCwd(workDir)
 	out, err := cmd.CombinedOutput()
 	text := string(out)
 	if err == nil {

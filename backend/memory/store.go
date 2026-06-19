@@ -21,10 +21,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/enough/enough/backend/enoughhome"
+	"github.com/enough/enough/backend/fslock"
 )
 
 const EntryDelimiter = "\n§\n"
@@ -508,10 +508,10 @@ func (s *Store) withFileLock(target string, f func() Result) Result {
 	}
 	defer func() { _ = file.Close() }()
 
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := fslock.Lock(file); err != nil {
 		return Result{Success: false, Error: "failed to acquire file lock: " + err.Error()}
 	}
-	defer func() { _ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) }()
+	defer func() { _ = fslock.Unlock(file) }()
 
 	return f()
 }

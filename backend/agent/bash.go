@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/enough/enough/backend/opencode"
+	"github.com/enough/enough/backend/shell"
 )
 
 const (
@@ -53,14 +53,11 @@ func (a *Agent) toolBash(ctx context.Context, id, argsJSON string) toolResult {
 	// CommandContext + the platform Cancel hook means an aborted context (ESC)
 	// actually kills the running process (and its group on unix), instead of
 	// the command running to completion after cancellation.
-	cmd := exec.CommandContext(ctx, "bash", "-lc", args.Command)
-	cmd.Dir = a.workDir
-	cmd.Env = append(os.Environ(),
-		"TERM=dumb",
-		"NO_COLOR=1",
-		"CLICOLOR=0",
-		"FORCE_COLOR=0",
-	)
+	cmd, err := shell.CommandContext(ctx, args.Command, true)
+	if err != nil {
+		return toolResult{output: err.Error(), isErr: true}
+	}
+	cmd.Dir = shell.ResolveSafeCwd(a.workDir)
 	configureProcGroup(cmd)
 
 	delta := newBashDeltaEmitter(func(chunk string) {

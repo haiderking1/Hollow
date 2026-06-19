@@ -1,4 +1,4 @@
-//go:build unix && !linux
+//go:build linux
 
 package agent
 
@@ -10,9 +10,14 @@ import (
 // configureProcGroup puts the command in its own process group and, on context
 // cancellation, kills the whole group so child processes spawned by the shell
 // (pipelines, subshells) are torn down too — not just the bash parent.
+//
+// Pdeathsig ensures the group is SIGKILL'd if the Enough process exits without
+// a clean Abort (terminal close, kill -9 on parent, etc.) so bash jobs cannot
+// outlive the app and poison the next session.
 func configureProcGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
+		Setpgid:   true,
+		Pdeathsig: syscall.SIGKILL,
 	}
 	cmd.Cancel = func() error {
 		return killProcessGroup(cmd)
