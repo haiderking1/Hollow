@@ -342,17 +342,11 @@ func (a *App) run() error {
 }
 
 func (a *App) initSession() error {
-	sm, err := session.ContinueRecent("")
+	sm, err := session.StartNew("")
 	if err != nil {
 		return err
 	}
 	a.session = sm
-
-	for _, line := range sm.ChatLines() {
-		if msg, ok := chatMsgFromSessionLine(line, false); ok {
-			a.messages = append(a.messages, msg)
-		}
-	}
 	a.bumpChat()
 	return nil
 }

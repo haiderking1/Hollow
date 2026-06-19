@@ -236,19 +236,6 @@ func (a *App) resumeSession(path string) {
 	} else if cfg, err := config.LoadRuntime(); err == nil {
 		a.agent = agent.New(cfg, "", sm)
 	}
-
-	name := filepath.Base(path)
-	nComp := 0
-	for _, entry := range sm.GetBranch(sm.LeafID()) {
-		if entry.Type == session.TypeCompaction {
-			nComp++
-		}
-	}
-	statusMsg := fmt.Sprintf("resumed session · %s", name)
-	if nComp > 0 {
-		statusMsg += fmt.Sprintf(" (compacted %d times)", nComp)
-	}
-	a.appendMessage("system", statusMsg)
 }
 
 func (a *App) startNewSession() {
