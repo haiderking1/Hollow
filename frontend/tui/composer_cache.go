@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"strings"
-
 	"github.com/enough/enough/backend/auth"
 )
 
@@ -39,14 +37,7 @@ func (a *App) composerLines(width int) []string {
 		return c.lines
 	}
 
-	composer := a.composerStyle().
-		Width(width - 2).
-		Render(a.renderTaskInput())
-	if composer == "" {
-		c.lines = nil
-	} else {
-		c.lines = clampSplitLines(strings.Split(composer, "\n"), width)
-	}
+	c.lines = a.flameComposerLines(width)
 	c.value = value
 	c.cursor = cursor
 	c.width = width

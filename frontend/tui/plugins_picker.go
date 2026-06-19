@@ -76,7 +76,7 @@ func (a *App) dismissPluginsPicker() {
 	a.pluginsPickerFilter = ""
 	a.pluginsPickerStatus = ""
 	a.pluginsPendingEntryID = ""
-	a.editor = NewEditor(512)
+	a.editor = NewTaskEditor()
 	a.editor.SetValue("")
 	a.requestRender()
 }
@@ -557,7 +557,7 @@ func (a *App) savePluginsSecret(raw string) {
 	if !ok {
 		a.appendMessage("error", "unknown plugin install")
 		a.mode = modeTask
-		a.editor = NewEditor(512)
+		a.editor = NewTaskEditor()
 		return
 	}
 	secrets := map[string]string{}

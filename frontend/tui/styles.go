@@ -9,7 +9,6 @@ type Styles struct {
 	LogWarn           lipgloss.Style
 	LogErr            lipgloss.Style
 	LogOk             lipgloss.Style
-	InputBox          lipgloss.Style
 	InputPrompt       lipgloss.Style
 	InputHint         lipgloss.Style
 	InputCaret        lipgloss.Style
@@ -74,11 +73,6 @@ func NewStyles() Styles {
 
 		LogOk: base.Copy().
 			Foreground(green),
-
-		InputBox: base.Copy().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(border).
-			Padding(0, 1),
 
 		InputPrompt: base.Copy().
 			Foreground(textDim),

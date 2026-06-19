@@ -86,7 +86,7 @@ func (a *App) selectConnectOption(provider string) {
 	default:
 		a.appendMessage("error", "unknown provider")
 		a.mode = modeTask
-		a.editor = NewEditor(512)
+		a.editor = NewTaskEditor()
 	}
 }
 
@@ -117,7 +117,7 @@ func (a *App) startCodexOAuth() {
 		if err != nil {
 			a.appendMessage("error", err.Error())
 			a.mode = modeTask
-			a.editor = NewEditor(512)
+			a.editor = NewTaskEditor()
 			a.requestRender()
 			return
 		}
@@ -136,7 +136,7 @@ func (a *App) startCodexOAuth() {
 			}
 			a.appendMessage("error", err.Error())
 			a.mode = modeTask
-			a.editor = NewEditor(512)
+			a.editor = NewTaskEditor()
 			a.requestRender()
 			return
 		}
@@ -144,14 +144,14 @@ func (a *App) startCodexOAuth() {
 		if err := config.EnableCodexProvider(); err != nil {
 			a.appendMessage("error", err.Error())
 			a.mode = modeTask
-			a.editor = NewEditor(512)
+			a.editor = NewTaskEditor()
 			a.requestRender()
 			return
 		}
 
 		a.appendMessage("assistant", "Done — connected via OpenAI Codex OAuth.")
 		a.mode = modeTask
-		a.editor = NewEditor(512)
+		a.editor = NewTaskEditor()
 		if a.agent != nil {
 			_ = a.agent.Reset()
 			a.agent = nil

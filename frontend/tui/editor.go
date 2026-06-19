@@ -7,11 +7,16 @@ import (
 type Editor struct {
 	runes  []rune
 	cursor int // rune index
-	limit  int
+	limit  int // 0 = unlimited
 }
 
 func NewEditor(limit int) Editor {
 	return Editor{limit: limit}
+}
+
+// NewTaskEditor is the main composer input with no character limit.
+func NewTaskEditor() Editor {
+	return NewEditor(0)
 }
 
 func (e *Editor) Value() string {

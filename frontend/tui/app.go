@@ -160,7 +160,7 @@ func newApp(t *term.Terminal) *App {
 		renderer:              flame.NewRenderer(t),
 		keys:                  newKeyReader(),
 		styles:                NewStyles(),
-		editor:                NewEditor(512),
+		editor:                NewTaskEditor(),
 		lastActivityWordIndex: -1,
 		renderCh:              make(chan struct{}, 1),
 		notifyCh:              make(chan string, 16),
@@ -736,17 +736,6 @@ func (a *App) renderTaskInput() string {
 }
 
 func (a *App) renderTaskInputRaw() string {
-	runes := a.editor.Runes()
-	cursor := a.editor.Cursor()
-
-	if a.mode == modeConnect {
-		prompt := a.styles.InputPrompt.Render("key ")
-		if len(runes) == 0 {
-			return prompt + a.styles.InputCaret.Render("▎") + a.styles.InputHint.Render(connectPlaceholder)
-		}
-		return a.renderTypedLine(prompt, runes, cursor)
-	}
-
 	if a.mode == modePluginsPicker {
 		prompt := a.styles.InputPrompt.Render("… ")
 		hint := "↓/enter/tab list · esc close · type to filter"
@@ -754,14 +743,6 @@ func (a *App) renderTaskInputRaw() string {
 			hint = "↑ search · esc close"
 		}
 		return prompt + a.styles.InputCaret.Render("▎") + "  " + a.styles.InputHint.Render(hint)
-	}
-
-	if a.mode == modePluginsSecret {
-		prompt := a.styles.InputPrompt.Render("key ")
-		if len(runes) == 0 {
-			return prompt + a.styles.InputCaret.Render("▎") + a.styles.InputHint.Render("paste api key · enter to skip if optional")
-		}
-		return a.renderTypedLine(prompt, runes, cursor)
 	}
 
 	if a.mode == modeConnectCodex {
@@ -779,48 +760,7 @@ func (a *App) renderTaskInputRaw() string {
 		return prompt + a.styles.InputCaret.Render("▎") + "  " + a.styles.InputHint.Render(hint)
 	}
 
-	prompt := a.styles.InputPrompt.Render("❯ ")
-
-	if a.running {
-		if len(runes) == 0 {
-			hint := "esc interrupt · ctrl+c abort"
-			if a.compacting {
-				hint = "compacting... esc cancel · ctrl+c abort"
-			}
-			return prompt + a.styles.InputCaret.Render("▎") + "  " + a.styles.InputHint.Render(hint)
-		}
-		return a.renderTypedLine(prompt, runes, cursor)
-	}
-
-	if len(runes) == 0 {
-		hint := taskPlaceholder
-		if !auth.Connected() {
-			hint = "type / for commands..."
-		}
-		return prompt + a.styles.InputCaret.Render("▎") + a.styles.InputHint.Render(hint)
-	}
-
-	return a.renderTypedLine(prompt, runes, cursor)
-}
-
-func (a *App) renderTypedLine(prompt string, runes []rune, pos int) string {
-	if pos < 0 {
-		pos = 0
-	}
-	if pos > len(runes) {
-		pos = len(runes)
-	}
-
-	before := a.styles.Text.Render(string(runes[:pos]))
-
-	if pos == len(runes) {
-		return prompt + before + a.styles.InputCaret.Render("▎")
-	}
-
-	cur := a.styles.InputCaret.Render(string(runes[pos]))
-	after := a.styles.Text.Render(string(runes[pos+1:]))
-
-	return prompt + before + cur + after
+	return ""
 }
 
 func (a *App) appendMessage(role, text string) {

@@ -697,7 +697,7 @@ func (a *App) saveAPIKey(key string) {
 		return
 	}
 	a.mode = modeTask
-	a.editor = NewEditor(512)
+	a.editor = NewTaskEditor()
 
 	var err error
 	switch a.connectTargetProvider {
@@ -727,7 +727,7 @@ func (a *App) cancelConnect() {
 	switch a.mode {
 	case modeConnect, modeConnectPicker:
 		a.mode = modeTask
-		a.editor = NewEditor(512)
+		a.editor = NewTaskEditor()
 		a.editor.SetValue("")
 		a.connectPickerStatus = ""
 		a.appendMessage("system", "connect cancelled")
@@ -736,7 +736,7 @@ func (a *App) cancelConnect() {
 			a.codexOAuthCancel()
 		}
 		a.mode = modeTask
-		a.editor = NewEditor(512)
+		a.editor = NewTaskEditor()
 		a.connectPickerStatus = ""
 		a.appendMessage("system", "connect cancelled")
 	}

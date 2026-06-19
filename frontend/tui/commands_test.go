@@ -37,7 +37,7 @@ func TestStartCompactShowsLoaderImmediately(t *testing.T) {
 
 	app := &App{
 		styles:  NewStyles(),
-		editor:  NewEditor(512),
+		editor:  NewTaskEditor(),
 		session: sm,
 	}
 
@@ -82,7 +82,7 @@ done:
 }
 
 func TestStartCompactRequiresConnection(t *testing.T) {
-	app := &App{styles: NewStyles(), editor: NewEditor(512)}
+	app := &App{styles: NewStyles(), editor: NewTaskEditor()}
 	app.startCompact("")
 	if app.compacting {
 		t.Fatal("expected compacting=false when not connected")
@@ -111,7 +111,7 @@ func TestStartCompactRequiresSession(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	app := &App{styles: NewStyles(), editor: NewEditor(512)}
+	app := &App{styles: NewStyles(), editor: NewTaskEditor()}
 	app.startCompact("")
 	if app.compacting {
 		t.Fatal("expected compacting=false without session")

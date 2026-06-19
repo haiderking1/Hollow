@@ -1,12 +1,17 @@
 package tui
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/enough/enough/frontend/tui/term"
+)
 
 func TestComposerLinesCache(t *testing.T) {
 	app := &App{
 		styles: NewStyles(),
 		width:  80,
-		editor: NewEditor(512),
+		editor: NewTaskEditor(),
 	}
 	app.editor.Insert('h')
 	app.editor.Insert('i')
@@ -28,5 +33,26 @@ func TestComposerLinesCache(t *testing.T) {
 	}
 	if len(third) == 0 {
 		t.Fatal("expected composer lines after edit")
+	}
+}
+
+func TestComposerLinesFullWidth(t *testing.T) {
+	app := &App{
+		styles: NewStyles(),
+		width:  40,
+		editor: NewTaskEditor(),
+	}
+	app.editor.SetValue(strings.Repeat("d", 200))
+
+	lines := app.composerLines(40)
+	if len(lines) < 2 {
+		t.Fatalf("expected wrapped composer lines, got %d", len(lines))
+	}
+
+	for i, line := range lines {
+		w := term.VisibleWidth(line)
+		if w != 40 {
+			t.Fatalf("line %d visible width %d, want 40 (symmetric borders)", i, w)
+		}
 	}
 }

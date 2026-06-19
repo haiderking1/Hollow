@@ -34,7 +34,7 @@ func TestCompactionTUIEventsAndQueue(t *testing.T) {
 
 	app := &App{
 		styles: NewStyles(),
-		editor: NewEditor(512),
+		editor: NewTaskEditor(),
 	}
 
 	// 1. Test compaction start sets compacting and logs

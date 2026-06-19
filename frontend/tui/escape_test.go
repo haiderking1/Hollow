@@ -3,7 +3,7 @@ package tui
 import "testing"
 
 func TestPluginsPickerEscapeDismissesFromSearch(t *testing.T) {
-	app := &App{styles: NewStyles(), editor: NewEditor(512)}
+	app := &App{styles: NewStyles(), editor: NewTaskEditor()}
 	app.mode = modePluginsPicker
 	app.pluginsPickerFocus = pluginsPickerFocusSearch
 	app.pluginsPickerFilter = "exa"
@@ -17,7 +17,7 @@ func TestPluginsPickerEscapeDismissesFromSearch(t *testing.T) {
 }
 
 func TestHandleKeyEscapeFromPluginsSecret(t *testing.T) {
-	app := &App{styles: NewStyles(), editor: NewEditor(512)}
+	app := &App{styles: NewStyles(), editor: NewTaskEditor()}
 	app.mode = modePluginsSecret
 	app.pluginsPendingEntryID = "exa"
 
@@ -31,7 +31,7 @@ func TestHandleKeyEscapeFromPluginsSecret(t *testing.T) {
 }
 
 func TestHandleKeyEscapeDismissesSlashMenu(t *testing.T) {
-	app := &App{styles: NewStyles(), editor: NewEditor(512)}
+	app := &App{styles: NewStyles(), editor: NewTaskEditor()}
 	app.mode = modeTask
 	app.editor.SetValue("/plug")
 
@@ -42,7 +42,7 @@ func TestHandleKeyEscapeDismissesSlashMenu(t *testing.T) {
 }
 
 func TestHandleKeyEscapeFromPluginsPicker(t *testing.T) {
-	app := &App{styles: NewStyles(), editor: NewEditor(512)}
+	app := &App{styles: NewStyles(), editor: NewTaskEditor()}
 	app.mode = modePluginsPicker
 	app.pluginsPickerFocus = pluginsPickerFocusList
 

@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/opencode"
 )
@@ -59,14 +58,4 @@ func (a *App) toggleThinkingVisibility() {
 		state = "hidden"
 	}
 	a.appendMessage("system", fmt.Sprintf("Thinking blocks: %s", state))
-}
-
-func (a *App) composerStyle() lipgloss.Style {
-	style := a.styles.InputBox.Copy()
-	switch a.mode {
-	case modeConnect, modeConnectPicker, modeConnectCodex, modePluginsSecret:
-		return style.BorderForeground(connectBorderColor())
-	default:
-		return style.BorderForeground(thinkingBorderColor(string(a.thinkingLevel)))
-	}
 }

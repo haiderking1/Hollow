@@ -15,11 +15,6 @@ const (
 	modeWriteApproval
 )
 
-const (
-	taskPlaceholder    = "describe what you want done..."
-	connectPlaceholder = "paste api key..."
-)
-
 type slashCommand struct {
 	name string
 	desc string
