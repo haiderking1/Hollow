@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -41,7 +42,6 @@ type queuedMessage struct {
 type App struct {
 	term     *term.Terminal
 	renderer *flame.Renderer
-	keys     *keyReader
 	styles   Styles
 
 	width  int
@@ -119,9 +119,8 @@ type App struct {
 
 	greeted bool
 	quit    bool
-
 	lastSigintTime time.Time
-	escFlush       *time.Timer
+
 	renderTimer    *time.Timer
 	renderPending  bool
 	lastRenderAt   time.Time
@@ -156,7 +155,6 @@ func newApp(t *term.Terminal) *App {
 	return &App{
 		term:                  t,
 		renderer:              flame.NewRenderer(t),
-		keys:                  newKeyReader(),
 		styles:                NewStyles(),
 		editor:                NewTaskEditor(),
 		lastActivityWordIndex: -1,
@@ -192,7 +190,19 @@ func (a *App) run() error {
 	a.height = a.term.Rows()
 
 	inputCh := make(chan []byte, 32)
-	a.stdin = newStdinBuffer(a.dispatchKeyInput)
+	a.stdin = newStdinBuffer(func(seq []byte) {
+		if len(seq) > 0 && markdown.HandleTerminalResponse(seq) {
+			return
+		}
+		if len(seq) > 0 && kittyResponseRegex.Match(seq) {
+			SetKittyProtocolActive(true)
+			_, _ = os.Stdout.Write([]byte("\x1b[>7u"))
+			return
+		}
+		a.dispatchKeyInput(seq)
+	}, func(pasteContent string) {
+		a.dispatchKeyInput([]byte(bracketedPasteStart + pasteContent + bracketedPasteEnd))
+	})
 	if err := a.term.Start(func(b []byte) {
 		select {
 		case inputCh <- b:
@@ -209,6 +219,15 @@ func (a *App) run() error {
 		return err
 	}
 	a.refreshCellDimensions()
+
+	// Query Kitty keyboard protocol support
+	_, _ = os.Stdout.Write([]byte("\x1b[?u"))
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		if !IsKittyProtocolActive() {
+			_, _ = os.Stdout.Write([]byte("\x1b[>4;2m"))
+		}
+	}()
 	defer func() {
 		a.shutdown()
 		a.stopRenderTimer()
@@ -237,11 +256,7 @@ func (a *App) run() error {
 		a.renderer.Render(lines, prefix)
 	}
 
-	escFlush := time.NewTimer(0)
-	if !escFlush.Stop() {
-		<-escFlush.C
-	}
-	a.escFlush = escFlush
+
 
 	compactionTick := time.NewTicker(80 * time.Millisecond)
 	defer compactionTick.Stop()
@@ -264,11 +279,18 @@ func (a *App) run() error {
 		case data := <-inputCh:
 			a.handleInput(data)
 
-		case <-escFlush.C:
-			for _, k := range a.keys.flushPending() {
-				if a.handleKey(k) {
-					break
+		case <-a.stdin.flushCh:
+			flushed := a.stdin.Flush()
+			for _, seq := range flushed {
+				if len(seq) > 0 && markdown.HandleTerminalResponse(seq) {
+					continue
 				}
+				if len(seq) > 0 && kittyResponseRegex.Match(seq) {
+					SetKittyProtocolActive(true)
+					_, _ = os.Stdout.Write([]byte("\x1b[>7u"))
+					continue
+				}
+				a.dispatchKeyInput(seq)
 			}
 			a.requestRender()
 
@@ -436,33 +458,20 @@ func (a *App) tryDrainCompactionQueue() {
 }
 
 func (a *App) handleInput(data []byte) {
-	a.stdin.process(data)
+	a.stdin.Process(data)
 }
 
-func (a *App) dispatchKeyInput(data []byte) {
-	a.stopEscFlush()
+var kittyResponseRegex = regexp.MustCompile(`^\x1b\[\?(\d+)u$`)
 
-	keys, needsFlush := a.keys.feed(data)
-	for _, k := range keys {
+func (a *App) dispatchKeyInput(data []byte) {
+	k := SeqToParsedKey(string(data))
+	if k.action != keyNone {
 		if a.handleKey(k) {
+			a.requestRender()
 			return
 		}
 	}
-	if needsFlush {
-		a.escFlush.Reset(escapeFlushDelay)
-	}
-}
-
-func (a *App) stopEscFlush() {
-	if a.escFlush == nil {
-		return
-	}
-	if !a.escFlush.Stop() {
-		select {
-		case <-a.escFlush.C:
-		default:
-		}
-	}
+	a.requestRender()
 }
 
 func (a *App) handleKey(k parsedKey) bool {
@@ -470,6 +479,13 @@ func (a *App) handleKey(k parsedKey) bool {
 	running := a.running
 	mode := a.mode
 	a.mu.Unlock()
+
+	switch k.action {
+	case keyCtrlC:
+		return a.handleCtrlC()
+	case keyCtrlD:
+		return a.handleCtrlD()
+	}
 
 	if mode == modeWriteApproval {
 		if a.handleWriteApprovalKey(k) {
@@ -527,14 +543,6 @@ func (a *App) handleKey(k parsedKey) bool {
 		if a.handlePluginsPickerKey(k) {
 			return false
 		}
-	}
-
-	switch k.action {
-	case keyCtrlC:
-		return a.handleCtrlC()
-
-	case keyCtrlD:
-		return a.handleCtrlD()
 	}
 
 	if !running && mode == modeTask && k.action == keyDown && strings.TrimSpace(a.editor.Value()) == "" &&

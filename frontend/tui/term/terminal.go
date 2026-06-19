@@ -184,7 +184,7 @@ func (t *Terminal) ShowCursor() {
 
 func (t *Terminal) Stop() {
 	t.ShowCursor()
-	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004l")
+	_, _ = fmt.Fprint(os.Stdout, "\x1b[?2004l\x1b[<u\x1b[>4;0m")
 	t.mu.Lock()
 	t.pauseRead = true
 	ack := make(chan struct{})
@@ -197,7 +197,7 @@ func (t *Terminal) Stop() {
 	case <-ack:
 	case <-time.After(time.Second):
 	}
-	DrainInput(fd, 300*time.Millisecond)
+	DrainInput(fd, 1000*time.Millisecond)
 	if alt {
 		_, _ = fmt.Fprint(os.Stdout, "\x1b[?1049l")
 	}

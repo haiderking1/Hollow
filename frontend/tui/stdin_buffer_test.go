@@ -1,61 +1,77 @@
 package tui
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+	"time"
+)
 
-func TestStdinBufferLoneEscapeForwarded(t *testing.T) {
+func TestStdinBufferCompleteSequences(t *testing.T) {
 	var got [][]byte
+	var pastes []string
 	buf := newStdinBuffer(func(seq []byte) {
-		got = append(got, append([]byte(nil), seq...))
+		got = append(got, seq)
+	}, func(paste string) {
+		pastes = append(pastes, paste)
 	})
 
-	buf.process([]byte{escByte})
-	if len(got) != 1 || len(got[0]) != 1 || got[0][0] != escByte {
-		t.Fatalf("expected lone ESC forwarded, got %v", got)
+	// Process regular chars and CSI sequences
+	buf.Process([]byte("a\x1b[A"))
+	if len(got) != 2 || string(got[0]) != "a" || string(got[1]) != "\x1b[A" {
+		t.Errorf("expected 'a' and '\\x1b[A', got %q", got)
 	}
 }
 
-func TestStdinBufferKittyEscapeBuffered(t *testing.T) {
+func TestStdinBufferBracketedPaste(t *testing.T) {
 	var got [][]byte
+	var pastes []string
 	buf := newStdinBuffer(func(seq []byte) {
-		got = append(got, append([]byte(nil), seq...))
+		got = append(got, seq)
+	}, func(paste string) {
+		pastes = append(pastes, paste)
 	})
 
-	seq := []byte("\x1b[27~")
-	buf.process(seq)
-	if len(got) != 1 || string(got[0]) != string(seq) {
-		t.Fatalf("expected kitty escape as one sequence, got %v", got)
-	}
-}
-
-func TestStdinBufferKittyProbeReplyConsumed(t *testing.T) {
-	var got [][]byte
-	buf := newStdinBuffer(func(seq []byte) {
-		got = append(got, append([]byte(nil), seq...))
-	})
-
-	buf.process([]byte("\x1b_Gi=31;OK\x1b\\"))
+	buf.Process([]byte("\x1b[200~hello\nworld\x1b[201~"))
 	if len(got) != 0 {
-		t.Fatalf("expected kitty probe reply to be swallowed, got %v", got)
+		t.Errorf("expected no key sequences during paste, got %q", got)
+	}
+	if len(pastes) != 1 || pastes[0] != "hello\nworld" {
+		t.Errorf("expected paste 'hello\\nworld', got %q", pastes)
 	}
 }
 
-func TestStdinBufferLoneEscapeThenKeyReader(t *testing.T) {
-	var forwarded []byte
+func TestStdinBufferTimeoutFlush(t *testing.T) {
+	var got [][]byte
+	var pastes []string
 	buf := newStdinBuffer(func(seq []byte) {
-		forwarded = append(forwarded, seq...)
+		got = append(got, seq)
+	}, func(paste string) {
+		pastes = append(pastes, paste)
 	})
-	kr := newKeyReader()
 
-	buf.process([]byte{escByte})
-	keys, needsFlush := kr.feed(forwarded)
-	if len(keys) != 0 {
-		t.Fatalf("expected no immediate keys, got %v", keys)
+	// Process partial ESC
+	buf.Process([]byte{0x1b})
+	if len(got) != 0 {
+		t.Errorf("expected ESC buffered, got %q", got)
 	}
-	if !needsFlush {
-		t.Fatal("expected keyReader flush for lone ESC")
+
+	// Wait for timeout to signal flushCh
+	select {
+	case <-buf.flushCh:
+		flushed := buf.Flush()
+		if len(flushed) != 1 || !bytes.Equal(flushed[0], []byte{0x1b}) {
+			t.Errorf("expected flushed ESC, got %q", flushed)
+		}
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("timeout signal not received")
 	}
-	flushed := kr.flushPending()
-	if len(flushed) != 1 || flushed[0].action != keyEscape {
-		t.Fatalf("expected escape after flush, got %v", flushed)
+}
+
+func TestExtractCompleteSequencesConcatenatedWezTermEsc(t *testing.T) {
+	// WezTerm concatenates Esc and release sequence: \x1b\x1b[27;...u
+	input := []byte("\x1b\x1b[27;1;27u")
+	res := extractCompleteSequences(input)
+	if len(res.sequences) != 2 || string(res.sequences[0]) != "\x1b" || string(res.sequences[1]) != "\x1b[27;1;27u" {
+		t.Errorf("expected separate ESC and Kitty escape sequence, got %q", res.sequences)
 	}
 }

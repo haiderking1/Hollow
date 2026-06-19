@@ -68,14 +68,6 @@ func (a *App) handleInterrupt() {
 }
 
 func (a *App) handleCtrlC() bool {
-	if a.running {
-		if a.loop.active {
-			a.loop.aborted = true
-			a.bumpChat()
-		}
-		a.abortAgent()
-		return false
-	}
 	if a.mode == modeSessionPicker && a.sessionPickerConfirmDelete != "" {
 		return false
 	}
@@ -86,11 +78,18 @@ func (a *App) handleCtrlC() bool {
 		return true
 	}
 
-	if strings.TrimSpace(a.editor.Value()) != "" {
-		a.editor.SetValue("")
-	}
+	a.clearComposerDraft()
 	a.lastSigintTime = now
 	return false
+}
+
+func (a *App) composerHasDraft() bool {
+	return a.editor.Value() != "" || len(a.pendingAttachments) > 0
+}
+
+func (a *App) clearComposerDraft() {
+	a.editor.SetValue("")
+	a.pendingAttachments = nil
 }
 
 func (a *App) handleCtrlD() bool {

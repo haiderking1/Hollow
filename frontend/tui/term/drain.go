@@ -14,6 +14,7 @@ func DrainInput(fd int, totalTimeout time.Duration) {
 	if fd <= 0 {
 		return
 	}
+	_, _ = os.Stdout.Write([]byte("\x1b[<u\x1b[>4;0m"))
 	deadline := time.Now().Add(totalTimeout)
 	idleUntil := time.Now().Add(60 * time.Millisecond)
 	buf := make([]byte, 256)
