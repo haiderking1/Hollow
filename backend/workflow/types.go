@@ -26,7 +26,7 @@ type AgentOptions struct {
 	Tools          []string       `json:"tools,omitempty"`
 	Model          string         `json:"model,omitempty"`
 	ResponseSchema map[string]any `json:"responseSchema,omitempty"`
-	MaxTurns       int            `json:"maxTurns,omitempty"`
+	MaxTurns       int            `json:"maxTurns,omitempty"` // ignored; agents run until done or cancelled
 	Readonly       bool           `json:"readonly,omitempty"`
 }
 

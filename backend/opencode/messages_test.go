@@ -62,6 +62,21 @@ func TestStripResponseFieldsRemovesUsage(t *testing.T) {
 	}
 }
 
+func TestPrepareRequestMessagesSanitizesInvalidToolArguments(t *testing.T) {
+	invalid := `{"tasks":[{"id":"w1","prompt":"line1
+line2"}]}`
+	msgs := []Message{
+		{Role: "assistant", ToolCalls: []ToolCall{
+			{ID: "call_1", Type: "function", Function: ToolCallFunction{Name: "agent_swarm", Arguments: invalid}},
+		}},
+		{Role: "tool", ToolCallID: "call_1", Name: "agent_swarm", Content: StringContent("parse error")},
+	}
+	out := PrepareRequestMessages(msgs, "deepseek-v4-flash")
+	if got := out[0].ToolCalls[0].Function.Arguments; got != "{}" {
+		t.Fatalf("arguments = %q, want {}", got)
+	}
+}
+
 func TestPrepareRequestMessagesStripsUsage(t *testing.T) {
 	msgs := []Message{
 		{Role: "user", Content: StringContent("hi")},

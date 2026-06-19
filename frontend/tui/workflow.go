@@ -199,6 +199,7 @@ Do not run the workflow. The user must review the source before the runtime exec
 
 Required contract:
 - export const meta = { name, description, phases?, maxConcurrency? }
+- meta.phases is an optional array of phase name strings for the UI (e.g. ["read", "design", "verify"]), NOT a phase count — omit it or list names
 - export async function run(sdk) { ... }
 - use sdk.runBash/fetchJSON for pre-fetch and filtering
 - use sdk.pipeline(input, ...asyncStages) for staged dynamic routing
@@ -206,7 +207,8 @@ Required contract:
 - ctx.input is the pipeline input; ctx.previousResults is the prior stage's agent results array; ctx.results is the cumulative map of completed subjobs by key
 - subagent results use result.ok, result.text, result.json, result.key — not result.output
 - sdk.pipeline returns { input, stages, results } — read final report from results["aggregate:report"].json (or your subjob key), not [0].output
-- stage functions return subjob arrays with stable key, role, prompt, optional systemPrompt/tools/model/responseSchema/maxTurns/readonly
+- stage functions return subjob arrays with stable key, role, prompt, optional systemPrompt/tools/model/responseSchema/readonly
+- workflow subagents run until they finish (text reply, no tool calls) or the run is cancelled — do not set maxTurns
 - use responseSchema for machine-routable agent output
 - audit/rule/verify roles must carry different prompts and read-only policies
 - later stages route from ctx.previousResults; do not send every item through every phase

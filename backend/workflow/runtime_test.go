@@ -180,6 +180,33 @@ func TestInvalidScriptSpawnsZeroAgents(t *testing.T) {
 	}
 }
 
+func TestInspectMetaAcceptsNumericPhaseCount(t *testing.T) {
+	path := writeWorkflow(t, `
+export const meta = { name: "beautify", description: "test", phases: 4 };
+export async function run(sdk) { return null; }
+`)
+	meta, err := Inspect(path)
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if meta.Name != "beautify" {
+		t.Fatalf("name = %q", meta.Name)
+	}
+	if len(meta.Phases) != 0 {
+		t.Fatalf("numeric phases should be omitted, got %v", meta.Phases)
+	}
+}
+
+func TestInspectMetaRejectsInvalidPhases(t *testing.T) {
+	path := writeWorkflow(t, `
+export const meta = { name: "bad", description: "test", phases: { count: 4 } };
+export async function run(sdk) { return null; }
+`)
+	if _, err := Inspect(path); err == nil {
+		t.Fatal("expected invalid phases error")
+	}
+}
+
 func TestCancellationInterruptsInfiniteJavaScript(t *testing.T) {
 	path := writeWorkflow(t, `
 export const meta = {name:"infinite",description:"test"};

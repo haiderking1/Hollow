@@ -56,9 +56,6 @@ func RunWorkflowAgent(ctx context.Context, cfg config.Runtime, workDir string, o
 		if err := ctx.Err(); err != nil {
 			return WorkflowAgentResult{Text: extractLastAssistantText(messages), Error: err.Error(), TokensUsed: totalTokens, TurnCount: turns}
 		}
-		if opts.MaxTurns > 0 && turns >= opts.MaxTurns {
-			return WorkflowAgentResult{Text: extractLastAssistantText(messages), Error: "max turns exceeded", TokensUsed: totalTokens, TurnCount: turns}
-		}
 		req := opencode.ChatRequest{Model: cfg.Model, Messages: messages, Tools: tools}
 		opencode.ApplyThinkingToRequest(&req, opencode.ParseThinkingLevel(cfg.ThinkingLevel), cfg.Model)
 		msg, err := a.client.ChatStreamRetry(ctx, req, opencode.StreamCallbacks{})

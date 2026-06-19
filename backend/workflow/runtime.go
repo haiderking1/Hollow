@@ -342,11 +342,63 @@ func exportMeta(vm *goja.Runtime) (Meta, error) {
 	if value == nil || goja.IsUndefined(value) {
 		return Meta{}, errors.New("workflow must export const meta")
 	}
-	var meta Meta
-	if err := exportJSONValue(value, &meta); err != nil {
+	coalesced, err := coalesceMetaExport(value.Export())
+	if err != nil {
 		return Meta{}, fmt.Errorf("invalid workflow meta: %w", err)
 	}
+	data, err := json.Marshal(coalesced)
+	if err != nil {
+		return Meta{}, fmt.Errorf("invalid workflow meta: %w", err)
+	}
+	var meta Meta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return Meta{}, fmt.Errorf("invalid workflow meta: %w", err)
+	}
+	if strings.TrimSpace(meta.Name) == "" {
+		return Meta{}, errors.New("invalid workflow meta: name is required")
+	}
 	return meta, nil
+}
+
+// coalesceMetaExport normalizes meta exported from the JS VM before JSON decode.
+// Models often set phases to a phase count (e.g. 4) instead of phase name strings.
+func coalesceMetaExport(raw any) (any, error) {
+	m, ok := raw.(map[string]any)
+	if !ok {
+		return raw, nil
+	}
+	phases, ok := m["phases"]
+	if !ok {
+		return raw, nil
+	}
+	switch p := phases.(type) {
+	case []any:
+		names := make([]string, 0, len(p))
+		for i, item := range p {
+			name, ok := item.(string)
+			if !ok || strings.TrimSpace(name) == "" {
+				return nil, fmt.Errorf("phases[%d] must be a non-empty phase name string", i)
+			}
+			names = append(names, strings.TrimSpace(name))
+		}
+		if len(names) == 0 {
+			delete(m, "phases")
+		} else {
+			m["phases"] = names
+		}
+	case string:
+		if strings.TrimSpace(p) == "" {
+			delete(m, "phases")
+		} else {
+			m["phases"] = []string{strings.TrimSpace(p)}
+		}
+	case float64, int, int64, int32:
+		// phase count, not names — omit; pipeline assigns stage-1, stage-2, …
+		delete(m, "phases")
+	default:
+		return nil, fmt.Errorf("phases must be an array of phase name strings (e.g. [\"read\", \"write\"]), not %T", phases)
+	}
+	return m, nil
 }
 
 func exportJSONValue(value goja.Value, target any) error {

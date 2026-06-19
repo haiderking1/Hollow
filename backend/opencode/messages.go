@@ -1,7 +1,9 @@
 package opencode
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 const toolIncompleteMsg = "Error: tool call was not completed"
@@ -22,7 +24,53 @@ func StripResponseFields(msgs []Message) []Message {
 
 // PrepareRequestMessages sanitizes session history for chat/completions requests.
 func PrepareRequestMessages(msgs []Message, model string) []Message {
-	return stripImagesIfNeeded(RepairToolMessages(NormalizeMessages(StripResponseFields(msgs), model)), model)
+	return stripImagesIfNeeded(
+		RepairToolMessages(
+			SanitizeToolCallArguments(NormalizeMessages(StripResponseFields(msgs), model)),
+		),
+		model,
+	)
+}
+
+// SanitizeToolCallArguments ensures assistant tool_call arguments are valid JSON
+// objects. Providers reject replayed history when the model emitted malformed
+// JSON (e.g. raw newlines inside string literals). The tool result already
+// captured the parse error locally, so replacing bad arguments with {} is safe.
+func SanitizeToolCallArguments(msgs []Message) []Message {
+	if len(msgs) == 0 {
+		return msgs
+	}
+	out := make([]Message, len(msgs))
+	for i, msg := range msgs {
+		if msg.Role != "assistant" || len(msg.ToolCalls) == 0 {
+			out[i] = msg
+			continue
+		}
+		copied := msg
+		copied.ToolCalls = make([]ToolCall, len(msg.ToolCalls))
+		for j, tc := range msg.ToolCalls {
+			copied.ToolCalls[j] = tc
+			copied.ToolCalls[j].Function.Arguments = validToolArgumentsJSON(tc.Function.Arguments)
+		}
+		out[i] = copied
+	}
+	return out
+}
+
+func validToolArgumentsJSON(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "{}"
+	}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &obj); err != nil || obj == nil {
+		return "{}"
+	}
+	normalized, err := json.Marshal(obj)
+	if err != nil {
+		return "{}"
+	}
+	return string(normalized)
 }
 
 func stripImagesIfNeeded(msgs []Message, model string) []Message {
