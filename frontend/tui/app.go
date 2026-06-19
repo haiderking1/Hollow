@@ -448,12 +448,6 @@ func (a *App) handleKey(k parsedKey) bool {
 	mode := a.mode
 	a.mu.Unlock()
 
-	if k.action == keyEscape {
-		a.handleInterrupt()
-		a.requestRender()
-		return false
-	}
-
 	if mode == modeWriteApproval {
 		if a.handleWriteApprovalKey(k) {
 			return false
@@ -463,8 +457,12 @@ func (a *App) handleKey(k parsedKey) bool {
 
 	if !running && mode == modeSessionPicker {
 		if a.sessionPickerConfirmDelete != "" {
-			if k.action == keyEnter {
+			switch k.action {
+			case keyEnter:
 				a.confirmSessionDelete()
+				a.requestRender()
+			case keyEscape:
+				a.cancelSessionDeleteConfirm()
 				a.requestRender()
 			}
 			return false
@@ -548,6 +546,10 @@ func (a *App) handleKey(k parsedKey) bool {
 				a.requestRender()
 			}
 			return false
+		case keyEscape:
+			a.dismissSlashMenu()
+			a.requestRender()
+			return false
 		}
 	}
 
@@ -570,6 +572,12 @@ func (a *App) handleKey(k parsedKey) bool {
 
 	if k.action == keyEnter && (!running || a.compacting) && a.mode != modeSessionPicker && a.mode != modeModelPicker && a.mode != modeConnectPicker && a.mode != modeConnectCodex && a.mode != modeWriteApproval {
 		a.handleSubmit()
+		a.requestRender()
+		return false
+	}
+
+	if k.action == keyEscape {
+		a.handleInterrupt()
 		a.requestRender()
 		return false
 	}
@@ -741,7 +749,7 @@ func (a *App) renderTaskInputRaw() string {
 
 	if a.mode == modePluginsPicker {
 		prompt := a.styles.InputPrompt.Render("… ")
-		hint := "↓/enter/tab/esc → list · type to filter"
+		hint := "↓/enter/tab list · esc close · type to filter"
 		if a.pluginsPickerFocus == pluginsPickerFocusList {
 			hint = "↑ search · esc close"
 		}

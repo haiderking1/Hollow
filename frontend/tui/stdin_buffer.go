@@ -46,7 +46,9 @@ func nextInputSequence(buf []byte) (seq []byte, n int, ok bool) {
 		return buf[:1], 1, true
 	}
 	if len(buf) == 1 {
-		return nil, 0, false
+		// Forward lone ESC immediately; keyReader applies a short flush delay
+		// to distinguish Esc from CSI sequences like \x1b[27~.
+		return buf[:1], 1, true
 	}
 
 	switch buf[1] {

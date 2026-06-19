@@ -260,7 +260,7 @@ func (a *App) renderPluginsSearchLines(width int) []string {
 func (a *App) renderPluginsPickerHint() string {
 	switch a.pluginsPickerFocus {
 	case pluginsPickerFocusSearch:
-		return a.styles.SlashDim.Render("  ↓ enter tab esc → list")
+		return a.styles.SlashDim.Render("  ↓ enter tab list · esc close")
 	default:
 		return a.styles.SlashDim.Render("  ←→ tabs  ↑ search  ↓ pick  enter install  d remove  esc close")
 	}
@@ -419,10 +419,6 @@ func (a *App) handlePluginsPickerKey(k parsedKey) bool {
 		a.requestRender()
 		return true
 	case keyEscape:
-		if a.pluginsPickerFocus == pluginsPickerFocusSearch {
-			a.pluginsPickerFocusListFromSearch()
-			return true
-		}
 		a.dismissPluginsPicker()
 		return true
 	case keyBackspace:
@@ -589,12 +585,4 @@ func (a *App) applyRuntimeConfig() {
 	if a.agent != nil {
 		a.agent.UpdateConfig(runCfg)
 	}
-}
-
-func (a *App) cancelPluginsSecret() {
-	a.pluginsPendingEntryID = ""
-	a.mode = modePluginsPicker
-	a.editor = NewEditor(512)
-	a.editor.SetValue("")
-	a.appendMessage("system", "plugin install cancelled")
 }

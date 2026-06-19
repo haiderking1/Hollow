@@ -44,7 +44,7 @@ func (a *App) handleInterrupt() {
 		return
 	}
 	if a.mode == modePluginsSecret {
-		a.cancelPluginsSecret()
+		a.dismissPluginsPicker()
 		return
 	}
 	if a.slashActive() {

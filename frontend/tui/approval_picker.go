@@ -142,6 +142,9 @@ func (a *App) handleWriteApprovalKey(k parsedKey) bool {
 	case keyEnter:
 		a.applyCurrentWriteApproval()
 		return true
+	case keyEscape:
+		a.deferWriteApproval()
+		return true
 	}
 	return false
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/enough/enough/backend/config"
 	"github.com/enough/enough/backend/opencode"
 	"github.com/enough/enough/backend/session"
-	"github.com/enough/enough/backend/skills"
 	"github.com/enough/enough/frontend/tui/term"
 )
 
@@ -91,10 +90,6 @@ func (a *App) renderFooter(width int) []string {
 		}
 	}
 
-	skillsEnabled := false
-	if err == nil {
-		skillsEnabled = cfg.Skills.Enabled
-	}
 	runCfg, runErr := config.LoadRuntime()
 	if runErr == nil {
 		if runCfg.Model != "" {
@@ -109,7 +104,6 @@ func (a *App) renderFooter(width int) []string {
 		if runCfg.ThinkingLevel != "" {
 			thinking = runCfg.ThinkingLevel
 		}
-		skillsEnabled = runCfg.Skills.Enabled
 	}
 
 	contextWindow := agent.ModelContextWindow(provider, model, 0)
@@ -152,11 +146,6 @@ func (a *App) renderFooter(width int) []string {
 
 	if a.evidenceCount > 0 {
 		statsLeft += a.styles.LogDim.Render(fmt.Sprintf(" · ev %d", a.evidenceCount))
-	}
-
-	if skillsEnabled {
-		discovered, _ := skills.DiscoverAllSkills(a.session.CWD(), runCfg)
-		statsLeft += a.styles.LogDim.Render(fmt.Sprintf(" · skills %d", len(discovered)))
 	}
 
 	if pending := approval.PendingTotalCount(); pending > 0 {
