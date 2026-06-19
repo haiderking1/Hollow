@@ -399,9 +399,37 @@ func renderAgentSwarmBlock(styles Styles, row toolRow, width int, expanded bool,
 	}
 
 	if row.Error {
-		lines = append(lines, styles.AssistError.Render(ctxIndent+"failed"))
+		for _, line := range renderSwarmErrorLines(styles, row.Output, ctxIndent, width, expanded) {
+			lines = append(lines, line)
+		}
 	}
 
+	return lines
+}
+
+func renderSwarmErrorLines(styles Styles, output, indent string, width int, expanded bool) []string {
+	msg := strings.TrimSpace(output)
+	if msg == "" {
+		return []string{styles.AssistError.Render(indent + "failed")}
+	}
+	if !expanded {
+		return []string{styles.AssistError.Render(indent + term.TruncateWidth(oneLine(msg), width-len(indent)-2))}
+	}
+	var lines []string
+	for i, line := range strings.Split(msg, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		prefix := indent
+		if i > 0 {
+			prefix = indent
+		}
+		lines = append(lines, styles.AssistError.Render(prefix+line))
+	}
+	if len(lines) == 0 {
+		return []string{styles.AssistError.Render(indent + "failed")}
+	}
 	return lines
 }
 

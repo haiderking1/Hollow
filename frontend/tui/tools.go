@@ -64,6 +64,9 @@ func (a *App) handleToolResult(ev core.ToolCallEvent) {
 		msg.toolResult = clean
 		msg.toolDetails = string(ev.Details)
 		msg.toolError = ev.Error
+		if msg.toolName == "agent_swarm" && ev.Error && clean != "" {
+			a.appendMessage("error", clean)
+		}
 		switch msg.toolName {
 		case "write_file", "edit_file":
 			if msg.toolDiffSnapshotted {
@@ -77,6 +80,9 @@ func (a *App) handleToolResult(ev core.ToolCallEvent) {
 	}
 
 	clean, _ := sanitizeToolOutput(ev.Name, ev.Result)
+	if ev.Name == "agent_swarm" && ev.Error && clean != "" {
+		a.appendMessage("error", clean)
+	}
 	a.messages = append(a.messages, chatMsg{
 		role:        "tool",
 		toolID:      ev.ID,

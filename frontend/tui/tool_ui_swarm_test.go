@@ -131,6 +131,23 @@ func TestRenderAgentSwarmBlockShowsErrorWhenExpanded(t *testing.T) {
 	}
 }
 
+func TestRenderAgentSwarmBlockShowsJSONParseError(t *testing.T) {
+	styles := NewStyles()
+	errText := "agent_swarm: invalid JSON in tool arguments (invalid character '\\n' in string literal)."
+	lines := renderAgentSwarmBlock(styles, toolRow{
+		Kind:   toolKindSwarm,
+		Error:  true,
+		Output: errText,
+	}, 100, false, 0)
+	plain := ansi.Strip(strings.Join(lines, "\n"))
+	if strings.Contains(plain, "failed") && !strings.Contains(plain, "invalid JSON") {
+		t.Fatalf("expected JSON parse error text, got: %q", plain)
+	}
+	if !strings.Contains(plain, "invalid JSON") {
+		t.Fatalf("expected invalid JSON in output: %q", plain)
+	}
+}
+
 func TestSingleSwarmNoGroupHeader(t *testing.T) {
 	styles := NewStyles()
 	out := renderToolGroup(styles, []chatMsg{{

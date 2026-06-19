@@ -51,6 +51,16 @@ func TestAgentSwarmToolRegistration(t *testing.T) {
 	}
 }
 
+func TestSwarmArgsParseError(t *testing.T) {
+	msg := swarmArgsParseError(fmt.Errorf("invalid character '\\n' in string literal"))
+	if !strings.Contains(msg, "invalid JSON") {
+		t.Fatalf("expected invalid JSON hint: %q", msg)
+	}
+	if !strings.Contains(msg, `\n`) {
+		t.Fatalf("expected newline escape hint: %q", msg)
+	}
+}
+
 func TestNativeToolsIncludeBrowser(t *testing.T) {
 	if !hasTool(nativeTools(config.Runtime{}), "browser") {
 		t.Fatal("nativeTools missing browser")

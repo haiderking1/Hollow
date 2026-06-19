@@ -126,7 +126,7 @@ func (a *Agent) toolAgentSwarm(ctx context.Context, callID, argsJSON string, dep
 		Isolate          string  `json:"isolate"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &params); err != nil {
-		return toolResult{output: fmt.Sprintf("error parsing parameters: %s", err), isErr: true}
+		return toolResult{output: swarmArgsParseError(err), isErr: true}
 	}
 
 	tasks := parseSwarmTasks(params.Tasks)
@@ -223,6 +223,15 @@ func (a *Agent) toolAgentSwarm(ctx context.Context, callID, argsJSON string, dep
 
 	output := aggregateSwarmOutput(workers, concurrency, strings.TrimSpace(params.Goal))
 	return toolResult{output: output}
+}
+
+func swarmArgsParseError(err error) string {
+	return fmt.Sprintf(
+		"agent_swarm: invalid JSON in tool arguments (%v). "+
+			"Pass a single valid JSON object. Escape newlines inside strings as \\n — raw line breaks inside JSON strings are not allowed. "+
+			"Example: {\"tasks\":[{\"id\":\"w1\",\"prompt\":\"short one-line instruction\"}]}",
+		err,
+	)
 }
 
 func parseSwarmTasks(raw []struct {
