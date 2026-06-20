@@ -287,7 +287,7 @@ export function Sidebar({
       </div>
 
       {/* Settings — pinned to the bottom-left */}
-      <div className="shrink-0 border-t border-border/50 pt-2 pb-3">
+      <div className="shrink-0 pt-2 pb-3">
         <button
           onClick={onOpenSettings}
           className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"

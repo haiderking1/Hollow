@@ -92,12 +92,11 @@ export function SettingsCard({ children, className }: { children: React.ReactNod
   )
 }
 
-/* Section heading: thin full-width divider, then a small uppercase label. */
+/* Section heading: small uppercase label. */
 export function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-5">
-      <div className="h-px w-full bg-white/[0.06]" />
-      <h2 className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8E8E93]">{children}</h2>
+      <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8E8E93]">{children}</h2>
     </div>
   )
 }
