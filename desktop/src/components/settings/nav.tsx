@@ -5,6 +5,7 @@ import {
   GitBranch,
   Keyboard,
   Link2,
+  Palette,
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react"
@@ -13,6 +14,7 @@ import { TrafficLights } from "../TrafficLights"
 
 export type SectionId =
   | "general"
+  | "appearance"
   | "keybindings"
   | "providers"
   | "sourceControl"
@@ -27,6 +29,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: "general", label: "General", icon: SlidersHorizontal },
+  { id: "appearance", label: "Appearance", icon: Palette },
   { id: "keybindings", label: "Keybindings", icon: Keyboard },
   { id: "providers", label: "Providers", icon: Cpu },
   { id: "sourceControl", label: "Source Control", icon: GitBranch },

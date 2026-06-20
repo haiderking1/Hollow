@@ -64,35 +64,11 @@
   --del-bg: rgba(248, 113, 113, 0.12);
 }
 
-/* Light theme — applied via document.documentElement.dataset.theme = "light".
-   Components use semantic tokens (var(--background), etc.), so overriding the
-   variables here cascades to the whole app without per-component dark: variants.
-   Accent is blue in both themes for consistency. */
-:root[data-theme="light"] {
-  --background: #fbf1c7;
-  --foreground: #3c3836;
-  --sidebar: #f2e5bc;
-  --surface: #ebdbb9;
-  --surface-hover: #dace9e;
-  --elevated: #e6d7a8;
-  --border: rgba(60, 56, 54, 0.12);
-  --border-strong: rgba(60, 56, 54, 0.22);
-  --muted: #ebdbb9;
-  --muted-foreground: #7c6f64;
-  --icon-inactive: #a8a29e;
-  --toggle-off: #d6d3cb;
-  --accent: #2563eb;
-  --accent-foreground: #FFFFFF;
-  --accent-muted: #1d4ed8;
-  --success: #427b58;
-  --danger: #cc241d;
-  --warning: #b57614;
-  --info: #076678;
-  --add: #427b58;
-  --add-bg: rgba(66, 123, 88, 0.12);
-  --del: #cc241d;
-  --del-bg: rgba(204, 36, 29, 0.12);
-}
+/* Theme palettes live in desktop/src/components/settings/themes/*.tsx as data.
+   applyTheme() injects a theme's tokens onto documentElement as inline CSS
+   variables, which override the :root defaults above. So this :root block is
+   only the first-paint fallback (the Dark theme) before JS runs. Components use
+   semantic token classes (bg-surface, border-border, …) and stay theme-agnostic. */
 
 * {
   border-color: var(--border);

@@ -4,6 +4,7 @@ import type { AgentModel, AgentSessionInfo, CodexLoginState, ConnectionInfo } fr
 import { SectionHeader } from "./controls"
 import { SettingsNav, type SectionId } from "./nav"
 import type { HollowPrefs, PrefKey } from "./prefs"
+import { Appearance } from "./sections/Appearance"
 import { Archive } from "./sections/Archive"
 import { Connections } from "./sections/Connections"
 import { General } from "./sections/General"
@@ -13,6 +14,7 @@ import { SourceControl } from "./sections/SourceControl"
 
 const SECTION_TITLES: Record<SectionId, string> = {
   general: "General",
+  appearance: "Appearance",
   keybindings: "Keybindings",
   providers: "Providers",
   sourceControl: "Source Control",
@@ -77,6 +79,7 @@ export default function SettingsPage({
             <SectionHeader>{SECTION_TITLES[section]}</SectionHeader>
 
             {section === "general" && <General prefs={prefs} onPref={onPref} />}
+            {section === "appearance" && <Appearance prefs={prefs} onPref={onPref} />}
             {section === "keybindings" && <Keybindings />}
             {section === "providers" && (
               <Providers

@@ -17,9 +17,12 @@ app.commandLine.appendSwitch("enable-zero-copy");
 app.commandLine.appendSwitch("use-gl", "angle");
 app.commandLine.appendSwitch("use-angle", "gl");
 app.commandLine.appendSwitch("disable-smooth-scrolling");
-// Wayland + Vulkan often renders a blank window on NVIDIA; prefer X11 unless overridden.
-if (process.platform === "linux" && !process.env.ELECTRON_OZONE_PLATFORM_HINT) {
-  app.commandLine.appendSwitch("ozone-platform-hint", "x11");
+// Native Wayland surface so Hyprland can frost the transparent Glass window
+// (XWayland windows can't be blurred by the compositor). The GL/ANGLE backend
+// above avoids the NVIDIA blank-window issue that originally forced X11 here.
+// To fall back to X11, set ELECTRON_OZONE_PLATFORM=x11 in the environment.
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("ozone-platform", process.env.ELECTRON_OZONE_PLATFORM ?? "wayland");
 }
 
 let bridge: BootedRuntime | null = null;
@@ -30,13 +33,26 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const desktopDist = path.join(__dirname, "..", "..", "desktop", "dist", "index.html");
 
 function createWindow(): void {
+  const platform = process.platform;
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 900,
     minHeight: 600,
     frame: false,
-    backgroundColor: "#0a0a0a",
+    // See-through + native frosted blur. The window is created transparent at
+    // boot so the "Glass" theme (translucent CSS tokens) can swap live with no
+    // restart — opaque themes cover this fully, so it's invisible unless Glass
+    // is active. On macOS `vibrancy` and on Windows 11 `backgroundMaterial:
+    // acrylic` frost the desktop natively; on Linux Electron only makes the
+    // window see-through and the compositor does the frost (Hyprland blurs
+    // transparent windows; Raven/KWin vary; Mutter does not).
+    backgroundColor: "#00000000",
+    ...(platform === "darwin"
+      ? { transparent: true, vibrancy: "under-window", visualEffectState: "active" }
+      : platform === "win32"
+        ? { backgroundMaterial: "acrylic" }
+        : { transparent: true }),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

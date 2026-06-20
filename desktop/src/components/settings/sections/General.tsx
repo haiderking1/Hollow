@@ -1,12 +1,6 @@
-import { RotateCcw } from "lucide-react"
 import { PillSelect, SettingRow, SettingsCard, Toggle } from "../controls"
 import type { HollowPrefs, PrefKey } from "../prefs"
-import { applyTheme, type ThemeId } from "../themes"
 
-const THEME_OPTIONS = [
-  { value: "dark", label: "Dark" },
-  { value: "light", label: "Light" },
-]
 const TIME_OPTIONS = [
   { value: "system", label: "System default" },
   { value: "12", label: "12-hour" },
@@ -21,34 +15,8 @@ export function General({
   prefs: HollowPrefs
   onPref: <K extends PrefKey>(key: K, value: HollowPrefs[K]) => void
 }) {
-  const setThemePref = (id: ThemeId) => {
-    applyTheme(id)
-    onPref("theme", id)
-  }
-  const resetTheme = () => setThemePref("dark")
-
   return (
     <SettingsCard>
-      <SettingRow
-        label="Theme"
-        subtitle="Choose how Hollow looks across the app."
-        icon={
-          <button
-            onClick={resetTheme}
-            title="Reset to default"
-            className="text-icon-inactive transition-colors hover:text-foreground"
-          >
-            <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-        }
-      >
-        <PillSelect
-          value={prefs.theme}
-          onChange={(v) => setThemePref(v as ThemeId)}
-          options={THEME_OPTIONS}
-        />
-      </SettingRow>
-
       <SettingRow
         label="Time format"
         subtitle="System default follows your browser or OS clock preference."

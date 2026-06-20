@@ -1,37 +1,42 @@
-// Theme registry. Themes are applied by setting
-// `document.documentElement.dataset.theme`, which selects a token block in
-// index.css (default / dark = `:root`, light = `:root[data-theme="light"]`).
-// Components use semantic tokens, so this is the only place theme switching
-// lives. Persistence is handled by the prefs module (prefs.theme), which is
-// the single source of truth — App applies prefs.theme on mount + change.
+// Theme registry. Each theme is a self-contained file (see ./dark.tsx,
+// ./gruvbox.tsx, …) holding its full palette as data. applyTheme() writes the
+// theme's tokens onto documentElement as inline CSS variables, which override
+// the :root defaults in index.css — so components keep using semantic token
+// classes (bg-surface, border-border, …) and never need to know which theme is
+// active. Persistence lives in the prefs module (prefs.theme); App applies
+// prefs.theme on mount + whenever it changes.
 
-export type ThemeId = "dark" | "light"
+import type { Theme } from "./types"
+import { THEME_TOKEN_KEYS } from "./types"
+import { dark } from "./dark"
+import { gruvbox } from "./gruvbox"
+import { nord } from "./nord"
+import { jellybeans } from "./jellybeans"
+import { catppuccin } from "./catppuccin"
+import { glass } from "./glass"
+import { light } from "./light"
 
-export interface ThemeDef {
-  id: ThemeId
-  name: string
-  /** Preview swatch colors (hex) for the picker. */
-  swatch: { bg: string; fg: string; accent: string; border: string }
+export type { Theme } from "./types"
+
+export const THEMES: Theme[] = [dark, glass, gruvbox, nord, jellybeans, catppuccin, light]
+
+/** Resolve a theme by id, falling back to the default (dark) if unknown. */
+export function getTheme(id: string): Theme {
+  return THEMES.find((t) => t.id === id) ?? THEMES[0]
 }
 
-export const THEMES: ThemeDef[] = [
-  {
-    id: "dark",
-    name: "Dark",
-    swatch: { bg: "#0E0E10", fg: "#FFFFFF", accent: "#3B82F6", border: "rgba(255,255,255,0.10)" },
-  },
-  {
-    id: "light",
-    name: "Light",
-    swatch: { bg: "#fbf1c7", fg: "#3c3836", accent: "#c44a26", border: "#d5c39a" },
-  },
-]
-
-/** Apply a theme to the document. */
-export function applyTheme(id: ThemeId): void {
+/** Apply a theme to the document by injecting its CSS variables onto :root. */
+export function applyTheme(id: string): void {
   try {
-    document.documentElement.dataset.theme = id
+    const theme = getTheme(id)
+    const root = document.documentElement
+    for (const key of THEME_TOKEN_KEYS) {
+      const value = theme.tokens[key]
+      if (value) root.style.setProperty(`--${key}`, value)
+      else root.style.removeProperty(`--${key}`)
+    }
+    root.dataset.theme = theme.id
   } catch {
-    /* ignore */
+    /* ignore — SSR / non-DOM environments */
   }
 }

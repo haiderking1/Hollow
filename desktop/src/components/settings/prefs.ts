@@ -1,9 +1,8 @@
-import type { ThemeId } from "./themes"
-
 // App-level preferences persisted to localStorage. These drive the General
-// settings rows. Theme is also applied to the document (see themes/index.ts).
+// settings rows. Theme is also applied to the document (see themes/index.ts);
+// it's a free-form string so new theme files can be added without touching prefs.
 export interface HollowPrefs {
-  theme: ThemeId
+  theme: string
   timeFormat: "system" | "12" | "24"
   diffWrap: boolean
   hideWhitespace: boolean
