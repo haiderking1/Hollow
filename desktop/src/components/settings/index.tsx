@@ -62,7 +62,7 @@ export default function SettingsPage({
       <SettingsNav active={section} onNavigate={setSection} onBack={onClose} />
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="app-drag flex h-12 shrink-0 items-center justify-end border-b border-white/[0.06] px-4 select-none">
+        <header className="app-drag flex h-12 shrink-0 items-center justify-end px-4 select-none">
           <button
             onClick={onClose}
             className="app-no-drag flex h-6 w-6 items-center justify-center rounded-md text-[#8E8E93] transition-colors hover:bg-white/[0.06] hover:text-white"
