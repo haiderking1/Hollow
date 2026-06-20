@@ -122,6 +122,7 @@ function toolVerb(name?: string): ToolVerb {
   if (lower.includes("grep")) return "Grep"
   if (lower === "web_search" || lower.includes("web_search")) return "Web Search"
   if (lower.includes("search") || lower.includes("find") || lower.includes("browser")) return "Search"
+  if (lower.includes("swarm")) return "Swarm Agent"
   if (lower.includes("task") || lower.includes("agent") || lower.includes("skill") || lower.includes("memory")) return "Task"
   if (lower.includes("fetch")) return "Fetch"
   return "Bash"
