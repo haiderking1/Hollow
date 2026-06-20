@@ -22,7 +22,8 @@ import {
 } from "./agent/rpc"
 
 import { bumpZoom, initZoom, resetZoom, ZOOM_STEP } from "./lib/zoom"
-import { initTheme } from "./components/settings/themes"
+import { applyTheme } from "./components/settings/themes"
+import { loadPrefs, savePrefs, type HollowPrefs, type PrefKey } from "./components/settings/prefs"
 
 const send = (command: Record<string, unknown>) => hollowAgent.send(command)
 
@@ -81,6 +82,8 @@ export default function App() {
   const [connections, setConnections] = useState<ConnectionInfo[]>([])
   const [codexLogin, setCodexLogin] = useState<CodexLoginState | null>(null)
   const [settingsError, setSettingsError] = useState<string | null>(null)
+  // App-level preferences (theme, streaming, etc.) — single source of truth.
+  const [prefs, setPrefs] = useState<HollowPrefs>(() => loadPrefs())
   const [loadingThread, setLoadingThread] = useState(false)
   /** True while the agent is catching up after we already showed cached messages. */
   const [syncingThread, setSyncingThread] = useState(false)
@@ -120,8 +123,13 @@ export default function App() {
   // doesn't re-render (and re-parse) the entire chat transcript.
   useEffect(() => {
     initZoom()
-    initTheme()
   }, [])
+
+  // Apply the saved theme on mount + whenever it changes. prefs.theme is the
+  // single source of truth (no separate theme key).
+  useEffect(() => {
+    applyTheme(prefs.theme)
+  }, [prefs.theme])
 
   // Global Ctrl/Cmd shortcuts (search & zoom)
   useEffect(() => {
@@ -188,6 +196,12 @@ export default function App() {
   const projectCwdRef = useRef<string | null>(null)
   projectCwdRef.current = projectCwd
   const messagesCacheRef = useRef(new Map<string, Message[]>())
+  // Read inside the agent-event subscription without re-subscribing on change.
+  const prefsRef = useRef(prefs)
+  prefsRef.current = prefs
+  // Last streamed assistant blocks — used to render the final response when
+  // "Assistant output" is off (skip token-by-token, show on turn end).
+  const lastBlocksRef = useRef<Block[]>([])
   const sessionListRef = useRef(sessionList)
   sessionListRef.current = sessionList
   const addedProjectsRef = useRef(addedProjects)
@@ -237,7 +251,16 @@ export default function App() {
         case "message_update":
         case "turn_end": {
           const blocks = mapAssistantContent(assistantContentFromEvent(event))
-          if (blocks.length) applyAssistantContent(blocks)
+          if (blocks.length) {
+            lastBlocksRef.current = blocks
+            const p = prefsRef.current
+            // Live token-by-token output is gated by the Assistant output pref.
+            if (p.assistantOutput) applyAssistantContent(blocks)
+            // Auto-open the task panel when the first tool/step appears.
+            if (p.autoOpenTaskPanel && blocks.some((b) => b.type === "tool")) {
+              setTaskSidebarOpen(true)
+            }
+          }
           break
         }
         case "agent_end": {
@@ -248,9 +271,14 @@ export default function App() {
                 m.id === id && m.role === "assistant" ? { ...m, streaming: false } : m,
               ),
             )
+            // If live output was off, render the final accumulated blocks now.
+            if (!prefsRef.current.assistantOutput && lastBlocksRef.current.length) {
+              applyAssistantContent(lastBlocksRef.current)
+            }
           }
           if (!event.willRetry) {
             streamingIdRef.current = null
+            lastBlocksRef.current = []
             setIsStreaming(false)
             refreshSessionList()
           }
@@ -589,6 +617,19 @@ export default function App() {
     setCodexLogin(null)
   }, [])
 
+  const updatePref = useCallback(<K extends PrefKey>(key: K, value: HollowPrefs[K]) => {
+    setPrefs((prev) => {
+      const next = { ...prev, [key]: value }
+      savePrefs(next)
+      return next
+    })
+  }, [])
+
+  // Restore a hidden thread to the sidebar.
+  const handleUnhideThread = useCallback((id: string) => {
+    setHiddenThreads((prev) => prev.filter((h) => h !== id))
+  }, [])
+
   const current = sessionList.find((s) => s.id === currentSessionId)
   const currentCwd = current?.cwd ?? projectCwd ?? "~"
 
@@ -689,6 +730,13 @@ export default function App() {
         onRemoveKey={handleRemoveKey}
         onStartCodexLogin={handleStartCodexLogin}
         onCancelCodexLogin={handleCancelCodexLogin}
+        prefs={prefs}
+        onPref={updatePref}
+        hiddenThreads={hiddenThreads}
+        sessions={sessionList}
+        threadAliases={threadAliases}
+        onUnhideThread={handleUnhideThread}
+        onArchiveThread={handleDeleteThread}
       />
 
       <SearchModal

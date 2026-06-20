@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
-import type { AgentModel, CodexLoginState, ConnectionInfo } from "../../agent/rpc"
-import { Card, FieldLabel, KeyCard, SettingsSelect } from "./ui"
+import type { AgentModel, CodexLoginState, ConnectionInfo } from "../../../agent/rpc"
+import { KeyCard, PillSelect, SettingsCard } from "../controls"
 
 // Provider ids (mirror backend/config/config.ts constants).
 const OPENCODE = "opencode-go" // opencode + zen share this key slot
@@ -40,12 +40,10 @@ export function Providers({
   const [keys, setKeys] = useState<Record<string, string>>({})
   const [pending, setPending] = useState<string | null>(null)
 
-  // Follow the active model's provider when it changes from outside.
   useEffect(() => {
     if (currentModel) setProvider(currentModel.provider)
   }, [currentModel?.provider])
 
-  // A connection update or an error means the pending action resolved.
   useEffect(() => {
     setPending(null)
   }, [connections, settingsError])
@@ -68,7 +66,7 @@ export function Providers({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {settingsError && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-2.5 text-[11px] text-red-300">
           <span className="flex-1">{settingsError}</span>
@@ -102,17 +100,17 @@ export function Providers({
       />
 
       {/* Codex uses OAuth device-code login, not a pasteable key. */}
-      <Card>
+      <div className="rounded-2xl border border-white/[0.06] bg-[#17171A] p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold text-foreground">OpenAI Codex</div>
-            <div className="text-[10px] text-muted-foreground">Sign in with browser</div>
+            <div className="text-xs font-semibold text-white">OpenAI Codex</div>
+            <div className="text-[10px] text-[#8E8E93]">Sign in with browser</div>
           </div>
           <span
             className={
               codexConnected
                 ? "rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400"
-                : "rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                : "rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-[#8E8E93]"
             }
           >
             {codexConnected ? "Connected" : "Not connected"}
@@ -120,22 +118,15 @@ export function Providers({
         </div>
         {codexLogin ? (
           <div className="mt-3 space-y-2">
-            <div className="text-[11px] text-muted-foreground">Open this URL and enter the code:</div>
-            <a
-              href={codexLogin.verify_url}
-              target="_blank"
-              rel="noreferrer"
-              className="block break-all text-[11px] text-accent underline"
-            >
+            <div className="text-[11px] text-[#8E8E93]">Open this URL and enter the code:</div>
+            <a href={codexLogin.verify_url} target="_blank" rel="noreferrer" className="block break-all text-[11px] text-[#3B82F6] underline">
               {codexLogin.verify_url}
             </a>
-            <div className="select-all font-mono text-base tracking-[0.3em] text-foreground">
-              {codexLogin.user_code}
-            </div>
-            <div className="text-[10px] text-muted-foreground">Waiting for browser sign-in…</div>
+            <div className="select-all font-mono text-base tracking-[0.3em] text-white">{codexLogin.user_code}</div>
+            <div className="text-[10px] text-[#8E8E93]">Waiting for browser sign-in…</div>
             <button
               onClick={onCancelCodexLogin}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground transition-colors hover:bg-surface-hover"
+              className="w-full rounded-lg border border-white/10 bg-[#1c1c1f] px-3 py-2 text-xs text-white transition-colors hover:bg-white/[0.06]"
             >
               Cancel
             </button>
@@ -144,7 +135,7 @@ export function Providers({
           <button
             onClick={() => disconnect(CODEX)}
             disabled={pending === CODEX}
-            className="mt-3 w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground transition-colors hover:bg-surface-hover disabled:opacity-50"
+            className="mt-3 w-full rounded-lg border border-white/10 bg-[#1c1c1f] px-3 py-2 text-xs text-white transition-colors hover:bg-white/[0.06] disabled:opacity-50"
           >
             {pending === CODEX ? "Disconnecting…" : "Disconnect"}
           </button>
@@ -155,42 +146,46 @@ export function Providers({
               onStartCodexLogin()
             }}
             disabled={pending === CODEX}
-            className="mt-3 w-full rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+            className="mt-3 w-full rounded-lg bg-[#3B82F6] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#3B82F6]/90 disabled:opacity-50"
           >
             {pending === CODEX ? "Starting…" : "Connect Codex"}
           </button>
         )}
-      </Card>
+      </div>
 
-      <div className="space-y-3 border-t border-border/50 pt-4">
-        <div>
-          <FieldLabel>Provider</FieldLabel>
-          <SettingsSelect value={provider} disabled={!anyConnected} onChange={(e) => setProvider(e.target.value)}>
-            {providers.map((p) => (
-              <option key={p} value={p} className="bg-surface text-foreground">{p}</option>
-            ))}
-          </SettingsSelect>
-          {!anyConnected && <p className="mt-1.5 text-[10px] text-muted-foreground">Connect a provider above to switch models.</p>}
-        </div>
-
-        <div>
-          <FieldLabel>Model</FieldLabel>
-          <SettingsSelect
-            value={currentModel?.provider === provider ? currentModelId ?? "" : ""}
-            disabled={!anyConnected}
-            onChange={(e) => {
-              const m = models.find((mm) => mm.id === e.target.value)
-              if (m) onSelectModel(m)
-            }}
-          >
-            {currentModel?.provider !== provider && (
-              <option value="" className="bg-surface text-muted-foreground">Select a model…</option>
-            )}
-            {providerModels.map((m) => (
-              <option key={m.id} value={m.id} className="bg-surface text-foreground">{m.name}</option>
-            ))}
-          </SettingsSelect>
-        </div>
+      {/* Active model */}
+      <div className="space-y-3 border-t border-white/[0.06] pt-5">
+        <SettingsCard>
+          <div className="flex items-center justify-between gap-6 py-4">
+            <div>
+              <div className="text-[15px] font-semibold text-white">Provider</div>
+              <p className="mt-1 text-[13px] text-[#8E8E93]">
+                {anyConnected ? "Switch the active provider for new prompts." : "Connect a provider above to switch models."}
+              </p>
+            </div>
+            <PillSelect
+              width={150}
+              value={provider}
+              onChange={setProvider}
+              options={providers.map((p) => ({ value: p, label: p }))}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-6 border-t border-white/[0.06] py-4">
+            <div className="text-[15px] font-semibold text-white">Model</div>
+            <PillSelect
+              width={180}
+              value={currentModel?.provider === provider ? currentModelId ?? "" : ""}
+              onChange={(v) => {
+                const m = models.find((mm) => mm.id === v)
+                if (m) onSelectModel(m)
+              }}
+              options={[
+                ...(currentModel?.provider !== provider ? [{ value: "", label: "Select a model…" }] : []),
+                ...providerModels.map((m) => ({ value: m.id, label: m.name })),
+              ]}
+            />
+          </div>
+        </SettingsCard>
       </div>
     </div>
   )

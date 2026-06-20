@@ -1,18 +1,44 @@
-import { ArrowLeft, X } from "lucide-react"
-import type { AgentModel, CodexLoginState, ConnectionInfo } from "../../agent/rpc"
-import { Appearance } from "./Appearance"
-import { General } from "./General"
-import { Providers, type ProvidersProps } from "./Providers"
-import { SectionTitle } from "./ui"
+import { useState } from "react"
+import { X } from "lucide-react"
+import type { AgentModel, AgentSessionInfo, CodexLoginState, ConnectionInfo } from "../../agent/rpc"
+import { SectionHeader } from "./controls"
+import { SettingsNav, type SectionId } from "./nav"
+import type { HollowPrefs, PrefKey } from "./prefs"
+import { Archive } from "./sections/Archive"
+import { Connections } from "./sections/Connections"
+import { General } from "./sections/General"
+import { Keybindings } from "./sections/Keybindings"
+import { Providers, type ProvidersProps } from "./sections/Providers"
+import { SourceControl } from "./sections/SourceControl"
+import { T3Connect } from "./sections/T3Connect"
+
+const SECTION_TITLES: Record<SectionId, string> = {
+  general: "General",
+  keybindings: "Keybindings",
+  providers: "Providers",
+  sourceControl: "Source Control",
+  connections: "Connections",
+  archive: "Archive",
+  t3connect: "T3 Connect",
+}
 
 export interface SettingsPageProps extends ProvidersProps {
   open: boolean
   onClose: () => void
+  prefs: HollowPrefs
+  onPref: <K extends PrefKey>(key: K, value: HollowPrefs[K]) => void
+  hiddenThreads: string[]
+  sessions: AgentSessionInfo[]
+  threadAliases: Record<string, string>
+  onUnhideThread: (id: string) => void
+  onArchiveThread: (id: string) => void
 }
 
 export default function SettingsPage({
   open,
   onClose,
+  prefs,
+  onPref,
   models,
   currentModelId,
   connections,
@@ -24,62 +50,66 @@ export default function SettingsPage({
   onRemoveKey,
   onStartCodexLogin,
   onCancelCodexLogin,
+  hiddenThreads,
+  sessions,
+  threadAliases,
+  onUnhideThread,
+  onArchiveThread,
 }: SettingsPageProps) {
+  const [section, setSection] = useState<SectionId>("general")
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      {/* Header */}
-      <header className="app-drag flex h-12 shrink-0 items-center justify-between border-b border-border px-4 select-none">
-        <span className="text-[14px] font-semibold">Settings</span>
-        <button
-          onClick={onClose}
-          className="app-no-drag flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-          aria-label="Close settings"
-        >
-          <X className="h-4 w-4" strokeWidth={2.25} />
-        </button>
-      </header>
+    <div className="fixed inset-0 z-50 flex bg-[#0E0E10] text-white">
+      <SettingsNav active={section} onNavigate={setSection} onBack={onClose} />
 
-      {/* Two-column body. Left = Providers, right = Appearance + General. */}
-      <div className="flex min-h-0 flex-1">
-        <div className="flex w-[440px] shrink-0 flex-col overflow-y-auto border-r border-border px-6 py-5">
-          <SectionTitle>Providers</SectionTitle>
-          <p className="mt-1 mb-4 text-[11px] text-muted-foreground">
-            Connect a provider to go live. OpenCode Go and Zen share one key.
-          </p>
-          <Providers
-            models={models}
-            currentModelId={currentModelId}
-            connections={connections}
-            codexLogin={codexLogin}
-            settingsError={settingsError}
-            onClearError={onClearError}
-            onSelectModel={onSelectModel}
-            onConnectKey={onConnectKey}
-            onRemoveKey={onRemoveKey}
-            onStartCodexLogin={onStartCodexLogin}
-            onCancelCodexLogin={onCancelCodexLogin}
-          />
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="app-drag flex h-12 shrink-0 items-center justify-end border-b border-white/[0.06] px-4 select-none">
+          <button
+            onClick={onClose}
+            className="app-no-drag flex h-6 w-6 items-center justify-center rounded-md text-[#8E8E93] transition-colors hover:bg-white/[0.06] hover:text-white"
+            aria-label="Close settings"
+          >
+            <X className="h-4 w-4" strokeWidth={2.25} />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-10 py-8">
+          <div className="mx-auto max-w-2xl">
+            <SectionHeader>{SECTION_TITLES[section]}</SectionHeader>
+
+            {section === "general" && <General prefs={prefs} onPref={onPref} />}
+            {section === "keybindings" && <Keybindings />}
+            {section === "providers" && (
+              <Providers
+                models={models}
+                currentModelId={currentModelId}
+                connections={connections}
+                codexLogin={codexLogin}
+                settingsError={settingsError}
+                onClearError={onClearError}
+                onSelectModel={onSelectModel}
+                onConnectKey={onConnectKey}
+                onRemoveKey={onRemoveKey}
+                onStartCodexLogin={onStartCodexLogin}
+                onCancelCodexLogin={onCancelCodexLogin}
+              />
+            )}
+            {section === "sourceControl" && <SourceControl />}
+            {section === "connections" && <Connections connections={connections} />}
+            {section === "archive" && (
+              <Archive
+                hiddenThreads={hiddenThreads}
+                sessions={sessions}
+                threadAliases={threadAliases}
+                onUnhide={onUnhideThread}
+                onDelete={onArchiveThread}
+              />
+            )}
+            {section === "t3connect" && <T3Connect />}
+          </div>
         </div>
-
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto px-6 py-5">
-          <Appearance />
-          <div className="my-6 h-px bg-border/50" />
-          <General />
-        </div>
-      </div>
-
-      {/* Back button — pinned bottom-left */}
-      <footer className="flex h-12 shrink-0 items-center border-t border-border px-4">
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-          Back
-        </button>
-      </footer>
+      </main>
     </div>
   )
 }

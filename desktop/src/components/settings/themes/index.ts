@@ -1,7 +1,9 @@
-// Theme registry + persistence. Themes are applied by setting
+// Theme registry. Themes are applied by setting
 // `document.documentElement.dataset.theme`, which selects a token block in
 // index.css (default / dark = `:root`, light = `:root[data-theme="light"]`).
-// Components use semantic tokens, so this is the only place theme switching lives.
+// Components use semantic tokens, so this is the only place theme switching
+// lives. Persistence is handled by the prefs module (prefs.theme), which is
+// the single source of truth — App applies prefs.theme on mount + change.
 
 export type ThemeId = "dark" | "light"
 
@@ -16,7 +18,7 @@ export const THEMES: ThemeDef[] = [
   {
     id: "dark",
     name: "Dark",
-    swatch: { bg: "#0a0a0a", fg: "#ededec", accent: "#d97757", border: "#262624" },
+    swatch: { bg: "#0E0E10", fg: "#FFFFFF", accent: "#3B82F6", border: "rgba(255,255,255,0.10)" },
   },
   {
     id: "light",
@@ -25,36 +27,10 @@ export const THEMES: ThemeDef[] = [
   },
 ]
 
-const STORAGE_KEY = "hollow-theme"
-
-export function getSavedTheme(): ThemeId {
-  try {
-    const v = localStorage.getItem(STORAGE_KEY)
-    if (v === "light" || v === "dark") return v
-  } catch {
-    /* ignore */
-  }
-  return "dark"
-}
-
-/** Apply a theme to the document. Called on load and when the user picks one. */
+/** Apply a theme to the document. */
 export function applyTheme(id: ThemeId): void {
   try {
     document.documentElement.dataset.theme = id
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Load the saved theme and apply it. Call once on app startup. */
-export function initTheme(): void {
-  applyTheme(getSavedTheme())
-}
-
-export function setTheme(id: ThemeId): void {
-  applyTheme(id)
-  try {
-    localStorage.setItem(STORAGE_KEY, id)
   } catch {
     /* ignore */
   }
