@@ -92,7 +92,6 @@ export default function App() {
   // Live agent state
   const [model, setModel] = useState<AgentModel | null>(null)
   const [modelCatalog, setModelCatalog] = useState<ModelCatalog | null>(null)
-  const [availableModels, setAvailableModels] = useState<AgentModel[]>([])
   const [sessionList, setSessionList] = useState<AgentSessionInfo[]>(() =>
     loadJSON<AgentSessionInfo[]>("hollow-session-cache", []),
   )
@@ -304,13 +303,9 @@ export default function App() {
               }
               break
             }
-            case "get_available_models":
-              setAvailableModels(event.data.models)
-              break
             case "get_model_catalog": {
               const catalog = event.data
               setModelCatalog(catalog)
-              setAvailableModels(catalog.models)
               const s = catalog.state
               if (s.modelId) {
                 setModel({
@@ -577,20 +572,6 @@ export default function App() {
     send({ type: "set_model", provider, modelId, thinkingLevel })
   }, [])
 
-  const handleSettingsModel = useCallback(
-    (m: AgentModel) => {
-      const levels = m.thinkingLevels ?? []
-      const thinking =
-        modelCatalog?.state.thinkingLevel && levels.includes(modelCatalog.state.thinkingLevel)
-          ? modelCatalog.state.thinkingLevel
-          : levels.includes("medium")
-            ? "medium"
-            : levels.find((l) => l !== "off") ?? ""
-      send({ type: "set_model", provider: m.provider, modelId: m.id, thinkingLevel: thinking })
-    },
-    [modelCatalog?.state.thinkingLevel],
-  )
-
   // Refresh connection state whenever the Settings panel opens; clear any stale error.
   useEffect(() => {
     if (settingsOpen) {
@@ -714,9 +695,6 @@ export default function App() {
       <SettingsPage
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        models={availableModels}
-        currentModelId={model?.id ?? null}
-        onSelectModel={handleSettingsModel}
         connections={connections}
         codexLogin={codexLogin}
         settingsError={settingsError}

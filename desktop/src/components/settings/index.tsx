@@ -39,13 +39,10 @@ export default function SettingsPage({
   onClose,
   prefs,
   onPref,
-  models,
-  currentModelId,
   connections,
   codexLogin,
   settingsError,
   onClearError,
-  onSelectModel,
   onConnectKey,
   onRemoveKey,
   onStartCodexLogin,
@@ -83,13 +80,10 @@ export default function SettingsPage({
             {section === "keybindings" && <Keybindings />}
             {section === "providers" && (
               <Providers
-                models={models}
-                currentModelId={currentModelId}
                 connections={connections}
                 codexLogin={codexLogin}
                 settingsError={settingsError}
                 onClearError={onClearError}
-                onSelectModel={onSelectModel}
                 onConnectKey={onConnectKey}
                 onRemoveKey={onRemoveKey}
                 onStartCodexLogin={onStartCodexLogin}

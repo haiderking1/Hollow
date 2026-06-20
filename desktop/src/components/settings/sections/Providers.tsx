@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react"
-import type { AgentModel, CodexLoginState, ConnectionInfo } from "../../../agent/rpc"
-import { KeyCard, PillSelect, SettingsCard } from "../controls"
+import { ChevronDown, ExternalLink } from "lucide-react"
+import type { CodexLoginState, ConnectionInfo } from "../../../agent/rpc"
+import { cn } from "../../../lib/utils"
+import OpenCodeIcon from "../../../assets/icons/OpenCode_dark.svg"
+import OpenAIIcon from "../../../assets/icons/OpenAI_dark.svg"
+import NeuralWattIcon from "../../../assets/icons/neuralwatt.svg"
 
 // Provider ids (mirror backend/config/config.ts constants).
 const OPENCODE = "opencode-go" // opencode + zen share this key slot
@@ -8,52 +12,150 @@ const NEURALWATT = "neuralwatt"
 const CODEX = "openai-codex"
 
 export interface ProvidersProps {
-  models: AgentModel[]
-  currentModelId: string | null
   connections: ConnectionInfo[]
   codexLogin: CodexLoginState | null
   settingsError: string | null
   onClearError: () => void
-  onSelectModel: (m: AgentModel) => void
   onConnectKey: (provider: string, key: string) => void
   onRemoveKey: (provider: string) => void
   onStartCodexLogin: () => void
   onCancelCodexLogin: () => void
 }
 
+/* Expandable rectangle card for one provider. Icon + name top-left, a colored
+   status dot (green connected / red not connected) on the right, and a chevron
+   that flips when the body is expanded. Click the header to expand and reveal
+   the key input / OAuth flow. `forceExpand` keeps the body open while a Codex
+   device login is in flight so the code stays visible. */
+function ProviderCard({
+  icon,
+  title,
+  subtitle,
+  connected,
+  forceExpand,
+  children,
+}: {
+  icon: React.ReactNode
+  title: string
+  subtitle: string
+  connected: boolean
+  forceExpand?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const expanded = forceExpand || open
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-2xl border bg-surface transition-colors",
+        connected ? "border-success/30" : "border-border",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-surface-hover">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-semibold text-foreground">{title}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className={cn("h-2 w-2 rounded-full", connected ? "bg-success" : "bg-danger")} />
+          <span className={cn("text-[11px] font-medium", connected ? "text-success" : "text-danger")}>
+            {connected ? "Connected" : "Not connected"}
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150",
+            expanded && "rotate-180",
+          )}
+        />
+      </button>
+      {expanded && <div className="border-t border-border px-4 pb-4 pt-3.5">{children}</div>}
+    </div>
+  )
+}
+
+/* Shared "key saved" footer for a connected key provider + Disconnect button. */
+function ConnectedRow({
+  note,
+  pending,
+  onDisconnect,
+}: {
+  note: string
+  pending: boolean
+  onDisconnect: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[11px] text-muted-foreground">{note}</span>
+      <button
+        onClick={onDisconnect}
+        disabled={pending}
+        className="shrink-0 rounded-lg border border-border-strong bg-surface-hover px-3 py-2 text-xs text-foreground transition-colors hover:bg-surface-hover/80 disabled:opacity-50"
+      >
+        {pending ? "Disconnecting…" : "Disconnect"}
+      </button>
+    </div>
+  )
+}
+
+/* Key input + Connect button shown when a key provider isn't connected yet. */
+function KeyInput({
+  value,
+  pending,
+  onKeyChange,
+  onConnect,
+}: {
+  value: string
+  pending: boolean
+  onKeyChange: (v: string) => void
+  onConnect: () => void
+}) {
+  return (
+    <div className="flex gap-2">
+      <input
+        type="password"
+        value={value}
+        onChange={(e) => onKeyChange(e.target.value)}
+        placeholder="Paste API key"
+        autoComplete="off"
+        spellCheck={false}
+        className="min-w-0 flex-1 rounded-lg border border-border-strong bg-surface-hover px-3 py-2 text-xs text-foreground outline-none focus-visible:border-accent"
+      />
+      <button
+        onClick={onConnect}
+        disabled={pending || value.trim() === ""}
+        className="shrink-0 rounded-lg bg-foreground px-3 py-2 text-xs font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
+      >
+        {pending ? "Connecting…" : "Connect"}
+      </button>
+    </div>
+  )
+}
+
 export function Providers({
-  models,
-  currentModelId,
   connections,
   codexLogin,
   settingsError,
   onClearError,
-  onSelectModel,
   onConnectKey,
   onRemoveKey,
   onStartCodexLogin,
   onCancelCodexLogin,
 }: ProvidersProps) {
-  const currentModel = models.find((m) => m.id === currentModelId)
-  const providers = Array.from(new Set(models.map((m) => m.provider))).sort()
-  const [provider, setProvider] = useState<string>(currentModel?.provider ?? "")
   const [keys, setKeys] = useState<Record<string, string>>({})
   const [pending, setPending] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (currentModel) setProvider(currentModel.provider)
-  }, [currentModel?.provider])
-
-  useEffect(() => {
-    setPending(null)
-  }, [connections, settingsError])
 
   const conn = (id: string) => connections.find((c) => c.provider === id)
   const opencodeConnected = conn(OPENCODE)?.connected ?? false
   const neuralwattConnected = conn(NEURALWATT)?.connected ?? false
   const codexConnected = conn(CODEX)?.connected ?? false
-  const anyConnected = connections.some((c) => c.connected)
-  const providerModels = models.filter((m) => m.provider === provider)
 
   const connect = (p: string) => {
     setPending(p)
@@ -65,8 +167,13 @@ export function Providers({
     onRemoveKey(p)
   }
 
+  // Clear the pending spinner once a connection result/error lands.
+  useEffect(() => {
+    setPending(null)
+  }, [connections, settingsError])
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {settingsError && (
         <div className="flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/10 p-2.5 text-[11px] text-danger">
           <span className="flex-1">{settingsError}</span>
@@ -78,115 +185,107 @@ export function Providers({
         </div>
       )}
 
-      <KeyCard
+      <ProviderCard
+        icon={<img src={OpenCodeIcon} alt="" className="h-6 w-6" />}
         title="OpenCode Go + Zen"
-        hint="Shared API key"
+        subtitle="Shared API key"
         connected={opencodeConnected}
-        pending={pending === OPENCODE}
-        keyValue={keys[OPENCODE] ?? ""}
-        onKeyChange={(v) => setKeys((k) => ({ ...k, [OPENCODE]: v }))}
-        onConnect={() => connect(OPENCODE)}
-        onDisconnect={() => disconnect(OPENCODE)}
-      />
-      <KeyCard
+      >
+        {opencodeConnected ? (
+          <ConnectedRow
+            note="Key saved locally in ~/.enough"
+            pending={pending === OPENCODE}
+            onDisconnect={() => disconnect(OPENCODE)}
+          />
+        ) : (
+          <KeyInput
+            value={keys[OPENCODE] ?? ""}
+            pending={pending === OPENCODE}
+            onKeyChange={(v) => setKeys((k) => ({ ...k, [OPENCODE]: v }))}
+            onConnect={() => connect(OPENCODE)}
+          />
+        )}
+      </ProviderCard>
+
+      <ProviderCard
+        icon={<img src={NeuralWattIcon} alt="" className="h-6 w-6" />}
         title="NeuralWatt"
-        hint="API key"
+        subtitle="API key"
         connected={neuralwattConnected}
-        pending={pending === NEURALWATT}
-        keyValue={keys[NEURALWATT] ?? ""}
-        onKeyChange={(v) => setKeys((k) => ({ ...k, [NEURALWATT]: v }))}
-        onConnect={() => connect(NEURALWATT)}
-        onDisconnect={() => disconnect(NEURALWATT)}
-      />
+      >
+        {neuralwattConnected ? (
+          <ConnectedRow
+            note="Key saved locally in ~/.enough"
+            pending={pending === NEURALWATT}
+            onDisconnect={() => disconnect(NEURALWATT)}
+          />
+        ) : (
+          <KeyInput
+            value={keys[NEURALWATT] ?? ""}
+            pending={pending === NEURALWATT}
+            onKeyChange={(v) => setKeys((k) => ({ ...k, [NEURALWATT]: v }))}
+            onConnect={() => connect(NEURALWATT)}
+          />
+        )}
+      </ProviderCard>
 
       {/* Codex uses OAuth device-code login, not a pasteable key. */}
-      <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs font-semibold text-foreground">OpenAI Codex</div>
-            <div className="text-[10px] text-muted-foreground">Sign in with browser</div>
-          </div>
-          <span
-            className={
-              codexConnected
-                ? "rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-medium text-success"
-                : "rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-            }
-          >
-            {codexConnected ? "Connected" : "Not connected"}
-          </span>
-        </div>
+      <ProviderCard
+        icon={<img src={OpenAIIcon} alt="" className="h-6 w-6" />}
+        title="OpenAI Codex"
+        subtitle="Sign in with browser"
+        connected={codexConnected}
+        forceExpand={!!codexLogin}
+      >
         {codexLogin ? (
-          <div className="mt-3 space-y-2">
-            <div className="text-[11px] text-muted-foreground">Open this URL and enter the code:</div>
-            <a href={codexLogin.verify_url} target="_blank" rel="noreferrer" className="block break-all text-[11px] text-accent underline">
-              {codexLogin.verify_url}
-            </a>
-            <div className="select-all font-mono text-base tracking-[0.3em] text-foreground">{codexLogin.user_code}</div>
-            <div className="text-[10px] text-muted-foreground">Waiting for browser sign-in…</div>
-            <button
-              onClick={onCancelCodexLogin}
-              className="w-full rounded-lg border border-border-strong bg-surface-hover px-3 py-2 text-xs text-foreground transition-colors hover:bg-surface-hover"
+          <div className="space-y-3">
+            <div className="rounded-lg bg-surface-hover px-3 py-2.5">
+              <div className="text-[10px] text-muted-foreground">Enter this code in the browser</div>
+              <div className="select-all font-mono text-base tracking-[0.3em] text-foreground">
+                {codexLogin.user_code}
+              </div>
+            </div>
+            <a
+              href={codexLogin.verify_url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-2.5 text-xs font-medium text-background transition-colors hover:bg-foreground/90"
             >
-              Cancel
-            </button>
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open in browser
+            </a>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground">Waiting for sign-in…</span>
+              <button
+                onClick={onCancelCodexLogin}
+                className="rounded-lg border border-border-strong bg-surface-hover px-3 py-1.5 text-[11px] text-foreground transition-colors hover:bg-surface-hover/80"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         ) : codexConnected ? (
-          <button
-            onClick={() => disconnect(CODEX)}
-            disabled={pending === CODEX}
-            className="mt-3 w-full rounded-lg border border-border-strong bg-surface-hover px-3 py-2 text-xs text-foreground transition-colors hover:bg-surface-hover disabled:opacity-50"
-          >
-            {pending === CODEX ? "Disconnecting…" : "Disconnect"}
-          </button>
+          <ConnectedRow
+            note="Signed in with OpenAI"
+            pending={pending === CODEX}
+            onDisconnect={() => disconnect(CODEX)}
+          />
         ) : (
-          <button
-            onClick={() => {
-              setPending(CODEX)
-              onStartCodexLogin()
-            }}
-            disabled={pending === CODEX}
-            className="mt-3 w-full rounded-lg bg-accent px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
-          >
-            {pending === CODEX ? "Starting…" : "Connect Codex"}
-          </button>
-        )}
-      </div>
-
-      {/* Active model */}
-      <div className="space-y-3 border-t border-border pt-5">
-        <SettingsCard>
-          <div className="flex items-center justify-between gap-6 py-4">
-            <div>
-              <div className="text-[15px] font-semibold text-foreground">Provider</div>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                {anyConnected ? "Switch the active provider for new prompts." : "Connect a provider above to switch models."}
-              </p>
-            </div>
-            <PillSelect
-              width={150}
-              value={provider}
-              onChange={setProvider}
-              options={providers.map((p) => ({ value: p, label: p }))}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-6 border-t border-border py-4">
-            <div className="text-[15px] font-semibold text-foreground">Model</div>
-            <PillSelect
-              width={180}
-              value={currentModel?.provider === provider ? currentModelId ?? "" : ""}
-              onChange={(v) => {
-                const m = models.find((mm) => mm.id === v)
-                if (m) onSelectModel(m)
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                setPending(CODEX)
+                onStartCodexLogin()
               }}
-              options={[
-                ...(currentModel?.provider !== provider ? [{ value: "", label: "Select a model…" }] : []),
-                ...providerModels.map((m) => ({ value: m.id, label: m.name })),
-              ]}
-            />
+              disabled={pending === CODEX}
+              className="w-full rounded-lg bg-foreground px-3 py-2.5 text-xs font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
+            >
+              {pending === CODEX ? "Starting…" : "Connect Codex"}
+            </button>
+            <p className="text-[10px] text-muted-foreground">Opens your browser to sign in with OpenAI.</p>
           </div>
-        </SettingsCard>
-      </div>
+        )}
+      </ProviderCard>
     </div>
   )
 }
