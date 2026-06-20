@@ -3,6 +3,7 @@ import { capitalizeProseStart } from "../lib/text"
 import type { Message } from "../types"
 import { MarkdownContent } from "./markdown-content"
 import { ToolBlock } from "./tool-block"
+import { SwarmAgentBlock } from "./swarm-block"
 import { ThinkingBlock } from "./thinking-block"
 import { TodoBlock } from "./todo-block"
 
@@ -120,7 +121,7 @@ const MessageRow = memo(function MessageRow({ message }: { message: Message }) {
           />
         )
       case "tool":
-        return <ToolBlock block={block} />
+        return block.tool === "Swarm Agent" ? <SwarmAgentBlock block={block} /> : <ToolBlock block={block} />
       case "todo":
         return <TodoBlock items={block.items} />
       default:
