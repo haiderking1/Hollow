@@ -16,26 +16,62 @@ import { delete_session } from "../backend/session/delete";
 import { type info } from "../backend/session/types";
 import { new_client_for_runtime } from "../backend/opencode/runtime_client";
 
+/** Best-effort reason string from a config/secrets error (they use `reason`, not `message`). */
+const errReason = (e: unknown): string => {
+  if (!e) return "";
+  if (typeof e === "string") return e;
+  if (typeof e === "object") {
+    const o = e as Record<string, unknown>;
+    return String(o.reason ?? o.message ?? "");
+  }
+  return String(e);
+};
+
+/**
+ * True when a boot failure is purely a missing-provider-credential problem
+ * (no API key, no codex auth). These degrade gracefully — the UI opens and
+ * shows "connect a provider" — rather than bricking the app.
+ */
+export const isProviderKeyError = (e: unknown): boolean => {
+  const s = `${errReason(e)} ${errReason((e as { cause?: unknown })?.cause)}`.toLowerCase();
+  return /api key|credentials|not connected|keyring|\bauth\b|token/.test(s);
+};
+
+const NOT_CONNECTED =
+  "No provider connected. Add an API key with `enough auth add <provider>` (or set one in ~/.enough), then restart Hollow.";
+
+/** Fail cleanly when the runtime booted without a provider key (no agent). */
+const requireAgent = (self: AgentRuntimeImpl): Effect.Effect<void, Error> =>
+  self.available ? Effect.void : Effect.fail(new Error(NOT_CONNECTED));
+
 export class AgentRuntimeImpl {
   config!: runtime;
   workDir!: string;
   agent!: Agent;
   pubsub!: PubSub.PubSub<any>;
+  /** False until a provider key is loaded and the agent is constructed. */
+  available = false;
 
   boot(workDir?: string): Effect.Effect<void, Error> {
     const self = this;
     return Effect.gen(function* () {
       self.pubsub = yield* PubSub.unbounded<any>();
-      const cfg = yield* load_runtime();
-      self.config = cfg;
+      self.available = false;
+      self.workDir = workDir && workDir !== "" ? workDir : process.cwd();
 
-      yield* EnsureBootstrapped();
-
-      let cleanWorkDir = workDir || "";
-      if (cleanWorkDir === "") {
-        cleanWorkDir = process.cwd();
+      // load_runtime hard-fails when no provider key is configured. Treat that
+      // as a graceful "not connected" state — boot succeeds with available=false
+      // so the UI can open and let the user connect a provider.
+      const cfgResult = yield* Effect.either(load_runtime());
+      if (cfgResult._tag === "Left") {
+        if (isProviderKeyError(cfgResult.left)) {
+          return;
+        }
+        return yield* Effect.fail(new Error(errReason(cfgResult.left) || "boot failed"));
       }
-      self.workDir = cleanWorkDir;
+
+      self.config = cfgResult.right;
+      yield* EnsureBootstrapped();
 
       const sm = yield* continue_recent(self.workDir);
       self.agent = New(self.config, self.workDir, sm);
@@ -45,16 +81,27 @@ export class AgentRuntimeImpl {
         // are already delivered to subscribers before emit() returns.
         Effect.runSync(PubSub.publish(self.pubsub, event));
       };
+      self.available = true;
     }).pipe(
       Effect.mapError((err) => {
         if (err instanceof Error) return err;
-        const reason =
-          (err && typeof err === "object" && "reason" in err && String(err.reason)) ||
-          (err && typeof err === "object" && "message" in err && String(err.message)) ||
-          String(err);
-        return new Error(reason);
+        return new Error(errReason(err) || "boot failed");
       })
     );
+  }
+
+  /**
+   * Minimal boot for the degraded/never-connected case: just the event bus and
+   * a workdir, with available=false. Never fails — used so Electron IPC can
+   * always be registered even when a real (non-key) boot error happens.
+   */
+  bootDegraded(workDir?: string): Effect.Effect<void, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      self.pubsub = yield* PubSub.unbounded<any>();
+      self.available = false;
+      self.workDir = workDir && workDir !== "" ? workDir : process.cwd();
+    }).pipe(Effect.catchAll(() => Effect.void));
   }
 
   listSessions(cwd?: string): Effect.Effect<info[], Error> {
@@ -64,6 +111,7 @@ export class AgentRuntimeImpl {
   openSession(id: string): Effect.Effect<string, Error> {
     const self = this;
     return Effect.gen(function* () {
+      yield* requireAgent(self);
       const infos = yield* list_all();
       let targetPath = "";
       for (const info of infos) {
@@ -84,6 +132,7 @@ export class AgentRuntimeImpl {
   newSession(cwd?: string): Effect.Effect<string, Error> {
     const self = this;
     return Effect.gen(function* () {
+      yield* requireAgent(self);
       const targetCwd = cwd || self.workDir;
       const sm = yield* start_new(targetCwd);
       self.agent.LoadSession(sm);
@@ -105,7 +154,7 @@ export class AgentRuntimeImpl {
       if (targetPath === "") {
         targetPath = id;
       }
-      if (self.agent.session && self.agent.session.session_file() === targetPath) {
+      if (self.agent?.session && self.agent.session.session_file() === targetPath) {
         return yield* Effect.fail(new Error("cannot delete the active session"));
       }
       yield* delete_session(targetPath);
@@ -114,6 +163,7 @@ export class AgentRuntimeImpl {
 
   prompt(text: string, attachments?: readonly any[]): Effect.Effect<void, Error> {
     const self = this;
+    if (!self.available) return Effect.fail(new Error(NOT_CONNECTED));
     return Effect.async<void, Error>((resume) => {
       const controller = new AbortController();
       const mappedAttachments = attachments?.map((att) => ({
@@ -132,6 +182,7 @@ export class AgentRuntimeImpl {
 
   interrupt(): Effect.Effect<void, Error> {
     const self = this;
+    if (!self.available) return Effect.fail(new Error(NOT_CONNECTED));
     return Effect.sync(() => {
       self.agent.Abort();
     });
@@ -140,6 +191,7 @@ export class AgentRuntimeImpl {
   setModel(provider: string, model: string, thinkingLevel?: string): Effect.Effect<void, Error> {
     const self = this;
     return Effect.gen(function* () {
+      yield* requireAgent(self);
       yield* apply_provider_model(provider, model, thinkingLevel || "");
       const newCfg = yield* load_runtime();
       self.config = newCfg;

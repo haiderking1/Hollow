@@ -326,6 +326,23 @@ export class DesktopBridge {
   dispatch(command: DesktopCommand): Effect.Effect<DesktopResponse, Error> {
     const runtime = this.runtime;
     return Effect.gen(function* () {
+      // Commands that need a booted agent. listSessions/listModels work without
+      // one (disk + provider registry only), so the UI can render the
+      // "connect a provider" state instead of erroring on every call.
+      const requiresAgent =
+        command.type === "openSession" ||
+        command.type === "newSession" ||
+        command.type === "deleteSession" ||
+        command.type === "prompt" ||
+        command.type === "interrupt" ||
+        command.type === "setModel";
+      if (requiresAgent && !runtime.available) {
+        return yield* Effect.fail(
+          new Error(
+            "No provider connected. Add an API key with `enough auth add <provider>` (or set one in ~/.enough), then restart Hollow.",
+          ),
+        );
+      }
       switch (command.type) {
         case "listSessions": {
           const list = yield* runtime.listSessions();

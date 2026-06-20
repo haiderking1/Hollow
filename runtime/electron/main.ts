@@ -6,7 +6,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
-import { bootHollowRuntime, attachElectronIpc, type BootedRuntime } from "./bootstrap";
+import { bootHollowRuntime, degradedRuntime, attachElectronIpc, type BootedRuntime } from "./bootstrap";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,22 +77,26 @@ ipcMain.on("window-close", (event) => {
 });
 
 app.whenReady().then(async () => {
+  let result: BootedRuntime;
   try {
-    const result = await Effect.runPromise(bootHollowRuntime(process.cwd()));
-    bridge = result;
-
-    attachElectronIpc(
-      ipcMain,
-      result.bridge,
-      () => BrowserWindow.getAllWindows().map((w) => w.webContents),
-    );
+    result = await Effect.runPromise(bootHollowRuntime(process.cwd()));
   } catch (err) {
     console.warn(
       "[electron] Runtime boot failed (agent unavailable):",
       err instanceof Error ? err.message : err,
     );
-    console.warn("[electron] Opening UI anyway — connect a provider in ~/.enough to chat.");
+    console.warn("[electron] Opening UI in degraded mode — connect a provider in ~/.enough to chat.");
+    // Always boot a degraded runtime so IPC registers and the UI is usable,
+    // instead of bricking every renderer call with "No handler registered".
+    result = await Effect.runPromise(degradedRuntime(process.cwd()));
   }
+  bridge = result;
+
+  attachElectronIpc(
+    ipcMain,
+    result.bridge,
+    () => BrowserWindow.getAllWindows().map((w) => w.webContents),
+  );
 
   createWindow();
 

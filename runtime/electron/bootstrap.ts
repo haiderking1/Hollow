@@ -29,6 +29,18 @@ export const bootHollowRuntime = (workDir?: string): Effect.Effect<BootedRuntime
   });
 
 /**
+ * Degraded runtime for when a real (non-key) boot error happens: just the
+ * event bus, no agent. Never fails — lets Electron always attach IPC so the
+ * UI opens instead of bricking with "No handler registered for 'hollow:dispatch'".
+ */
+export const degradedRuntime = (workDir?: string): Effect.Effect<BootedRuntime, never> =>
+  Effect.gen(function* () {
+    const runtime = new AgentRuntimeImpl();
+    yield* runtime.bootDegraded(workDir);
+    return { runtime, bridge: new DesktopBridge(runtime) };
+  });
+
+/**
  * Register the Electron IPC handlers against a real ipcMain.
  * `getWebContents` is typically `() => BrowserWindow.getAllWindows().map(w => w.webContents)`.
  */
