@@ -10,7 +10,6 @@ import { General } from "./sections/General"
 import { Keybindings } from "./sections/Keybindings"
 import { Providers, type ProvidersProps } from "./sections/Providers"
 import { SourceControl } from "./sections/SourceControl"
-import { T3Connect } from "./sections/T3Connect"
 
 const SECTION_TITLES: Record<SectionId, string> = {
   general: "General",
@@ -19,7 +18,6 @@ const SECTION_TITLES: Record<SectionId, string> = {
   sourceControl: "Source Control",
   connections: "Connections",
   archive: "Archive",
-  t3connect: "T3 Connect",
 }
 
 export interface SettingsPageProps extends ProvidersProps {
@@ -106,7 +104,6 @@ export default function SettingsPage({
                 onDelete={onArchiveThread}
               />
             )}
-            {section === "t3connect" && <T3Connect />}
           </div>
         </div>
       </main>
