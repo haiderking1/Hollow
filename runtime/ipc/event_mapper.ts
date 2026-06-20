@@ -12,6 +12,10 @@ export type BackendMessage =
   | { type: "session.list"; sessions: unknown[] | null }
   | { type: "session.history"; sessionId: string; cwd?: string; messages: unknown[] | null }
   | { type: "models.catalog"; providers: unknown[]; models: unknown[]; state: unknown }
+  | { type: "connections.list"; connections: unknown[]; catalog: unknown }
+  | { type: "connection.changed"; connections: unknown[]; catalog: unknown; error?: string }
+  | { type: "codex.login.start"; user_code: string; verify_url: string; poll_interval: number }
+  | { type: "codex.login.cancelled" }
   | { type: "token"; text?: string }
   | { type: "thinking"; text?: string }
   | {
@@ -116,6 +120,18 @@ export const mapAgentEvent = (event: unknown): BackendMessage | null => {
       return { type: "error", message: msg === "" ? "unknown error" : msg };
     }
 
+    case "connection.changed": {
+      // Bridge-emitted (not a core agent event): Settings connection state changed
+      // after a key was saved/removed or the Codex OAuth login completed/failed.
+      const d = as_record(data);
+      return {
+        type: "connection.changed",
+        connections: Array.isArray(d.connections) ? d.connections : [],
+        catalog: d.catalog,
+        error: typeof d.error === "string" && d.error !== "" ? d.error : undefined,
+      };
+    }
+
     default:
       // system / compaction / evidence / obligation / workflow / branch_summary / log / phase — not rendered in the chat surface (yet)
       return null;
@@ -148,6 +164,24 @@ export const mapDispatchResponse = (
         models: response.models,
         state: response.state,
       };
+
+    case "connections.list":
+      return {
+        type: "connections.list",
+        connections: response.connections,
+        catalog: response.catalog,
+      };
+
+    case "codex.login.start":
+      return {
+        type: "codex.login.start",
+        user_code: response.user_code,
+        verify_url: response.verify_url,
+        poll_interval: response.poll_interval,
+      };
+
+    case "codex.login.cancelled":
+      return { type: "codex.login.cancelled" };
 
     case "deleteSession.success":
     case "setModel.success":

@@ -64,6 +64,43 @@ export const ListModels = Schema.Struct({
 });
 export type ListModels = Schema.Schema.Type<typeof ListModels>;
 
+// One provider's connection state, surfaced to the Settings panel.
+export const ConnectionInfo = Schema.Struct({
+  provider: Schema.String, // provider id (e.g. "opencode-go")
+  displayName: Schema.String, // "OpenCode Go"
+  kind: Schema.Literal("key", "oauth"), // key = pasteable API key, oauth = codex device flow
+  connected: Schema.Boolean,
+});
+export type ConnectionInfo = Schema.Schema.Type<typeof ConnectionInfo>;
+
+export const ListConnections = Schema.Struct({
+  type: Schema.Literal("listConnections"),
+});
+export type ListConnections = Schema.Schema.Type<typeof ListConnections>;
+
+export const SetApiKey = Schema.Struct({
+  type: Schema.Literal("setApiKey"),
+  provider: Schema.String,
+  key: Schema.String,
+});
+export type SetApiKey = Schema.Schema.Type<typeof SetApiKey>;
+
+export const RemoveKey = Schema.Struct({
+  type: Schema.Literal("removeKey"),
+  provider: Schema.String,
+});
+export type RemoveKey = Schema.Schema.Type<typeof RemoveKey>;
+
+export const StartCodexLogin = Schema.Struct({
+  type: Schema.Literal("startCodexLogin"),
+});
+export type StartCodexLogin = Schema.Schema.Type<typeof StartCodexLogin>;
+
+export const CancelCodexLogin = Schema.Struct({
+  type: Schema.Literal("cancelCodexLogin"),
+});
+export type CancelCodexLogin = Schema.Schema.Type<typeof CancelCodexLogin>;
+
 export const DesktopCommand = Schema.Union(
   ListSessions,
   OpenSession,
@@ -72,7 +109,12 @@ export const DesktopCommand = Schema.Union(
   Prompt,
   Interrupt,
   SetModel,
-  ListModels
+  ListModels,
+  ListConnections,
+  SetApiKey,
+  RemoveKey,
+  StartCodexLogin,
+  CancelCodexLogin
 );
 export type DesktopCommand = Schema.Schema.Type<typeof DesktopCommand>;
 
@@ -125,6 +167,15 @@ export const CompactionEndEvent = Schema.Struct({
   data: Schema.Unknown,
 });
 
+// Bridge-emitted (not an agent event): connection state changed, e.g. after a
+// key was saved/removed or the Codex OAuth login completed. data = the same
+// payload the listConnections/setApiKey dispatch responses carry, plus an
+// optional `error` string when a background Codex login failed.
+export const ConnectionChangedEvent = Schema.Struct({
+  kind: Schema.Literal("connection.changed"),
+  data: Schema.Unknown,
+});
+
 export const DesktopEvent = Schema.Union(
   AssistantStartEvent,
   AssistantDeltaEvent,
@@ -134,7 +185,8 @@ export const DesktopEvent = Schema.Union(
   ErrorEvent,
   SystemEvent,
   CompactionStartEvent,
-  CompactionEndEvent
+  CompactionEndEvent,
+  ConnectionChangedEvent
 );
 export type DesktopEvent = Schema.Schema.Type<typeof DesktopEvent>;
 

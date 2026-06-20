@@ -13,6 +13,8 @@ import {
   type AgentEvent,
   type AgentModel,
   type AgentSessionInfo,
+  type CodexLoginState,
+  type ConnectionInfo,
   type ModelCatalog,
   mapAssistantContent,
   assistantContentFromEvent,
@@ -74,6 +76,10 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  // Settings: provider connection state + Codex login flow + in-panel errors.
+  const [connections, setConnections] = useState<ConnectionInfo[]>([])
+  const [codexLogin, setCodexLogin] = useState<CodexLoginState | null>(null)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
   const [loadingThread, setLoadingThread] = useState(false)
   /** True while the agent is catching up after we already showed cached messages. */
   const [syncingThread, setSyncingThread] = useState(false)
@@ -321,7 +327,33 @@ export default function App() {
               // session.history from the backend updates state + messages.
               break
             }
+            case "list_connections": {
+              setConnections(event.data.connections)
+              setSettingsError(null)
+              break
+            }
+            case "start_codex_login": {
+              setCodexLogin(event.data)
+              setSettingsError(null)
+              break
+            }
+            case "cancel_codex_login": {
+              setCodexLogin(null)
+              break
+            }
           }
+          break
+        }
+        case "connection_changed": {
+          setConnections(event.connections)
+          // Codex login resolved (success or failure) — stop showing the code.
+          setCodexLogin(null)
+          if (event.error) setSettingsError(event.error)
+          else setSettingsError(null)
+          break
+        }
+        case "settings_error": {
+          setSettingsError(event.error)
           break
         }
         case "bridge_error":
@@ -528,6 +560,33 @@ export default function App() {
     [modelCatalog?.state.thinkingLevel],
   )
 
+  // Refresh connection state whenever the Settings panel opens; clear any stale error.
+  useEffect(() => {
+    if (settingsOpen) {
+      setSettingsError(null)
+      send({ type: "list_connections" })
+    } else {
+      // Closing the panel cancels an in-flight Codex login so we don't orphan the poll.
+      if (codexLogin) send({ type: "cancel_codex_login" })
+      setCodexLogin(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsOpen])
+
+  const handleConnectKey = useCallback((provider: string, key: string) => {
+    send({ type: "set_api_key", provider, key })
+  }, [])
+  const handleRemoveKey = useCallback((provider: string) => {
+    send({ type: "remove_key", provider })
+  }, [])
+  const handleStartCodexLogin = useCallback(() => {
+    send({ type: "start_codex_login" })
+  }, [])
+  const handleCancelCodexLogin = useCallback(() => {
+    send({ type: "cancel_codex_login" })
+    setCodexLogin(null)
+  }, [])
+
   const current = sessionList.find((s) => s.id === currentSessionId)
   const currentCwd = current?.cwd ?? projectCwd ?? "~"
 
@@ -577,6 +636,7 @@ export default function App() {
             onRenameThread={handleRenameThread}
             onDeleteThread={handleDeleteThread}
             onOpenSearch={() => setSearchOpen(true)}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         </div>
       )}
@@ -619,6 +679,14 @@ export default function App() {
         models={availableModels}
         currentModelId={model?.id ?? null}
         onSelectModel={handleSettingsModel}
+        connections={connections}
+        codexLogin={codexLogin}
+        settingsError={settingsError}
+        onClearError={() => setSettingsError(null)}
+        onConnectKey={handleConnectKey}
+        onRemoveKey={handleRemoveKey}
+        onStartCodexLogin={handleStartCodexLogin}
+        onCancelCodexLogin={handleCancelCodexLogin}
       />
 
       <SearchModal

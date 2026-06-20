@@ -8,6 +8,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Settings,
 } from "lucide-react"
 import type { AgentSessionInfo } from "../agent/rpc"
 
@@ -25,6 +26,7 @@ interface SidebarProps {
   onRenameThread: (id: string, name: string) => void
   onDeleteThread: (id: string) => void
   onOpenSearch: () => void
+  onOpenSettings: () => void
 }
 
 function projectName(cwd: string): string {
@@ -77,6 +79,7 @@ export function Sidebar({
   onRenameThread,
   onDeleteThread,
   onOpenSearch,
+  onOpenSettings,
 }: SidebarProps) {
   const groups = useMemo<Group[]>(() => {
     const byCwd = new Map<string, AgentSessionInfo[]>()
@@ -169,7 +172,7 @@ export function Sidebar({
       </div>
 
       {/* Grouped sessions */}
-      <div className="flex flex-col gap-0.5 overflow-y-auto pb-4">
+      <div className="flex flex-1 min-h-0 flex-col gap-0.5 overflow-y-auto pb-4">
         {groups.length === 0 && (
           <div className="px-2.5 py-2 text-[13px] text-muted-foreground/60">
             No projects yet — click + to add one
@@ -281,6 +284,19 @@ export function Sidebar({
             </div>
           )
         })}
+      </div>
+
+      {/* Settings — pinned to the bottom-left */}
+      <div className="shrink-0 border-t border-border/50 pt-2 pb-3">
+        <button
+          onClick={onOpenSettings}
+          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+          aria-label="Settings"
+          title="Settings"
+        >
+          <Settings className="h-4 w-4" strokeWidth={2} />
+          <span>Settings</span>
+        </button>
       </div>
     </aside>
   )

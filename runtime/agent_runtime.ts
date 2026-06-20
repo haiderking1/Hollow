@@ -65,23 +65,69 @@ export class AgentRuntimeImpl {
         return yield* Effect.fail(new Error(errReason(cfgResult.left) || "boot failed"));
       }
 
-      self.config = cfgResult.right;
+      yield* self.buildAgent(cfgResult.right);
+    }).pipe(
+      Effect.mapError((err) => {
+        if (err instanceof Error) return err;
+        return new Error(errReason(err) || "boot failed");
+      })
+    );
+  }
+
+  /**
+   * Shared agent-build step used by boot() and reconnect(): bootstrap skills,
+   * open the most recent session for the workdir, construct the agent, and mark
+   * the runtime available. Reuses continue_recent (which scans the dir for an
+   * existing session file) rather than the in-memory session_file() path — that
+   * path is set by new_session before the file is actually written, so reading
+   * it back on reconnect would ENOENT.
+   */
+  private buildAgent(cfg: runtime): Effect.Effect<void, Error> {
+    const self = this;
+    return Effect.gen(function* () {
+      self.config = cfg;
       yield* EnsureBootstrapped();
-
       const sm = yield* continue_recent(self.workDir);
+      // Tear down the previous agent (MCP manager, etc.) before replacing it.
+      if (self.agent?.Close) {
+        try {
+          self.agent.Close();
+        } catch {
+          // ignore cleanup errors on reconnect
+        }
+      }
       self.agent = New(self.config, self.workDir, sm);
-
       self.agent.emit = (event: any) => {
         // Synchronous publish: prompt completion must mean all emitted events
         // are already delivered to subscribers before emit() returns.
         Effect.runSync(PubSub.publish(self.pubsub, event));
       };
       self.available = true;
+    });
+  }
+
+  /**
+   * Re-attempt a full boot after a provider key has been added/switched (called
+   * by the bridge when the user connects a provider from Settings). Promotes
+   * a degraded runtime to live in-place — no app restart. If the active provider
+   * still has no key, stays degraded (best-effort, never hard-fails on a key
+   * error so the UI keeps working).
+   */
+  reconnect(): Effect.Effect<void, Error> {
+    const self = this;
+    return Effect.gen(function* () {
+      // pubsub/workDir are already set from the initial (degraded) boot.
+      const cfgResult = yield* Effect.either(load_runtime());
+      if (cfgResult._tag === "Left") {
+        if (isProviderKeyError(cfgResult.left)) {
+          self.available = false;
+          return;
+        }
+        return yield* Effect.fail(new Error(errReason(cfgResult.left) || "reconnect failed"));
+      }
+      yield* self.buildAgent(cfgResult.right);
     }).pipe(
-      Effect.mapError((err) => {
-        if (err instanceof Error) return err;
-        return new Error(errReason(err) || "boot failed");
-      })
+      Effect.mapError((err) => (err instanceof Error ? err : new Error(errReason(err) || "reconnect failed"))),
     );
   }
 

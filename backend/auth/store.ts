@@ -127,6 +127,13 @@ export const save_codex_provider_state = (
     yield* save_auth_store(store);
   });
 
+/**
+ * Clear stored Codex OAuth tokens (disconnect). Writes an empty provider state
+ * so has_codex_auth() subsequently returns false. Best-effort: ENOENT is fine.
+ */
+export const clear_codex_auth = (): Effect.Effect<void, auth_error_type> =>
+  save_codex_provider_state(empty_provider_state());
+
 /*
 PORT STATUS
 source path: backend/auth/store.go

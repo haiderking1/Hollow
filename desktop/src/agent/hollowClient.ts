@@ -4,7 +4,9 @@ import type {
   AgentProvider,
   AgentSessionInfo,
   AgentSessionState,
+  ConnectionInfo,
   ContentPart,
+  CodexLoginState,
   ModelCatalog,
   ModelSelectionState,
   RawMessage,
@@ -62,6 +64,10 @@ type BackendMessage =
   | { type: "session.list"; sessions: BackendSession[] | null }
   | { type: "session.history"; sessionId: string; cwd?: string; messages: BackendHistoryMessage[] | null }
   | BackendModelsCatalog
+  | { type: "connections.list"; connections: ConnectionInfo[]; catalog: ModelCatalog }
+  | { type: "connection.changed"; connections: ConnectionInfo[]; catalog: ModelCatalog; error?: string }
+  | { type: "codex.login.start"; user_code: string; verify_url: string; poll_interval: number }
+  | { type: "codex.login.cancelled" }
   | { type: "token"; text?: string }
   | { type: "thinking"; text?: string }
   | {
@@ -205,6 +211,7 @@ class HollowClient {
   private streamBlocks: StreamBlock[] = []
   private toolMetaMap = new Map<string, { name: string; arguments: string }>()
   private catalog: ModelCatalog = emptyCatalog()
+  private connections: ConnectionInfo[] = []
   private awaitingNewSession = false
 
   onEvent(listener: Listener) {
@@ -288,6 +295,24 @@ class HollowClient {
           thinkingLevel: commandText(command, "thinkingLevel"),
         })
         break
+      case "list_connections":
+        this.dispatchSettings({ type: "listConnections" }, "list_connections")
+        break
+      case "set_api_key":
+        this.dispatchSettings(
+          { type: "setApiKey", provider: commandText(command, "provider"), key: commandText(command, "key") },
+          "set_api_key",
+        )
+        break
+      case "remove_key":
+        this.dispatchSettings({ type: "removeKey", provider: commandText(command, "provider") }, "remove_key")
+        break
+      case "start_codex_login":
+        this.dispatchSettings({ type: "startCodexLogin" }, "start_codex_login")
+        break
+      case "cancel_codex_login":
+        this.dispatchSettings({ type: "cancelCodexLogin" }, "cancel_codex_login")
+        break
     }
   }
 
@@ -336,6 +361,30 @@ class HollowClient {
       })
   }
 
+  // Like dispatch(), but failures surface as a settings_error event (which the
+  // Settings panel shows inline) instead of a bridge_error (which is dropped
+  // unless a chat turn is streaming). Used by the connection-management commands.
+  private dispatchSettings(message: Record<string, unknown>, commandName: string) {
+    if (!window.hollowDesktop) {
+      this.emit({ type: "settings_error", command: commandName, error: "Desktop IPC unavailable — run via electron:dev" })
+      return
+    }
+    void window.hollowDesktop
+      .dispatch(message)
+      .then((result) => {
+        if (!result.ok) {
+          this.emit({ type: "settings_error", command: commandName, error: result.error ?? "dispatch failed" })
+          return
+        }
+        if (result.data !== undefined) {
+          this.handleDispatchResponse(result.data)
+        }
+      })
+      .catch((err) => {
+        this.emit({ type: "settings_error", command: commandName, error: String(err?.message || err) })
+      })
+  }
+
   /** Apply synchronous command results (session list, models catalog, …). */
   private handleDispatchResponse(data: unknown) {
     if (Array.isArray(data)) {
@@ -366,6 +415,43 @@ class HollowClient {
           models: message.models ?? [],
           state: message.state,
         })
+        break
+      case "connections.list":
+        if (message.catalog) this.applyCatalog(message.catalog)
+        this.connections = message.connections ?? []
+        this.emit({
+          type: "response",
+          command: "list_connections",
+          success: true,
+          data: { connections: this.connections, catalog: this.catalog },
+        })
+        this.emit({ type: "response", command: "get_state", success: true, data: this.state() })
+        break
+      case "connection.changed":
+        if (message.catalog) this.applyCatalog(message.catalog)
+        this.connections = message.connections ?? this.connections
+        this.emit({
+          type: "connection_changed",
+          connections: this.connections,
+          catalog: this.catalog,
+          error: message.error,
+        })
+        this.emit({ type: "response", command: "get_state", success: true, data: this.state() })
+        break
+      case "codex.login.start":
+        this.emit({
+          type: "response",
+          command: "start_codex_login",
+          success: true,
+          data: {
+            user_code: message.user_code,
+            verify_url: message.verify_url,
+            poll_interval: message.poll_interval,
+          },
+        })
+        break
+      case "codex.login.cancelled":
+        this.emit({ type: "response", command: "cancel_codex_login", success: true, data: { cancelled: true } })
         break
       case "session.list": {
         this.sessions = (message.sessions ?? []).map(mapSession)

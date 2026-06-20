@@ -52,6 +52,21 @@ export interface ModelCatalog {
   state: ModelSelectionState
 }
 
+/** One provider's connection state, surfaced to the Settings panel. */
+export interface ConnectionInfo {
+  provider: string
+  displayName: string
+  kind: "key" | "oauth"
+  connected: boolean
+}
+
+/** A pending Codex device-code login shown in Settings while waiting for the browser auth. */
+export interface CodexLoginState {
+  user_code: string
+  verify_url: string
+  poll_interval: number
+}
+
 export interface AgentSessionInfo {
   path: string
   id: string
@@ -88,11 +103,16 @@ export type AgentEvent =
   | { type: "response"; command: "get_messages"; success: true; data: { messages: RawMessage[] } }
   | { type: "response"; command: "switch_session"; success: true; data: { cancelled: boolean } }
   | { type: "response"; command: "new_session"; success: true; data: { cancelled: boolean } }
+  | { type: "response"; command: "list_connections"; success: true; data: { connections: ConnectionInfo[]; catalog: ModelCatalog } }
+  | { type: "response"; command: "start_codex_login"; success: true; data: CodexLoginState }
+  | { type: "response"; command: "cancel_codex_login"; success: true; data: { cancelled: boolean } }
   // Bridge (from electron main, not the agent)
   | { type: "bridge_ready"; cwd?: string }
   | { type: "session_cwd"; cwd: string }
   | { type: "bridge_error"; error: string }
   | { type: "bridge_exit"; code: number | null }
+  | { type: "connection_changed"; connections: ConnectionInfo[]; catalog: ModelCatalog; error?: string }
+  | { type: "settings_error"; command: string; error: string }
   // Anything else we don't handle yet
   | { type: "other" }
 
