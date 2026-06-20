@@ -21,7 +21,7 @@ export interface TodoItem {
   status: "pending" | "in_progress" | "done"
 }
 
-export type ToolVerb = "Write" | "Edit" | "Read" | "Bash" | "Grep" | "Search" | "Task" | "Fetch" | "Glob"
+export type ToolVerb = "Write" | "Edit" | "Read" | "Bash" | "Grep" | "Search" | "Web Search" | "Task" | "Fetch" | "Glob"
 
 export type Block =
   | { type: "text"; text: string }
