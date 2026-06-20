@@ -68,21 +68,34 @@ export const repair_tool_messages = (msgs: message[]): message[] => {
   const out: message[] = [];
   for (let i = 0; i < msgs.length; i++) {
     const msg = { ...msgs[i] };
+    // Orphan tool result with no preceding assistant tool_calls (e.g. the
+    // issuing turn was dropped by trimming/compaction). Providers reject this
+    // ("Messages with role 'tool' must be a response to a preceding message
+    // with 'tool_calls'"), so drop it. Legitimate tool results are consumed in
+    // the block right after their assistant tool_calls below.
+    if (msg.role === "tool") continue;
     if (msg.role === "assistant" && msg.tool_calls !== undefined && msg.tool_calls.length > 0) {
       msg.tool_calls = msg.tool_calls.map((tc, j) => ({ ...tc, id: tc.id === "" ? `call_${i}_${j}` : tc.id }));
     }
     out.push(msg);
     if (msg.role !== "assistant" || msg.tool_calls === undefined || msg.tool_calls.length === 0) continue;
     const required: tool_call[] = [...msg.tool_calls];
+    const valid_ids = new Set(required.map((tc) => tc.id));
     const answered = new Set<string>();
     i++;
     while (i < msgs.length && msgs[i].role === "tool") {
       const tm = { ...msgs[i] };
-      if (tm.tool_call_id === undefined || tm.tool_call_id === "") tm.tool_call_id = required[0].id;
-      if (!answered.has(tm.tool_call_id)) {
-        out.push(tm);
-        answered.add(tm.tool_call_id);
+      let id = tm.tool_call_id;
+      if (id === undefined || id === "") id = required[0].id;
+      // Drop tool results whose id doesn't match this assistant's tool_calls
+      // (mismatched orphan) or that we've already included (duplicate).
+      if (!valid_ids.has(id) || answered.has(id)) {
+        i++;
+        continue;
       }
+      tm.tool_call_id = id;
+      out.push(tm);
+      answered.add(id);
       i++;
     }
     i--;
