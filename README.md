@@ -19,7 +19,7 @@ Enough on Windows is a native `.exe` TUI using Git Bash for shell commands (same
 1. Open PowerShell and provision Git Bash (PortableGit, ~45 MB, no admin):
 
    ```powershell
-   irm https://raw.githubusercontent.com/haiderking1/Enough/main/scripts/install-windows.ps1 | iex
+   irm https://raw.githubusercontent.com/haiderking1/Hollow/main/scripts/install-windows.ps1 | iex
    ```
 
 2. **Open a new terminal** so `ENOUGH_GIT_BASH_PATH` and PATH updates apply.
@@ -27,8 +27,8 @@ Enough on Windows is a native `.exe` TUI using Git Bash for shell commands (same
 3. Build Enough:
 
    ```powershell
-   git clone https://github.com/haiderking1/Enough.git
-   cd Enough
+   git clone https://github.com/haiderking1/Hollow.git
+   cd Hollow
    go build -o bin/enough.exe ./cmd/enough
    .\bin\enough.exe
    ```
