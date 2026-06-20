@@ -158,15 +158,19 @@ export const continuity_enabled = (e: evidence_config): boolean =>
   e.continuity_reads === undefined || e.continuity_reads;
 
 export const default_evidence = (): evidence_config => {
-  const true_val = true;
+  // Disabled by default: the obligations/verifier/goal-lock/step-scorer
+  // apparatus injected "TURN INCOMPLETE — open obligations: must_run_verify…"
+  // notices that pushed the model to run a no-op verify command (e.g.
+  // `echo "verified" && exit 0`) after tool use. The noise wasn't worth the
+  // gating. Re-enable per-session via config if you want forced verification.
   return {
-    enabled: true,
+    enabled: false,
     strict_verify_reset: true,
     max_completion_rounds: 12,
     verifier_enabled: false,
-    goal_lock: true_val,
-    step_scorer: true_val,
-    parallel_forks: true_val,
+    goal_lock: false,
+    step_scorer: false,
+    parallel_forks: false,
     stuck_after_failures: 2,
     parallel_fork_count: 4,
   };
