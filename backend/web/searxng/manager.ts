@@ -24,18 +24,11 @@ const repo_url = "https://github.com/searxng/searxng.git";
 const health_timeout_ms = 90_000;
 const health_interval_ms = 400;
 
-class mutex {
-  private _locked = false;
-  lock(): void { this._locked = true; }
-  unlock(): void { this._locked = false; }
-}
-
 let manager_instance: manager | null = null;
 let manager_initialized = false;
 
 // Manager runs a local SearXNG instance for Enough.
 export class manager {
-  private readonly _mu = new mutex();
   private _cmd: ChildProcess | null = null;
   private _base_url = "";
   private readonly _data_dir: string;
@@ -56,9 +49,6 @@ export class manager {
   ensure_running(ctx: AbortSignal): Effect.Effect<string, searxng_error_type> {
     const self = this;
     return Effect.gen(function* () {
-      self._mu.lock();
-      self._mu.unlock();
-
       if (self._base_url !== "" && (yield* self.health_ok(ctx, self._base_url))) {
         return self._base_url;
       }
@@ -114,8 +104,6 @@ export class manager {
   stop(): Effect.Effect<void, searxng_error_type> {
     const self = this;
     return Effect.gen(function* () {
-      self._mu.lock();
-      self._mu.unlock();
       yield* self.stop_locked();
     });
   }
