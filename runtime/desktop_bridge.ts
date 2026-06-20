@@ -10,7 +10,7 @@
 import { Effect, Stream } from "effect";
 import os from "node:os";
 import path from "node:path";
-import { AgentRuntimeImpl } from "./agent_runtime";
+import { AgentRuntimeImpl, NOT_CONNECTED } from "./agent_runtime";
 import {
   DesktopCommand,
   DesktopEvent
@@ -335,11 +335,7 @@ export class DesktopBridge {
         command.type === "interrupt" ||
         command.type === "setModel";
       if (requiresAgent && !runtime.available) {
-        return yield* Effect.fail(
-          new Error(
-            "No provider connected. Add an API key with `enough auth add <provider>` (or set one in ~/.enough), then restart Hollow.",
-          ),
-        );
+        return yield* Effect.fail(new Error(NOT_CONNECTED));
       }
       switch (command.type) {
         case "listSessions": {

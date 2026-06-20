@@ -37,12 +37,7 @@ export const isProviderKeyError = (e: unknown): boolean => {
   return /api key|credentials|not connected|keyring|\bauth\b|token/.test(s);
 };
 
-const NOT_CONNECTED =
-  "No provider connected. Add an API key with `enough auth add <provider>` (or set one in ~/.enough), then restart Hollow.";
-
-/** Fail cleanly when the runtime booted without a provider key (no agent). */
-const requireAgent = (self: AgentRuntimeImpl): Effect.Effect<void, Error> =>
-  self.available ? Effect.void : Effect.fail(new Error(NOT_CONNECTED));
+export const NOT_CONNECTED = "No provider connected. Add an API key in Settings, then retry.";
 
 export class AgentRuntimeImpl {
   config!: runtime;
@@ -137,7 +132,6 @@ export class AgentRuntimeImpl {
   newSession(cwd?: string): Effect.Effect<string, Error> {
     const self = this;
     return Effect.gen(function* () {
-      yield* requireAgent(self);
       const targetCwd = cwd || self.workDir;
       const sm = yield* start_new(targetCwd);
       self.agent.LoadSession(sm);
@@ -168,6 +162,8 @@ export class AgentRuntimeImpl {
 
   prompt(text: string, attachments?: readonly any[]): Effect.Effect<void, Error> {
     const self = this;
+    // Bridge dispatch already guards agent-requiring commands; this guard is for
+    // the CLI entry (runtime/main.ts --prompt), which calls prompt() directly.
     if (!self.available) return Effect.fail(new Error(NOT_CONNECTED));
     return Effect.async<void, Error>((resume) => {
       const controller = new AbortController();
@@ -187,7 +183,6 @@ export class AgentRuntimeImpl {
 
   interrupt(): Effect.Effect<void, Error> {
     const self = this;
-    if (!self.available) return Effect.fail(new Error(NOT_CONNECTED));
     return Effect.sync(() => {
       self.agent.Abort();
     });
@@ -196,7 +191,6 @@ export class AgentRuntimeImpl {
   setModel(provider: string, model: string, thinkingLevel?: string): Effect.Effect<void, Error> {
     const self = this;
     return Effect.gen(function* () {
-      yield* requireAgent(self);
       yield* apply_provider_model(provider, model, thinkingLevel || "");
       const newCfg = yield* load_runtime();
       self.config = newCfg;
