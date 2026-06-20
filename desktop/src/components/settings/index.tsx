@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { X } from "lucide-react"
 import type { AgentModel, AgentSessionInfo, CodexLoginState, ConnectionInfo } from "../../agent/rpc"
+import { TrafficLights } from "../TrafficLights"
 import { SectionHeader } from "./controls"
 import { SettingsNav, type SectionId } from "./nav"
 import type { HollowPrefs, PrefKey } from "./prefs"
@@ -62,7 +63,8 @@ export default function SettingsPage({
       <SettingsNav active={section} onNavigate={setSection} onBack={onClose} />
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="app-drag flex h-12 shrink-0 items-center justify-end px-4 select-none">
+        <header className="app-drag flex h-12 shrink-0 items-center justify-between px-4 select-none">
+          <TrafficLights />
           <button
             onClick={onClose}
             className="app-no-drag flex h-6 w-6 items-center justify-center rounded-md text-[#8E8E93] transition-colors hover:bg-white/[0.06] hover:text-white"

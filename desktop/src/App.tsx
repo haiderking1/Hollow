@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { PanelLeft } from "lucide-react"
+import { TrafficLights } from "./components/TrafficLights"
 import { Sidebar } from "./components/sidebar"
 import { ChatWorkspace } from "./components/chat-workspace"
 import TaskSidebar from "./components/TaskSidebar"
@@ -650,11 +651,7 @@ export default function App() {
       {!collapsed && (
         <div className="flex shrink-0 flex-col bg-sidebar">
           <header className="app-drag flex h-11 shrink-0 items-center gap-3 bg-sidebar px-4 select-none">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-              <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-              <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-            </div>
+            <TrafficLights />
             <div className="flex items-center gap-1 pl-2 text-muted-foreground">
               <button
                 onClick={() => setCollapsed(true)}
@@ -685,9 +682,7 @@ export default function App() {
       )}
       {collapsed && (
         <div className="app-drag fixed left-4 top-[8px] z-50 flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-          <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-          <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+          <TrafficLights />
           <button
             onClick={() => setCollapsed(false)}
             className="app-no-drag ml-1 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
