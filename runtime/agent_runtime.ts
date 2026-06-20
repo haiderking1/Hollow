@@ -11,7 +11,7 @@ import { type runtime, load_runtime } from "../backend/config/config";
 import { apply_provider_model } from "../backend/config/provider";
 import { EnsureBootstrapped } from "../backend/skills/bootstrap";
 import { open_session, list_for_cwd, list_all } from "../backend/session/list";
-import { continue_recent, start_new } from "../backend/session/manager";
+import { continue_recent, start_new, type manager } from "../backend/session/manager";
 import { delete_session } from "../backend/session/delete";
 import { type info } from "../backend/session/types";
 import { new_client_for_runtime } from "../backend/opencode/runtime_client";
@@ -108,10 +108,15 @@ export class AgentRuntimeImpl {
     return cwd ? list_for_cwd(cwd) : list_all();
   }
 
-  openSession(id: string): Effect.Effect<string, Error> {
+  /**
+   * Open a session by id/path and return its manager. Reading history is a
+   * disk operation, so this works without a provider key — the session is
+   * wired into the agent only when one is booted. Clicking a session in the
+   * UI must load its transcript even in degraded (no-key) mode.
+   */
+  openSession(id: string): Effect.Effect<manager, Error> {
     const self = this;
     return Effect.gen(function* () {
-      yield* requireAgent(self);
       const infos = yield* list_all();
       let targetPath = "";
       for (const info of infos) {
@@ -124,8 +129,8 @@ export class AgentRuntimeImpl {
         targetPath = id;
       }
       const sm = yield* open_session(targetPath);
-      self.agent.LoadSession(sm);
-      return sm.session_id();
+      if (self.available) self.agent.LoadSession(sm);
+      return sm;
     });
   }
 

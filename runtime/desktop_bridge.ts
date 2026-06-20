@@ -326,13 +326,11 @@ export class DesktopBridge {
   dispatch(command: DesktopCommand): Effect.Effect<DesktopResponse, Error> {
     const runtime = this.runtime;
     return Effect.gen(function* () {
-      // Commands that need a booted agent. listSessions/listModels work without
-      // one (disk + provider registry only), so the UI can render the
-      // "connect a provider" state instead of erroring on every call.
+      // Commands that need a booted agent. listSessions/listModels/openSession/
+      // deleteSession work without one (disk reads only), so the UI can render
+      // history and the "connect a provider" state instead of erroring on every call.
       const requiresAgent =
-        command.type === "openSession" ||
         command.type === "newSession" ||
-        command.type === "deleteSession" ||
         command.type === "prompt" ||
         command.type === "interrupt" ||
         command.type === "setModel";
@@ -352,11 +350,7 @@ export class DesktopBridge {
           return { type: "session.list" as const, sessions: filtered };
         }
         case "openSession": {
-          yield* runtime.openSession(command.id);
-          const sm = runtime.agent.session;
-          if (!sm) {
-            return yield* Effect.fail(new Error("No active session loaded"));
-          }
+          const sm = yield* runtime.openSession(command.id);
           const history = buildHistory(sm);
           return {
             type: "session.history" as const,
