@@ -170,6 +170,9 @@ export class AgentRuntimeImpl {
         targetPath = id;
       }
       const sm = yield* open_session(targetPath);
+      // Keep the runtime workDir in sync with the active session so a reconnect
+      // rebuilds the agent against this session's project, not the boot cwd.
+      if (sm.cwd() !== "") self.workDir = sm.cwd();
       if (self.available) self.agent.LoadSession(sm);
       return sm;
     });
@@ -179,6 +182,11 @@ export class AgentRuntimeImpl {
     const self = this;
     return Effect.gen(function* () {
       const targetCwd = cwd || self.workDir;
+      // Track the chosen cwd at the runtime layer too — otherwise a later
+      // reconnect() rebuilds the agent from the stale boot workDir (process.cwd(),
+      // i.e. the app's own dir) and `pwd` ends up pointing at ~/hollow instead
+      // of the user's project.
+      self.workDir = targetCwd;
       const sm = yield* start_new(targetCwd);
       if (self.available) self.agent.LoadSession(sm);
       return sm;
