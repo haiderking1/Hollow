@@ -192,6 +192,39 @@ export const apply_provider_model = (
     yield* save(cfg);
   });
 
+// DisabledModels returns the persisted disabled-model ids.
+export const disabled_models = (): Effect.Effect<string[], Error> =>
+  Effect.gen(function* () {
+    const cfg = yield* load().pipe(Effect.mapError(asError));
+    return cfg.disabled_models ?? [];
+  });
+
+// ToggleModelEnabled adds or removes a model id from the disabled list. Returns
+// the new list.
+export const toggle_model_enabled = (
+  modelId: string,
+): Effect.Effect<string[], Error> =>
+  Effect.gen(function* () {
+    const cfg = yield* load().pipe(Effect.mapError(asError));
+    const prev = cfg.disabled_models ?? [];
+    const next = prev.includes(modelId)
+      ? prev.filter((id) => id !== modelId)
+      : [...prev, modelId];
+    cfg.disabled_models = next;
+    yield* save(cfg).pipe(Effect.mapError(asError));
+    return next;
+  });
+
+const asError = (e: unknown): Error => {
+  if (e instanceof Error) return e;
+  if (e && typeof e === "object") {
+    const o = e as Record<string, unknown>;
+    const r = String(o.reason ?? o.message ?? "");
+    if (r) return new Error(r);
+  }
+  return new Error(typeof e === "string" && e ? e : "unknown error");
+};
+
 /*
 PORT STATUS
 source path: backend/config/provider.go

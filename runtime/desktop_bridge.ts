@@ -42,6 +42,8 @@ import {
   apply_provider_model,
   connection_settings,
   enable_codex_provider,
+  disabled_models,
+  toggle_model_enabled,
 } from "../backend/config/provider";
 import { delete_api_key, has_api_key, get_api_key } from "../backend/secrets/store";
 import {
@@ -109,6 +111,8 @@ export interface WsModelDTO {
   reasoning: boolean;
   thinkingLevels: string[];
   thinkingLevelLabels: string[];
+  /** Whether this model is enabled in the composer/model picker. */
+  enabled: boolean;
 }
 
 export interface WsModelStateDTO {
@@ -328,10 +332,20 @@ const buildModelsCatalog = (runtime: AgentRuntimeImpl): Effect.Effect<WsModelsCa
       )
     );
 
+    const disabledList = yield* disabled_models().pipe(Effect.orElseSucceed(() => [] as string[]));
+
+    const seen = new Set<string>();
     const models: WsModelDTO[] = [];
-    for (const p of model_providers()) {
+    for (const p of providers) {
+      if (!p.connected) continue;
       const pModels = models_for_provider(p.id, default_registry);
       for (const m of pModels) {
+        // The same model id can appear under multiple providers (e.g. OpenCode
+        // Go and Zen share deepseek-v4-flash). Dedupe by id so the picker/list
+        // doesn't show duplicates. Prefer the first provider's entry.
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
+        const enabled = !disabledList.includes(m.id);
         const levels = supported_thinking_levels(m.id);
         const outLevels = levels.map((lvl) => String(lvl));
         const outLabels = levels.map((lvl) => format_thinking_level_for_model(m.id, lvl));
@@ -344,6 +358,7 @@ const buildModelsCatalog = (runtime: AgentRuntimeImpl): Effect.Effect<WsModelsCa
           reasoning: m.reasoning,
           thinkingLevels: outLevels,
           thinkingLevelLabels: outLabels,
+          enabled,
         });
       }
     }
@@ -549,6 +564,12 @@ export class DesktopBridge {
           yield* refreshDesktopModelRegistry();
           const catalog = yield* buildModelsCatalog(runtime);
           return catalog;
+        }
+        case "toggleModelEnabled": {
+          // Toggling only changes a persisted flag; the provider model list does
+          // not change, so skip the expensive network refresh.
+          yield* toggle_model_enabled(command.modelId);
+          return yield* buildModelsCatalog(runtime);
         }
         case "listConnections": {
           return yield* buildConnectionsResult(runtime);

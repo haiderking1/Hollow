@@ -18,7 +18,9 @@ interface ChatWorkspaceProps {
   onSend: (text: string) => void
   onAbort: () => void
   onSelectModel: (provider: string, modelId: string, thinkingLevel: string) => void
+  onToggleModelEnabled?: (modelId: string) => void
   onRefreshCatalog?: () => void
+  onOpenSettingsModels?: () => void
 }
 
 export const ChatWorkspace = memo(function ChatWorkspace({
@@ -32,7 +34,9 @@ export const ChatWorkspace = memo(function ChatWorkspace({
   onSend,
   onAbort,
   onSelectModel,
+  onToggleModelEnabled,
   onRefreshCatalog,
+  onOpenSettingsModels,
 }: ChatWorkspaceProps) {
   const showEmpty = messages.length === 0
   const streaming = isStreaming || syncingThread
@@ -43,12 +47,15 @@ export const ChatWorkspace = memo(function ChatWorkspace({
       isStreaming={isStreaming}
       onAbort={onAbort}
       repoStatus={repoStatus}
+      onOpenSettingsModels={onOpenSettingsModels}
       footer={
         <ModelPicker
           catalog={modelCatalog}
           disabled={isStreaming}
           onSelect={onSelectModel}
+          onToggleEnabled={onToggleModelEnabled}
           onRefreshCatalog={onRefreshCatalog}
+          onOpenSettingsModels={onOpenSettingsModels}
         />
       }
     />

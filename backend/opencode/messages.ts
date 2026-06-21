@@ -2,7 +2,7 @@
 
 import { blocks_content, content_blocks, string_content, type content_block, type message, type tool_call } from "./types";
 import { normalize_messages } from "./thinking";
-import { lookup_catalog_model } from "./providers";
+import { supports_images } from "./models";
 
 
 export const tool_incomplete_msg = "Error: tool call was not completed";
@@ -108,17 +108,6 @@ export const repair_tool_messages = (msgs: message[]): message[] => {
 };
 
 export { normalize_messages };
-export const supports_images = (model: string): boolean => {
-  model = model.trim().toLowerCase();
-  const [m, ok] = lookup_catalog_model(model);
-  if (ok) {
-    return !!m.supports_images;
-  }
-  if (model.startsWith("gpt-5")) {
-    return true;
-  }
-  return false;
-};
 
 /*
 PORT STATUS

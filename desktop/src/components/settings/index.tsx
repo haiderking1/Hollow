@@ -1,6 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { X } from "lucide-react"
-import type { AgentModel, AgentSessionInfo, CodexLoginState, ConnectionInfo } from "../../agent/rpc"
+import type {
+  AgentSessionInfo,
+  CodexLoginState,
+  ConnectionInfo,
+  ModelCatalog,
+} from "../../agent/rpc"
 import { SectionHeader } from "./controls"
 import { SettingsNav, type SectionId } from "./nav"
 import type { HollowPrefs, PrefKey } from "./prefs"
@@ -9,6 +14,7 @@ import { Archive } from "./sections/Archive"
 import { Connections } from "./sections/Connections"
 import { General } from "./sections/General"
 import { Keybindings } from "./sections/Keybindings"
+import { Models, type ModelsProps } from "./sections/Models"
 import { Providers, type ProvidersProps } from "./sections/Providers"
 import { SourceControl } from "./sections/SourceControl"
 
@@ -17,14 +23,18 @@ const SECTION_TITLES: Record<SectionId, string> = {
   appearance: "Appearance",
   keybindings: "Keybindings",
   providers: "Providers",
+  models: "Models",
   sourceControl: "Source Control",
   connections: "Connections",
   archive: "Archive",
 }
 
-export interface SettingsPageProps extends ProvidersProps {
+export interface SettingsPageProps extends ProvidersProps, ModelsProps {
   open: boolean
   onClose: () => void
+  initialSection?: SectionId
+  onRefreshCatalog?: () => void
+  onToggleModelEnabled?: (modelId: string) => void
   prefs: HollowPrefs
   onPref: <K extends PrefKey>(key: K, value: HollowPrefs[K]) => void
   hiddenThreads: string[]
@@ -37,8 +47,14 @@ export interface SettingsPageProps extends ProvidersProps {
 export default function SettingsPage({
   open,
   onClose,
+  initialSection,
   prefs,
   onPref,
+  catalog,
+  onSelect,
+  onOpenProviders,
+  onRefreshCatalog,
+  onToggleModelEnabled,
   connections,
   codexLogin,
   settingsError,
@@ -53,7 +69,10 @@ export default function SettingsPage({
   onUnhideThread,
   onArchiveThread,
 }: SettingsPageProps) {
-  const [section, setSection] = useState<SectionId>("general")
+  const [section, setSection] = useState<SectionId>(initialSection ?? "general")
+  useEffect(() => {
+    if (initialSection) setSection(initialSection)
+  }, [initialSection])
   if (!open) return null
 
   return (
@@ -88,6 +107,15 @@ export default function SettingsPage({
                 onRemoveKey={onRemoveKey}
                 onStartCodexLogin={onStartCodexLogin}
                 onCancelCodexLogin={onCancelCodexLogin}
+              />
+            )}
+            {section === "models" && (
+              <Models
+                catalog={catalog}
+                onSelect={onSelect}
+                onToggleEnabled={onToggleModelEnabled}
+                onOpenProviders={() => setSection("providers")}
+                onRefreshCatalog={onRefreshCatalog}
               />
             )}
             {section === "sourceControl" && <SourceControl />}

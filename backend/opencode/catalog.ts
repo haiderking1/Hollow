@@ -6,6 +6,7 @@ import path from "node:path";
 import { home_dir } from "../enoughhome/home";
 import { provider_opencode, provider_opencode_zen, type model_info } from "./providers";
 import { normalize_model } from "./models";
+import { format_thinking_label } from "./thinking";
 import type { json_raw_message } from "./types";
 
 export const models_dev_url = "https://models.dev/api.json";
@@ -252,6 +253,18 @@ export const model_info_from_models_dev = (m: models_dev_model): model_info => {
   };
   if (info.name === "") {
     info.name = title_case_model_id(m.id);
+  }
+  if (m.reasoning_options !== undefined && m.reasoning_options.length > 0) {
+    for (const option of m.reasoning_options) {
+      if (option.values !== undefined && option.values.length > 0) {
+        info.thinking_levels = option.values.map((v) => ({
+          id: v,
+          name: format_thinking_label(v as any),
+        }));
+        info.reasoning = true;
+        break;
+      }
+    }
   }
   return normalize_model(info);
 };

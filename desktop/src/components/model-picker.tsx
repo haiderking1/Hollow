@@ -7,18 +7,23 @@ interface ModelPickerProps {
   catalog: ModelCatalog | null
   disabled?: boolean
   onSelect: (provider: string, modelId: string, thinkingLevel: string) => void
+  onToggleEnabled?: (modelId: string) => void
   onRefreshCatalog?: () => void
+  onOpenSettingsModels?: () => void
 }
 
-// Cursor-style model picker: compact popover with search, toggles, active model
-// row with a checkmark, and an "Add Models" row.
+// Cursor-style model picker using app CSS tokens so it adapts to any theme.
 const C = {
-  muted: "#6e6e78",
-  panelBg: "#1c1c1e",
-  panelBorder: "rgba(255,255,255,0.08)",
+  panelBg: "var(--surface)",
+  panelBorder: "var(--border-strong)",
+  muted: "var(--muted-foreground)",
+  label: "var(--foreground)",
+  activeText: "var(--muted-foreground)",
   hoverBg: "rgba(255,255,255,0.05)",
-  toggleBg: "#2a2a2d",
-  toggleKnob: "#ffffff",
+  divider: "var(--border)",
+  toggleOff: "var(--toggle-off)",
+  toggleOn: "var(--muted-foreground)",
+  toggleKnob: "var(--foreground)",
 }
 
 function speedLabel(model: AgentModel, level: string): string {
@@ -39,13 +44,21 @@ function labelFor(model: AgentModel, level: string): string {
   return `${model.name} ${speedLabel(model, level)}`
 }
 
-export function ModelPicker({ catalog, disabled, onSelect, onRefreshCatalog }: ModelPickerProps) {
+export function ModelPicker({
+  catalog,
+  disabled,
+  onSelect,
+  onToggleEnabled,
+  onRefreshCatalog,
+  onOpenSettingsModels,
+}: ModelPickerProps) {
   const state = catalog?.state
   const providers = catalog?.providers ?? []
   const models = catalog?.models ?? []
 
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const [auto, setAuto] = useState(false)
   const [maxMode, setMaxMode] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -61,9 +74,10 @@ export function ModelPicker({ catalog, disabled, onSelect, onRefreshCatalog }: M
   }, [activeModel, state?.modelName, state?.thinkingLevel])
 
   const filteredModels = useMemo(() => {
+    let list = models.filter((m) => m.enabled !== false)
     const q = query.trim().toLowerCase()
-    if (!q) return models
-    return models.filter(
+    if (!q) return list
+    return list.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
@@ -143,35 +157,32 @@ export function ModelPicker({ catalog, disabled, onSelect, onRefreshCatalog }: M
 
       {open && (
         <div
-          className="absolute bottom-full right-0 z-50 mb-2 w-[260px] overflow-hidden rounded-xl p-2 shadow-2xl"
+          className="absolute bottom-full right-0 z-50 mb-2 w-[260px] overflow-hidden rounded-xl p-1.5 shadow-2xl"
           style={{ background: C.panelBg, border: `1px solid ${C.panelBorder}` }}
         >
-          {/* Search models. */}
-          <div className="flex items-center gap-2 px-2 py-2">
+          {/* Search models header. */}
+          <div className="flex items-center gap-2 px-2 py-1.5">
             <Search size={14} strokeWidth={2} style={{ color: C.muted }} />
             <input
               ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search models"
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none"
+              style={{ color: C.label }}
             />
           </div>
+
+          {/* Auto toggle. */}
+          <Row label="Auto" right={<Toggle checked={auto} onChange={() => setAuto((v) => !v)} />} />
 
           {/* MAX Mode toggle. */}
           <Row
             label="MAX Mode"
-            right={
-              <Toggle
-                checked={maxMode}
-                onChange={() => {
-                  setMaxMode((v) => !v)
-                }}
-              />
-            }
+            right={<Toggle checked={maxMode} onChange={() => setMaxMode((v) => !v)} />}
           />
 
-          <div className="my-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+          <div className="my-1 h-px" style={{ background: C.divider }} />
 
           {/* Active / selectable model rows. */}
           {filteredModels.slice(0, 6).map((model) => {
@@ -181,8 +192,8 @@ export function ModelPicker({ catalog, disabled, onSelect, onRefreshCatalog }: M
                 key={`${model.provider}:${model.id}`}
                 type="button"
                 onClick={() => select(model)}
-                className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-[13px] transition-colors"
-                style={{ color: isActive ? C.muted : "#b8b8be" }}
+                className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors"
+                style={{ color: isActive ? C.activeText : C.label }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLElement).style.background = C.hoverBg
                 }}
@@ -202,18 +213,22 @@ export function ModelPicker({ catalog, disabled, onSelect, onRefreshCatalog }: M
           })}
 
           {filteredModels.length === 0 && (
-            <div className="px-2 py-3 text-[12px]" style={{ color: C.muted }}>
+            <div className="px-2 py-2 text-[12px]" style={{ color: C.muted }}>
               No models found
             </div>
           )}
 
-          <div className="my-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+          <div className="my-1 h-px" style={{ background: C.divider }} />
 
           {/* Add Models row. */}
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[13px] transition-colors"
-            style={{ color: "#b8b8be" }}
+            onClick={() => {
+              setOpen(false)
+              onOpenSettingsModels?.()
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors"
+            style={{ color: C.label }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.background = C.hoverBg
             }}
@@ -232,8 +247,10 @@ export function ModelPicker({ catalog, disabled, onSelect, onRefreshCatalog }: M
 
 function Row({ label, right }: { label: string; right: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-2 py-2">
-      <span className="text-[13px] font-medium" style={{ color: "#b8b8be" }}>{label}</span>
+    <div className="flex items-center justify-between px-2 py-1.5">
+      <span className="text-[13px] font-medium" style={{ color: C.label }}>
+        {label}
+      </span>
       {right}
     </div>
   )
@@ -245,7 +262,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
       type="button"
       onClick={onChange}
       className="relative h-4 w-7 rounded-full transition-colors"
-      style={{ background: checked ? "#4b4b50" : C.toggleBg }}
+      style={{ background: checked ? C.toggleOn : C.toggleOff }}
       aria-checked={checked}
       role="switch"
     >

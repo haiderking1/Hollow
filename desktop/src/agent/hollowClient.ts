@@ -374,6 +374,12 @@ class HollowClient {
           thinkingLevel: commandText(command, "thinkingLevel"),
         })
         break
+      case "toggle_model_enabled":
+        this.dispatch({
+          type: "toggleModelEnabled",
+          modelId: commandText(command, "modelId"),
+        })
+        break
       case "list_connections":
         this.dispatchSettings({ type: "listConnections" }, "list_connections")
         break

@@ -37,6 +37,8 @@ export interface AgentModel {
   reasoning?: boolean
   thinkingLevels?: string[]
   thinkingLevelLabels?: string[]
+  /** Whether this model is enabled in the composer/model picker. */
+  enabled?: boolean
 }
 
 export interface ModelSelectionState {

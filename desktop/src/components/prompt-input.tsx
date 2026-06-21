@@ -17,6 +17,8 @@ interface PromptInputProps {
   repoStatus?: RepoStatus | null
   /** Inline controls rendered inside the input row, left of the send/mic button. */
   footer?: ReactNode
+  /** Open Settings → Models from the model picker "Add Models" row. */
+  onOpenSettingsModels?: () => void
 }
 
 // ── Cursor composer (real screenshot) ─────────────────────────────────────────
@@ -47,6 +49,7 @@ export function PromptInput({
   onAbort,
   repoStatus,
   footer,
+  onOpenSettingsModels,
 }: PromptInputProps) {
   const [value, setValue] = useState("")
   const taRef = useRef<HTMLTextAreaElement>(null)

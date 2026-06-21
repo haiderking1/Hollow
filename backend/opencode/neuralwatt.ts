@@ -1,31 +1,6 @@
 // PORT: mirrors backend/opencode/neuralwatt.go
 
 import { Effect } from "effect";
-import { type model_info } from "./providers";
-import { normalize_model } from "./models";
-import { title_case_model_id } from "./catalog";
-
-export const neuralwatt_known_models: Record<string, model_info> = {
-  "glm-5.2": { id: "glm-5.2", name: "GLM-5.2", context_window: 1_048_576, reasoning: true },
-};
-
-export const neuralwatt_model_order = ["glm-5.2"];
-
-export const neuralwatt_models = (): model_info[] => {
-  const out: model_info[] = [];
-  for (const id of neuralwatt_model_order) {
-    const known = neuralwatt_known_models[id];
-    const m = known ?? { id, name: title_case_model_id(id), reasoning: true, context_window: 128_000 };
-    out.push(normalize_model(m));
-  }
-  return out;
-};
-
-export const merge_neuralwatt_model = (id: string): model_info => {
-  const known = neuralwatt_known_models[id];
-  if (known !== undefined) return normalize_model(known);
-  return normalize_model({ id, name: title_case_model_id(id), reasoning: true, context_window: 1_048_576 });
-};
 
 export type neuralwatt_quota_response = {
   balance: { accounting_method: string };

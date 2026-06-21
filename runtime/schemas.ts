@@ -64,6 +64,12 @@ export const ListModels = Schema.Struct({
 });
 export type ListModels = Schema.Schema.Type<typeof ListModels>;
 
+export const ToggleModelEnabled = Schema.Struct({
+  type: Schema.Literal("toggleModelEnabled"),
+  modelId: Schema.String,
+});
+export type ToggleModelEnabled = Schema.Schema.Type<typeof ToggleModelEnabled>;
+
 // One provider's connection state, surfaced to the Settings panel.
 export const ConnectionInfo = Schema.Struct({
   provider: Schema.String, // provider id (e.g. "opencode-go")
@@ -118,6 +124,7 @@ export const DesktopCommand = Schema.Union(
   Interrupt,
   SetModel,
   ListModels,
+  ToggleModelEnabled,
   ListConnections,
   SetApiKey,
   RemoveKey,

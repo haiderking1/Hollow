@@ -24,6 +24,7 @@ import {
 import { bumpZoom, initZoom, resetZoom, ZOOM_STEP } from "./lib/zoom"
 import { applyTheme } from "./components/settings/themes"
 import { loadPrefs, savePrefs, type HollowPrefs, type PrefKey } from "./components/settings/prefs"
+import type { SectionId } from "./components/settings/nav"
 
 const send = (command: Record<string, unknown>) => hollowAgent.send(command)
 
@@ -75,6 +76,7 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [terminalOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SectionId | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   // Settings: provider connection state + Codex login flow + in-panel errors.
@@ -599,6 +601,10 @@ export default function App() {
     send({ type: "get_model_catalog" })
   }, [])
 
+  const handleToggleModelEnabled = useCallback((modelId: string) => {
+    send({ type: "toggle_model_enabled", modelId })
+  }, [])
+
   // Refresh connection state whenever the Settings panel opens; clear any stale error.
   useEffect(() => {
     if (settingsOpen) {
@@ -632,6 +638,16 @@ export default function App() {
       savePrefs(next)
       return next
     })
+  }, [])
+
+  const handleOpenSettingsModels = useCallback(() => {
+    setSettingsSection("models")
+    setSettingsOpen(true)
+  }, [])
+
+  const handleCloseSettings = useCallback(() => {
+    setSettingsOpen(false)
+    setSettingsSection(null)
   }, [])
 
   // Restore a hidden thread to the sidebar.
@@ -725,7 +741,9 @@ export default function App() {
             onSend={handleSend}
             onAbort={handleAbort}
             onSelectModel={handleSelectModel}
+            onToggleModelEnabled={handleToggleModelEnabled}
             onRefreshCatalog={handleRefreshCatalog}
+            onOpenSettingsModels={handleOpenSettingsModels}
           />
           <TerminalPanel open={terminalOpen} />
         </div>
@@ -733,7 +751,15 @@ export default function App() {
 
       <SettingsPage
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={handleCloseSettings}
+        initialSection={settingsSection ?? undefined}
+        catalog={modelCatalog}
+        onSelect={handleSelectModel}
+        onToggleModelEnabled={handleToggleModelEnabled}
+        onOpenProviders={() => {
+          send({ type: "list_connections" })
+          setSettingsSection("providers")
+        }}
         connections={connections}
         codexLogin={codexLogin}
         settingsError={settingsError}
@@ -744,6 +770,7 @@ export default function App() {
         onCancelCodexLogin={handleCancelCodexLogin}
         prefs={prefs}
         onPref={updatePref}
+        onRefreshCatalog={handleRefreshCatalog}
         hiddenThreads={hiddenThreads}
         sessions={sessionList}
         threadAliases={threadAliases}

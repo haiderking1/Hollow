@@ -7,6 +7,7 @@ import {
   Link2,
   Palette,
   SlidersHorizontal,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "../../lib/utils"
@@ -17,6 +18,7 @@ export type SectionId =
   | "appearance"
   | "keybindings"
   | "providers"
+  | "models"
   | "sourceControl"
   | "connections"
   | "archive"
@@ -32,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "keybindings", label: "Keybindings", icon: Keyboard },
   { id: "providers", label: "Providers", icon: Cpu },
+  { id: "models", label: "Models", icon: Sparkles },
   { id: "sourceControl", label: "Source Control", icon: GitBranch },
   { id: "connections", label: "Connections", icon: Link2 },
   { id: "archive", label: "Archive", icon: Archive },

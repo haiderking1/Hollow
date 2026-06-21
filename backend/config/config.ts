@@ -119,6 +119,8 @@ export type config = {
   model: string;
   thinking_level?: string;
   hide_thinking?: boolean;
+  /** Model ids explicitly disabled in the composer/model picker. Persisted across sessions. */
+  disabled_models?: string[];
   compaction?: compaction_settings;
   evidence?: evidence_config;
   skills?: skills_settings;
@@ -264,6 +266,7 @@ type file_config = {
   model: string;
   thinking_level?: string;
   hide_thinking?: boolean;
+  disabled_models?: string[];
   api_key?: string;
   compaction?: compaction_settings;
   evidence?: evidence_config;
@@ -326,6 +329,7 @@ const apply_file_config = (cfg: config, raw: file_config): config => {
   c.model = raw.model ?? c.model;
   c.thinking_level = raw.thinking_level ?? c.thinking_level;
   c.hide_thinking = raw.hide_thinking ?? c.hide_thinking;
+  c.disabled_models = raw.disabled_models ?? c.disabled_models;
   c.api_key_legacy = raw.api_key ?? c.api_key_legacy;
   c.shell_path = raw.shell_path ?? c.shell_path;
   if (raw.compaction !== undefined) c.compaction = raw.compaction;
@@ -414,6 +418,7 @@ export const save = (cfg: config): Effect.Effect<void, config_error_type> =>
       model: c.model,
       thinking_level: c.thinking_level,
       hide_thinking: c.hide_thinking,
+      disabled_models: c.disabled_models,
       compaction: c.compaction,
       evidence: c.evidence,
       skills: c.skills,

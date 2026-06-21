@@ -27,37 +27,17 @@ export const model_providers = (): provider_info[] => [
   { id: provider_codex, name: "OpenAI Codex" },
 ];
 
-export const codex_model_order = ["gpt-5.5", "gpt-5.4-mini", "gpt-5.4", "gpt-5.3-codex", "gpt-5.3-codex-spark", "gpt-5-codex"];
-
-export const codex_known_models: Record<string, model_info> = {
-  "gpt-5.5": { id: "gpt-5.5", name: "GPT-5.5", context_window: 272_000, reasoning: true, supports_images: true },
-  "gpt-5.4-mini": { id: "gpt-5.4-mini", name: "GPT-5.4 Mini", context_window: 272_000, reasoning: true, supports_images: true },
-  "gpt-5.4": { id: "gpt-5.4", name: "GPT-5.4", context_window: 272_000, reasoning: true, supports_images: true },
-  "gpt-5.3-codex": { id: "gpt-5.3-codex", name: "GPT-5.3 Codex", context_window: 272_000, reasoning: true, supports_images: true },
-  "gpt-5.3-codex-spark": { id: "gpt-5.3-codex-spark", name: "GPT-5.3 Codex Spark", context_window: 128_000, reasoning: true, supports_images: true },
-  "gpt-5-codex": { id: "gpt-5-codex", name: "GPT-5 Codex", context_window: 272_000, reasoning: true, supports_images: true },
-};
-
 import {
-  normalize_model,
+  resolve_model,
+  codex_fallback_ids,
+} from "./model_resolver";
+import {
   sort_models,
   fallback_models,
-  lookup_model
 } from "./models";
-import {
-  catalog_model_for_provider,
-  title_case_model_id
-} from "./catalog";
-
 
 export const codex_models = (): model_info[] => {
-  const out: model_info[] = [];
-  for (const id of codex_model_order) {
-    const known = codex_known_models[id];
-    const m = known ?? { id, name: id, reasoning: true, context_window: 272_000 };
-    out.push(normalize_model({ ...m, thinking_levels: [...default_reasoning_levels] }));
-  }
-  return out;
+  return codex_fallback_ids.map((id) => resolve_model(id, provider_codex));
 };
 
 export type registry_like = {
@@ -93,8 +73,14 @@ export const models_for_provider = (provider: string, registry: registry_like | 
 };
 
 export const lookup_catalog_model = (id: string): [model_info, boolean] => {
-  let res = lookup_model(id); if (res[1]) return res;
-  res = catalog_model_for_provider(provider_opencode_zen, id); if (res[1]) return res;
+  const clean = id.trim();
+  if (clean === "") {
+    return [{ id: "", name: "", context_window: 0, reasoning: false }, false];
+  }
+  const m = resolve_model(clean, provider_opencode);
+  if (m.id !== "") {
+    return [m, true];
+  }
   return [{ id: "", name: "", context_window: 0, reasoning: false }, false];
 };
 

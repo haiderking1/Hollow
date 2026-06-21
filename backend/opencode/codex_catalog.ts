@@ -2,25 +2,15 @@
 
 import { Effect } from "effect";
 import { codex_cloudflare_headers } from "../auth/codex_headers";
-import { codex_models, codex_known_models, default_reasoning_levels, type model_info } from "./providers";
+import { codex_models, default_reasoning_levels, type model_info, provider_codex } from "./providers";
 import { normalize_model } from "./models";
+import { infer_context_window } from "./model_resolver";
+import { title_case_model_id } from "./catalog";
 
 export let codex_models_url = "https://chatgpt.com/backend-api/codex/models?client_version=1.0.0";
 
-// codexContextFallback mirrors Hermes' verified Codex OAuth limits (Apr 2026).
-export const codex_context_fallback: Record<string, number> = {
-  "gpt-5.5": 272_000,
-  "gpt-5.4": 272_000,
-  "gpt-5.4-mini": 272_000,
-  "gpt-5.3-codex": 272_000,
-  "gpt-5.3-codex-spark": 128_000,
-  "gpt-5-codex": 272_000,
-};
-
 export type codex_models_response = { models: codex_model_entry[] };
 export type codex_model_entry = { slug: string; title: string; context_window: number; visibility: string; priority: number };
-
-export const codex_context_fallback_for = (model_id: string): number => codex_context_fallback[model_id] ?? 272_000;
 
 // FetchCodexModels loads the live Codex model catalog with context windows.
 export const fetch_codex_models = (ctx: AbortSignal | undefined, access_token: string): Effect.Effect<model_info[], Error> =>
@@ -39,9 +29,9 @@ export const fetch_codex_models = (ctx: AbortSignal | undefined, access_token: s
         const vis = entry.visibility.trim().toLowerCase();
         if (vis === "hide" || vis === "hidden") continue;
         let name = entry.title.trim();
-        if (name === "") name = codex_known_models[slug]?.name ?? slug;
+        if (name === "") name = title_case_model_id(slug);
         let ctx_window = entry.context_window;
-        if (ctx_window <= 0) ctx_window = codex_context_fallback_for(slug);
+        if (ctx_window <= 0) ctx_window = infer_context_window(slug, provider_codex);
         const m = normalize_model({ id: slug, name, context_window: ctx_window, reasoning: true, thinking_levels: [...default_reasoning_levels] });
         const rank = entry.priority > 0 ? entry.priority : 10_000;
         sortable.push({ rank, m });

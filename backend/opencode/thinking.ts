@@ -102,7 +102,9 @@ export const supported_thinking_levels = (model: string): thinking_level_val[] =
   if (model_lower.includes("deepseek-v4")) {
     return [...deepseek_v4_flash_levels];
   }
-  return ["low", "medium", "high"];
+  // Unknown models: do not assume thinking support. The resolver will still
+  // flag well-known families above, and users can override via ~/.hollow/models.json.
+  return [];
 };
 
 export const cycle_thinking_level = (current: thinking_level_val, model: string): thinking_level_val => {
