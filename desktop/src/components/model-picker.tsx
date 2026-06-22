@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, ChevronDown, Plus, Search } from "lucide-react"
+import { ArrowLeft, Check, ChevronDown, Plus, Search } from "lucide-react"
 import type { AgentModel, ModelCatalog } from "../agent/rpc"
-import { formatThinkingBadge } from "../lib/thinking"
 
 interface ModelPickerProps {
   catalog: ModelCatalog | null
@@ -26,22 +25,8 @@ const C = {
   toggleKnob: "var(--foreground)",
 }
 
-function speedLabel(model: AgentModel, level: string): string {
-  const badge = formatThinkingBadge(model, level)
-  const tiers: Record<string, string> = {
-    off: "Fast",
-    minimal: "Fast",
-    low: "Fast",
-    medium: "Balanced",
-    high: "Slow",
-    xhigh: "Slow",
-    max: "Slow",
-  }
-  return tiers[badge.toLowerCase()] ?? "Fast"
-}
-
-function labelFor(model: AgentModel, level: string): string {
-  return `${model.name} ${speedLabel(model, level)}`
+function labelFor(model: AgentModel): string {
+  return model.name
 }
 
 export function ModelPicker({
@@ -60,6 +45,7 @@ export function ModelPicker({
   const [query, setQuery] = useState("")
   const [auto, setAuto] = useState(false)
   const [maxMode, setMaxMode] = useState(false)
+  const [editingModel, setEditingModel] = useState<AgentModel | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -70,8 +56,8 @@ export function ModelPicker({
 
   const activeLabel = useMemo(() => {
     if (!activeModel) return state?.modelName ?? "Model"
-    return labelFor(activeModel, state?.thinkingLevel ?? "")
-  }, [activeModel, state?.modelName, state?.thinkingLevel])
+    return labelFor(activeModel)
+  }, [activeModel, state?.modelName])
 
   const filteredModels = useMemo(() => {
     let list = models.filter((m) => m.enabled !== false)
@@ -91,6 +77,12 @@ export function ModelPicker({
     const t = window.setTimeout(() => searchRef.current?.focus(), 30)
     return () => window.clearTimeout(t)
   }, [open, onRefreshCatalog])
+
+  useEffect(() => {
+    if (!open) {
+      setEditingModel(null)
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -130,7 +122,7 @@ export function ModelPicker({
         className="inline-flex items-center gap-1 text-[13px] font-medium leading-none"
         style={{ color: C.muted }}
       >
-        <span>Model Fast</span>
+        <span>Model</span>
         <ChevronDown size={12} strokeWidth={2} style={{ color: C.muted }} />
       </button>
     )
@@ -160,40 +152,139 @@ export function ModelPicker({
           className="absolute bottom-full right-0 z-50 mb-2 w-[260px] overflow-hidden rounded-xl p-1.5 shadow-2xl"
           style={{ background: C.panelBg, border: `1px solid ${C.panelBorder}` }}
         >
-          {/* Search models header. */}
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <Search size={14} strokeWidth={2} style={{ color: C.muted }} />
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search models"
-              className="min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none"
-              style={{ color: C.label }}
-            />
-          </div>
+          {editingModel ? (
+            <div className="flex flex-col">
+              {/* Back & Title Header */}
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingModel(null)}
+                  className="flex h-5 w-5 items-center justify-center rounded-md hover:bg-white/[0.08] transition-colors"
+                >
+                  <ArrowLeft size={14} />
+                </button>
+                <span className="text-[12px] font-semibold opacity-70 truncate">
+                  Thinking Mode: {editingModel.name}
+                </span>
+              </div>
+              
+              <div className="my-1 h-px" style={{ background: C.divider }} />
 
-          {/* Auto toggle. */}
-          <Row label="Auto" right={<Toggle checked={auto} onChange={() => setAuto((v) => !v)} />} />
+              {/* List of levels */}
+              {editingModel.thinkingLevels?.map((level) => {
+                const isCurrent = state?.thinkingLevel === level && state?.modelId === editingModel.id && state?.provider === editingModel.provider
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => {
+                      onSelect(editingModel.provider, editingModel.id, level)
+                      setOpen(false)
+                      setEditingModel(null)
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors"
+                    style={{ color: isCurrent ? C.activeText : C.label }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = C.hoverBg
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = "transparent"
+                    }}
+                  >
+                    <span className="font-medium capitalize">{level}</span>
+                    {isCurrent && <Check size={12} strokeWidth={2.5} style={{ color: C.muted }} />}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <>
+              {/* Search models header. */}
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Search size={14} strokeWidth={2} style={{ color: C.muted }} />
+                <input
+                  ref={searchRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search models"
+                  className="min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none"
+                  style={{ color: C.label }}
+                />
+              </div>
 
-          {/* MAX Mode toggle. */}
-          <Row
-            label="MAX Mode"
-            right={<Toggle checked={maxMode} onChange={() => setMaxMode((v) => !v)} />}
-          />
+              {/* Auto toggle. */}
+              <Row label="Auto" right={<Toggle checked={auto} onChange={() => setAuto((v) => !v)} />} />
 
-          <div className="my-1 h-px" style={{ background: C.divider }} />
+              {/* MAX Mode toggle. */}
+              <Row
+                label="MAX Mode"
+                right={<Toggle checked={maxMode} onChange={() => setMaxMode((v) => !v)} />}
+              />
 
-          {/* Active / selectable model rows. */}
-          {filteredModels.slice(0, 6).map((model) => {
-            const isActive = model.id === state?.modelId && model.provider === state?.provider
-            return (
+              <div className="my-1 h-px" style={{ background: C.divider }} />
+
+              {/* Active / selectable model rows. */}
+              {filteredModels.slice(0, 6).map((model) => {
+                const isActive = model.id === state?.modelId && model.provider === state?.provider
+                const supportsThinking = model.thinkingLevels && model.thinkingLevels.length > 0
+                return (
+                  <div
+                    key={`${model.provider}:${model.id}`}
+                    className="flex w-full items-center justify-between rounded-lg px-1 transition-colors"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = C.hoverBg
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent"
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => select(model)}
+                      className="flex-1 px-1 py-1.5 text-left text-[13px] transition-colors"
+                      style={{ color: isActive ? C.activeText : C.label }}
+                    >
+                      <span className="font-medium">{labelFor(model)}</span>
+                    </button>
+                    {isActive && supportsThinking ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingModel(model)
+                        }}
+                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] hover:bg-white/[0.12] transition-colors"
+                        style={{ color: C.muted }}
+                      >
+                        <span>Edit</span>
+                        <Check size={12} strokeWidth={2.5} style={{ color: C.muted }} />
+                      </button>
+                    ) : isActive ? (
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 text-[11px]" style={{ color: C.muted }}>
+                        <Check size={12} strokeWidth={2.5} style={{ color: C.muted }} />
+                      </span>
+                    ) : null}
+                  </div>
+                )
+              })}
+
+              {filteredModels.length === 0 && (
+                <div className="px-2 py-2 text-[12px]" style={{ color: C.muted }}>
+                  No models found
+                </div>
+              )}
+
+              <div className="my-1 h-px" style={{ background: C.divider }} />
+
+              {/* Add Models row. */}
               <button
-                key={`${model.provider}:${model.id}`}
                 type="button"
-                onClick={() => select(model)}
-                className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors"
-                style={{ color: isActive ? C.activeText : C.label }}
+                onClick={() => {
+                  setOpen(false)
+                  onOpenSettingsModels?.()
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors"
+                style={{ color: C.label }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLElement).style.background = C.hoverBg
                 }}
@@ -201,44 +292,11 @@ export function ModelPicker({
                   (e.currentTarget as HTMLElement).style.background = "transparent"
                 }}
               >
-                <span className="font-medium">{labelFor(model, state?.thinkingLevel ?? "")}</span>
-                {isActive ? (
-                  <span className="flex items-center gap-1 text-[11px]" style={{ color: C.muted }}>
-                    Edit
-                    <Check size={12} strokeWidth={2.5} style={{ color: C.muted }} />
-                  </span>
-                ) : null}
+                <Plus size={14} strokeWidth={2} style={{ color: C.muted }} />
+                <span className="font-medium">Add Models</span>
               </button>
-            )
-          })}
-
-          {filteredModels.length === 0 && (
-            <div className="px-2 py-2 text-[12px]" style={{ color: C.muted }}>
-              No models found
-            </div>
+            </>
           )}
-
-          <div className="my-1 h-px" style={{ background: C.divider }} />
-
-          {/* Add Models row. */}
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false)
-              onOpenSettingsModels?.()
-            }}
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors"
-            style={{ color: C.label }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = C.hoverBg
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "transparent"
-            }}
-          >
-            <Plus size={14} strokeWidth={2} style={{ color: C.muted }} />
-            <span className="font-medium">Add Models</span>
-          </button>
         </div>
       )}
     </div>

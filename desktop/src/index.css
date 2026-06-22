@@ -131,7 +131,14 @@ body {
 
 .composer-textarea {
   field-sizing: content;
+  width: 100%;
   min-height: 28px;
   max-height: 180px;
   resize: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.composer-textarea::-webkit-scrollbar {
+  display: none;
 }

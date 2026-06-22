@@ -2,7 +2,6 @@ import { useMemo, useState } from "react"
 import { ExternalLink, RefreshCw, Search, Sparkles } from "lucide-react"
 import type { AgentModel, ModelCatalog } from "../../../agent/rpc"
 import { cn } from "../../../lib/utils"
-import { formatThinkingBadge } from "../../../lib/thinking"
 import { EmptyState, SectionHeader, SettingsCard } from "../controls"
 import OpenCodeIcon from "../../../assets/icons/OpenCode_dark.svg"
 import OpenAIIcon from "../../../assets/icons/OpenAI_dark.svg"
@@ -14,24 +13,6 @@ export interface ModelsProps {
   onToggleEnabled?: (modelId: string) => void
   onOpenProviders?: () => void
   onRefreshCatalog?: () => void
-}
-
-function speedLabel(model: AgentModel, level: string): string {
-  const badge = formatThinkingBadge(model, level)
-  const tiers: Record<string, string> = {
-    off: "Fast",
-    minimal: "Fast",
-    low: "Fast",
-    medium: "Balanced",
-    high: "Slow",
-    xhigh: "Slow",
-    max: "Slow",
-  }
-  return tiers[badge.toLowerCase()] ?? "Fast"
-}
-
-function labelFor(model: AgentModel, level: string): string {
-  return `${model.name} ${speedLabel(model, level)}`
 }
 
 function providerIcon(provider: string): string | null {
