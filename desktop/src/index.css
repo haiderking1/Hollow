@@ -128,3 +128,10 @@ body {
 .animate-caret {
   animation: caret-blink 1s step-end infinite;
 }
+
+.composer-textarea {
+  field-sizing: content;
+  min-height: 28px;
+  max-height: 180px;
+  resize: none;
+}

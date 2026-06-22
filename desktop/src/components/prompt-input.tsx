@@ -87,46 +87,12 @@ export function PromptInput({
     setValue("")
   }
 
-  useEffect(() => {
-    const el = taRef.current
-    if (!el) return
-    el.style.height = "20px"
-  }, [value])
 
   const inRepo = !!repoStatus && repoStatus.branch !== ""
   const changes = repoStatus ?? { added: 0, removed: 0, contextPct: 0 }
 
   return (
     <div className="relative w-full">
-      {/* Autocomplete slash command popover menu */}
-      {showSlashMenu && filteredCommands.length > 0 && (
-        <div 
-          className="absolute bottom-[54px] left-2 right-2 z-50 overflow-hidden rounded-xl border border-white/[0.08] bg-black/85 backdrop-blur-xl shadow-2xl transition-all"
-        >
-          <div className="max-h-60 overflow-y-auto p-1.5">
-            {filteredCommands.map((cmd, idx) => {
-              const active = idx === selectedIndex
-              return (
-                <button
-                  key={cmd.name}
-                  type="button"
-                  onClick={() => setValue(cmd.name + " ")}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors ${
-                    active ? "bg-white/[0.08] text-white" : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
-                  }`}
-                >
-                  <div className="flex flex-col">
-                    <span className="text-[14px] font-semibold font-mono">{cmd.name}</span>
-                    <span className="text-[12px] opacity-70 mt-0.5">{cmd.desc}</span>
-                  </div>
-                  <span className="text-[11px] font-mono opacity-50 px-2 py-0.5 rounded bg-white/[0.05]">{cmd.usage}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Top: Changes pill + Commit & Push (git repos only). */}
       {inRepo && (
         <div className="flex items-center gap-2 px-1 pb-2">
@@ -156,80 +122,111 @@ export function PromptInput({
         </div>
       )}
 
-      {/* The composer IS this single rounded row. No outer card. */}
-      <div
-        className="flex items-center gap-2 rounded-full px-2"
-        style={{ background: C.rowBg, border: `1px solid ${C.rowBorder}`, height: 42 }}
-      >
-        {/* Plus attachment. */}
-        <button
-          type="button"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
-          style={{ color: C.toolIcon }}
-          aria-label="Add attachment"
+      <div className="relative">
+        {/* Autocomplete slash command popover menu */}
+        {showSlashMenu && filteredCommands.length > 0 && (
+          <div 
+            className="absolute bottom-full left-2 right-2 z-50 mb-3 overflow-hidden rounded-xl border border-white/[0.08] bg-black/85 backdrop-blur-xl shadow-2xl transition-all"
+          >
+            <div className="max-h-60 overflow-y-auto p-1.5">
+              {filteredCommands.map((cmd, idx) => {
+                const active = idx === selectedIndex
+                return (
+                  <button
+                    key={cmd.name}
+                    type="button"
+                    onClick={() => setValue(cmd.name + " ")}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors ${
+                      active ? "bg-white/[0.08] text-white" : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-semibold font-mono">{cmd.name}</span>
+                      <span className="text-[12px] opacity-70 mt-0.5">{cmd.desc}</span>
+                    </div>
+                    <span className="text-[11px] font-mono opacity-50 px-2 py-0.5 rounded bg-white/[0.05]">{cmd.usage}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* The composer IS this single rounded row. No outer card. */}
+        <div
+          className="flex items-end gap-2 rounded-[22px] px-3 py-[7px]"
+          style={{ background: C.rowBg, border: `1px solid ${C.rowBorder}`, minHeight: 42 }}
         >
-          <Plus size={16} strokeWidth={2} />
-        </button>
+          {/* Plus attachment. */}
+          <button
+            type="button"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+            style={{ color: C.toolIcon }}
+            aria-label="Add attachment"
+          >
+            <Plus size={16} strokeWidth={2} />
+          </button>
 
-        <textarea
-          ref={taRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (showSlashMenu && filteredCommands.length > 0) {
-              if (e.key === "ArrowDown") {
-                e.preventDefault()
-                setSelectedIndex((prev) => (prev + 1) % filteredCommands.length)
-                return
+          <textarea
+            ref={taRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (showSlashMenu && filteredCommands.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault()
+                  setSelectedIndex((prev) => (prev + 1) % filteredCommands.length)
+                  return
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault()
+                  setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length)
+                  return
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault()
+                  const selected = filteredCommands[selectedIndex]
+                  setValue(selected.name + " ")
+                  return
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault()
+                  setValue("")
+                  return
+                }
               }
-              if (e.key === "ArrowUp") {
-                e.preventDefault()
-                setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length)
-                return
-              }
-              if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault()
-                const selected = filteredCommands[selectedIndex]
-                setValue(selected.name + " ")
-                return
-              }
-              if (e.key === "Escape") {
-                e.preventDefault()
-                setValue("")
-                return
-              }
-            }
 
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault()
-              submit()
-            }
-          }}
-          rows={1}
-          placeholder="Send follow-up"
-          className="min-w-0 flex-1 resize-none bg-transparent px-1 text-[15px] leading-tight outline-none"
-          style={{ color: C.text, caretColor: C.text, height: 22 }}
-        />
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                submit()
+              }
+            }}
+            rows={1}
+            placeholder="Send follow-up"
+            className="composer-textarea min-w-0 flex-1 bg-transparent px-1 py-[3px] text-[15px] leading-[22px] outline-none"
+            style={{ color: C.text, caretColor: C.text }}
+          />
 
-        {footer}
+          {footer && <div className="flex h-7 items-center">{footer}</div>}
 
-        {/* Stop / Send / Mic — always the same light circle. */}
-        <button
-          type="button"
-          onClick={isStreaming ? () => onAbort?.() : submit}
-          disabled={!isStreaming && !hasText}
-          title={isStreaming ? "Stop" : hasText ? "Send" : "Voice input"}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-60"
-          style={{ background: C.actionBg }}
-        >
-          {isStreaming ? (
-            <Square size={11} fill={C.actionFg} stroke="none" />
-          ) : hasText ? (
-            <ArrowUp size={14} stroke={C.actionFg} strokeWidth={2.5} />
-          ) : (
-            <Mic size={14} stroke={C.actionFg} strokeWidth={2} />
-          )}
-        </button>
+          {/* Stop / Send / Mic — always the same light circle. */}
+          <button
+            type="button"
+            onClick={isStreaming ? () => onAbort?.() : submit}
+            disabled={!isStreaming && !hasText}
+            title={isStreaming ? "Stop" : hasText ? "Send" : "Voice input"}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-60"
+            style={{ background: C.actionBg }}
+          >
+            {isStreaming ? (
+              <Square size={11} fill={C.actionFg} stroke="none" />
+            ) : hasText ? (
+              <ArrowUp size={14} stroke={C.actionFg} strokeWidth={2.5} />
+            ) : (
+              <Mic size={14} stroke={C.actionFg} strokeWidth={2} />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Status row — plain text under the composer. */}
