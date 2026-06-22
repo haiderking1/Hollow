@@ -74,6 +74,7 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
+  const [loopStatus, setLoopStatus] = useState<{ active: boolean; iteration: number; maxIterations: number; task: string } | null>(null)
   const [terminalOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SectionId | null>(null)
@@ -302,6 +303,15 @@ export default function App() {
           refreshSessionList()
           break
         }
+        case "loop_status": {
+          setLoopStatus({
+            active: event.active,
+            iteration: event.iteration,
+            maxIterations: event.maxIterations,
+            task: event.task,
+          })
+          break
+        }
         case "response": {
           if (!event.success) break
           switch (event.command) {
@@ -461,6 +471,7 @@ export default function App() {
   const handleSelectSession = useCallback(
     (info: AgentSessionInfo) => {
       if (info.id === currentSessionId) return
+      setLoopStatus(null)
       stashMessagesInCache(currentSessionId)
       streamingIdRef.current = null
       setCurrentSessionId(info.id)
@@ -484,6 +495,7 @@ export default function App() {
   // Start a fresh thread inside a given project (new_session takes the cwd).
   const handleNewThread = useCallback((cwd: string) => {
     stashMessagesInCache(currentSessionId)
+    setLoopStatus(null)
     streamingIdRef.current = null
     setCurrentSessionId(null)
     setProjectCwd(cwd)
@@ -738,6 +750,7 @@ export default function App() {
             isStreaming={isStreaming}
             syncingThread={syncingThread}
             repoStatus={repoStatus}
+            loopStatus={loopStatus}
             onSend={handleSend}
             onAbort={handleAbort}
             onSelectModel={handleSelectModel}

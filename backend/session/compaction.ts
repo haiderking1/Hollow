@@ -273,6 +273,57 @@ export const generate_turn_prefix_summary = (
   );
 };
 
+const get_message_from_entry = (entry: file_entry): message | null => {
+  switch (entry.type) {
+    case type_message:
+      if (!entry.message) {
+        return null;
+      }
+      return entry.message;
+    case type_custom_message:
+      if (entry.content !== undefined && entry.content !== null) {
+        let contentStr = "";
+        if (typeof entry.content === "string") {
+          contentStr = entry.content;
+        } else {
+          try {
+            contentStr = JSON.stringify(entry.content);
+          } catch {}
+        }
+        return {
+          role: "user",
+          content: string_content(contentStr),
+        };
+      }
+      return null;
+    case type_branch_summary:
+      if (entry.summary !== undefined && entry.summary !== "") {
+        return {
+          role: "branchSummary",
+          content: string_content(entry.summary),
+          tool_call_id: entry.fromId || "",
+        };
+      }
+      return null;
+    case type_compaction:
+      if (entry.summary !== undefined && entry.summary !== "") {
+        return {
+          role: "compactionSummary",
+          content: string_content(entry.summary),
+        };
+      }
+      return null;
+  }
+  return null;
+};
+
+const get_message_from_entry_for_compaction = (entry: file_entry): message | null => {
+  if (entry.type === type_compaction) {
+    return null;
+  }
+  return get_message_from_entry(entry);
+};
+
 export const prepare_compaction = (
   pathEntries: file_entry[],
   settings: compaction_settings,
@@ -336,9 +387,9 @@ export const prepare_compaction = (
   // Messages to summarize (will be discarded after summary)
   const messagesToSummarize: message[] = [];
   for (let i = boundaryStart; i < historyEnd; i++) {
-    const entry = pathEntries[i];
-    if (entry.type === type_message && entry.message) {
-      messagesToSummarize.push(entry.message);
+    const msg = get_message_from_entry_for_compaction(pathEntries[i]);
+    if (msg) {
+      messagesToSummarize.push(msg);
     }
   }
 
@@ -346,9 +397,9 @@ export const prepare_compaction = (
   const turnPrefixMessages: message[] = [];
   if (cutPoint.isSplitTurn) {
     for (let i = cutPoint.turnStartIndex; i < cutPoint.firstKeptEntryIndex; i++) {
-      const entry = pathEntries[i];
-      if (entry.type === type_message && entry.message) {
-        turnPrefixMessages.push(entry.message);
+      const msg = get_message_from_entry_for_compaction(pathEntries[i]);
+      if (msg) {
+        turnPrefixMessages.push(msg);
       }
     }
   }

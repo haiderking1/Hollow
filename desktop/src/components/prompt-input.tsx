@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, useMemo, type ReactNode } from "react"
 import {
   ArrowUp,
   ChevronDown,
@@ -15,6 +15,7 @@ interface PromptInputProps {
   isStreaming?: boolean
   onAbort?: () => void
   repoStatus?: RepoStatus | null
+  loopStatus?: { active: boolean; iteration: number; maxIterations: number; task: string } | null
   /** Inline controls rendered inside the input row, left of the send/mic button. */
   footer?: ReactNode
   /** Open Settings → Models from the model picker "Add Models" row. */
@@ -43,17 +44,41 @@ const C = {
   ringFill: "var(--muted-foreground)",
 }
 
+const COMMANDS = [
+  { name: "/loop", desc: "Run agent in a continuous outer-loop", usage: "/loop <task> [--max N]" },
+  { name: "/loop-cancel", desc: "Cancel the active loop run", usage: "/loop-cancel" },
+  { name: "/new", desc: "Start a fresh chat session in current directory", usage: "/new" },
+  { name: "/skills", desc: "List discovered skills", usage: "/skills" },
+  { name: "/workflows", desc: "List dynamic workflow runs", usage: "/workflows" },
+]
+
 export function PromptInput({
   onSend,
   isStreaming,
   onAbort,
   repoStatus,
+  loopStatus,
   footer,
   onOpenSettingsModels,
 }: PromptInputProps) {
   const [value, setValue] = useState("")
   const taRef = useRef<HTMLTextAreaElement>(null)
   const hasText = value.trim().length > 0
+
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // Compute if we should show the slash menu and get filtered commands list
+  const showSlashMenu = value.startsWith("/") && !value.includes(" ")
+  const filteredCommands = useMemo(() => {
+    if (!showSlashMenu) return []
+    const query = value.toLowerCase()
+    return COMMANDS.filter((cmd) => cmd.name.startsWith(query))
+  }, [value, showSlashMenu])
+
+  // Reset selected command index when commands length changes
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [filteredCommands.length])
 
   const submit = () => {
     const text = value.trim()
@@ -72,7 +97,36 @@ export function PromptInput({
   const changes = repoStatus ?? { added: 0, removed: 0, contextPct: 0 }
 
   return (
-    <div className="w-full">
+    <div className="relative w-full">
+      {/* Autocomplete slash command popover menu */}
+      {showSlashMenu && filteredCommands.length > 0 && (
+        <div 
+          className="absolute bottom-[54px] left-2 right-2 z-50 overflow-hidden rounded-xl border border-white/[0.08] bg-black/85 backdrop-blur-xl shadow-2xl transition-all"
+        >
+          <div className="max-h-60 overflow-y-auto p-1.5">
+            {filteredCommands.map((cmd, idx) => {
+              const active = idx === selectedIndex
+              return (
+                <button
+                  key={cmd.name}
+                  type="button"
+                  onClick={() => setValue(cmd.name + " ")}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors ${
+                    active ? "bg-white/[0.08] text-white" : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-[14px] font-semibold font-mono">{cmd.name}</span>
+                    <span className="text-[12px] opacity-70 mt-0.5">{cmd.desc}</span>
+                  </div>
+                  <span className="text-[11px] font-mono opacity-50 px-2 py-0.5 rounded bg-white/[0.05]">{cmd.usage}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Top: Changes pill + Commit & Push (git repos only). */}
       {inRepo && (
         <div className="flex items-center gap-2 px-1 pb-2">
@@ -122,6 +176,30 @@ export function PromptInput({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
+            if (showSlashMenu && filteredCommands.length > 0) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault()
+                setSelectedIndex((prev) => (prev + 1) % filteredCommands.length)
+                return
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault()
+                setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length)
+                return
+              }
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault()
+                const selected = filteredCommands[selectedIndex]
+                setValue(selected.name + " ")
+                return
+              }
+              if (e.key === "Escape") {
+                e.preventDefault()
+                setValue("")
+                return
+              }
+            }
+
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault()
               submit()
@@ -168,6 +246,27 @@ export function PromptInput({
             <span className="font-medium">Local</span>
             <ChevronDown size={11} strokeWidth={2} />
           </div>
+
+          {/* Looping Status Badge */}
+          {loopStatus?.active && (
+            <div className="flex items-center gap-2 rounded-full px-2 py-0.5 border border-amber-500/20 bg-amber-500/5 text-[11px] font-semibold text-amber-500 animate-pulse">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+              </span>
+              <span>
+                LOOP ACTIVE (Iter {loopStatus.iteration}
+                {loopStatus.maxIterations > 0 ? `/${loopStatus.maxIterations}` : ""})
+              </span>
+              <button
+                type="button"
+                onClick={() => onSend?.("/loop-cancel")}
+                className="ml-1 text-[10px] font-bold underline hover:text-amber-400 opacity-80"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
         {changes.contextPct > 0 && (
           <div className="flex items-center gap-1.5 text-xs" style={{ color: C.muted }}>

@@ -83,6 +83,7 @@ type BackendMessage =
     }
   | { type: "done" }
   | { type: "error"; message: string }
+  | { type: "loop.status"; active: boolean; iteration: number; maxIterations: number; task: string }
 
 const DEFAULT_CWD = "Hollow"
 
@@ -628,6 +629,15 @@ class HollowClient {
         this.toolMetaMap.clear()
         this.emit({ type: "bridge_error", error: message.message })
         this.emit({ type: "agent_end" })
+        break
+      case "loop.status":
+        this.emit({
+          type: "loop_status" as any,
+          active: message.active,
+          iteration: message.iteration,
+          maxIterations: message.maxIterations,
+          task: message.task,
+        })
         break
     }
   }

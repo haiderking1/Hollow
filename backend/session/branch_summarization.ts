@@ -121,6 +121,10 @@ const get_message_from_entry = (entry: file_entry): message | null => {
         let contentStr = "";
         if (typeof entry.content === "string") {
           contentStr = entry.content;
+        } else {
+          try {
+            contentStr = JSON.stringify(entry.content);
+          } catch {}
         }
         return {
           role: "user",

@@ -1,7 +1,7 @@
 // PORT: mirrors backend/session/compaction_utils.go
 
 import type { message, usage } from "../opencode/types";
-import { string_content, content_string } from "../opencode/types";
+import { string_content, content_string, content_blocks } from "../opencode/types";
 import type { compaction_settings } from "../config/config";
 import {
   type_message,
@@ -147,6 +147,14 @@ export const format_file_operations = (
   return "\n\n" + sections.join("\n\n");
 };
 
+const safe_json_stringify = (value: unknown): string => {
+  try {
+    return JSON.stringify(value) ?? "undefined";
+  } catch {
+    return "[unserializable]";
+  }
+};
+
 const truncate_for_summary = (text: string, maxChars: number): string => {
   if (text.length <= maxChars) {
     return text;
@@ -157,6 +165,7 @@ const truncate_for_summary = (text: string, maxChars: number): string => {
 
 export const serialize_conversation = (messages: message[]): string => {
   const parts: string[] = [];
+
   for (const msg of messages) {
     if (msg.role === "user") {
       const content = content_string(msg);
@@ -170,11 +179,17 @@ export const serialize_conversation = (messages: message[]): string => {
 
       if (msg.reasoning_content !== undefined && msg.reasoning_content !== "") {
         thinkingParts.push(msg.reasoning_content);
+      } else if (msg.reasoning_details !== undefined && msg.reasoning_details !== "") {
+        thinkingParts.push(msg.reasoning_details);
+      } else if (msg.reasoning !== undefined && msg.reasoning !== "") {
+        thinkingParts.push(msg.reasoning);
       }
+
       const content = content_string(msg);
       if (content !== "") {
         textParts.push(content);
       }
+
       for (const tc of msg.tool_calls ?? []) {
         let args: any = null;
         try {
@@ -186,8 +201,7 @@ export const serialize_conversation = (messages: message[]): string => {
           const kv: string[] = [];
           const keys = Object.keys(args).sort();
           for (const k of keys) {
-            const v = args[k];
-            kv.push(`${k}=${JSON.stringify(v)}`);
+            kv.push(`${k}=${safe_json_stringify(args[k])}`);
           }
           argsStr = kv.join(", ");
         } else {
@@ -205,20 +219,57 @@ export const serialize_conversation = (messages: message[]): string => {
       if (toolCalls.length > 0) {
         parts.push(`[Assistant tool calls]: ${toolCalls.join("; ")}`);
       }
-    } else if (msg.role === "tool") {
+    } else if (msg.role === "tool" || msg.role === "toolResult") {
       const content = content_string(msg);
       if (content !== "") {
         parts.push(`[Tool result]: ${truncate_for_summary(content, 2000)}`);
       }
     }
   }
+
   return parts.join("\n\n");
+};
+
+export const bash_execution_to_text = (msg: any): string => {
+  let text = `Ran \`${msg.command || ""}\`\n`;
+  if (msg.output) {
+    text += `\`\`\`\n${msg.output}\n\`\`\``;
+  } else {
+    text += "(no output)";
+  }
+  if (msg.cancelled) {
+    text += "\n\n(command cancelled)";
+  } else if (msg.exitCode !== null && msg.exitCode !== undefined && msg.exitCode !== 0) {
+    text += `\n\nCommand exited with code ${msg.exitCode}`;
+  }
+  if (msg.truncated && msg.fullOutputPath) {
+    text += `\n\n[Output truncated. Full output: ${msg.fullOutputPath}]`;
+  }
+  return text;
 };
 
 export const convert_to_llm = (messages: message[]): message[] => {
   const out: message[] = [];
   for (const m of messages) {
     switch (m.role) {
+      case "bashExecution": {
+        const anyMsg = m as any;
+        if (anyMsg.excludeFromContext) {
+          break;
+        }
+        out.push({
+          role: "user",
+          content: string_content(bash_execution_to_text(m)),
+        });
+        break;
+      }
+      case "custom": {
+        out.push({
+          role: "user",
+          content: m.content,
+        });
+        break;
+      }
       case "compactionSummary": {
         const content = CompactionSummaryPrefix + content_string(m) + CompactionSummarySuffix;
         out.push({
@@ -269,36 +320,73 @@ export type context_usage_estimate = {
   lastUsageIndex: number;
 };
 
+const ESTIMATED_IMAGE_CHARS = 4800;
+
+export const estimate_text_and_image_content_chars = (msg: message): number => {
+  const blocks = content_blocks(msg);
+  if (!blocks || blocks.length === 0) {
+    return content_string(msg).length;
+  }
+  let chars = 0;
+  for (const block of blocks) {
+    if (block.type === "text" && block.text) {
+      chars += block.text.length;
+    } else if (block.type === "image" || block.type === "image_url") {
+      chars += ESTIMATED_IMAGE_CHARS;
+    }
+  }
+  return chars;
+};
+
 export const estimate_message_tokens = (msg: message): number => {
   let chars = 0;
-  if (msg.role === "user") {
-    chars = content_string(msg).length;
-    return Math.floor((chars + 3) / 4);
-  }
-  if (msg.role === "assistant") {
-    chars += content_string(msg).length;
-    if (msg.reasoning_content !== undefined) {
-      chars += msg.reasoning_content.length;
+
+  switch (msg.role) {
+    case "user": {
+      chars = estimate_text_and_image_content_chars(msg);
+      return Math.ceil(chars / 4);
     }
-    for (const tc of msg.tool_calls ?? []) {
-      chars += tc.function.name.length + tc.function.arguments.length;
+    case "assistant": {
+      const text = content_string(msg);
+      chars += text.length;
+      if (msg.reasoning_content !== undefined) {
+        chars += msg.reasoning_content.length;
+      } else if (msg.reasoning_details !== undefined) {
+        chars += msg.reasoning_details.length;
+      } else if (msg.reasoning !== undefined) {
+        chars += msg.reasoning.length;
+      }
+      for (const tc of msg.tool_calls ?? []) {
+        chars += tc.function.name.length + safe_json_stringify(tc.function.arguments).length;
+      }
+      return Math.ceil(chars / 4);
     }
-    return Math.floor((chars + 3) / 4);
+    case "custom":
+    case "tool":
+    case "toolResult": {
+      chars = estimate_text_and_image_content_chars(msg);
+      return Math.ceil(chars / 4);
+    }
+    case "bashExecution": {
+      const anyMsg = msg as any;
+      const cmd = typeof anyMsg.command === "string" ? anyMsg.command : "";
+      const out = typeof anyMsg.output === "string" ? anyMsg.output : "";
+      chars = cmd.length + out.length;
+      return Math.ceil(chars / 4);
+    }
+    case "branchSummary":
+    case "compactionSummary": {
+      chars = content_string(msg).length;
+      return Math.ceil(chars / 4);
+    }
   }
-  if (msg.role === "tool" || msg.role === "toolResult") {
-    chars = content_string(msg).length;
-    return Math.floor((chars + 3) / 4);
-  }
-  if (msg.role === "compactionSummary" || msg.role === "branchSummary") {
-    chars = content_string(msg).length;
-    return Math.floor((chars + 3) / 4);
-  }
+
   return 0;
 };
 
 export const estimate_tokens = (entry: file_entry): number => {
   if (entry.type === type_compaction || entry.type === type_branch_summary) {
-    return Math.floor(((entry.summary ?? "").length + 3) / 4);
+    return Math.ceil((entry.summary ?? "").length / 4);
   }
   if (entry.type !== type_message || !entry.message) {
     return 0;

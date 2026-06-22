@@ -15,6 +15,7 @@ import { continue_recent, start_new, type manager } from "../backend/session/man
 import { delete_session } from "../backend/session/delete";
 import { type info } from "../backend/session/types";
 import { new_client_for_runtime } from "../backend/opencode/runtime_client";
+import { content_string } from "../backend/opencode/types";
 
 /** Best-effort reason string from a config/secrets error (they use `reason`, not `message`). */
 const errReason = (e: unknown): string => {
@@ -46,6 +47,14 @@ export class AgentRuntimeImpl {
   pubsub!: PubSub.PubSub<any>;
   /** False until a provider key is loaded and the agent is constructed. */
   available = false;
+  loopState: {
+    active: boolean;
+    task: string;
+    iteration: number;
+    maxIterations: number;
+    completionPromise: string;
+    aborted: boolean;
+  } | null = null;
 
   boot(workDir?: string): Effect.Effect<void, Error> {
     const self = this;
@@ -216,9 +225,198 @@ export class AgentRuntimeImpl {
 
   prompt(text: string, attachments?: readonly any[]): Effect.Effect<void, Error> {
     const self = this;
-    // Bridge dispatch already guards agent-requiring commands; this guard is for
-    // the CLI entry (runtime/main.ts --prompt), which calls prompt() directly.
+    const cleanText = text.trim();
+
+    // Check if this is a loop cancellation command
+    if (cleanText === "/loop-cancel" || cleanText === "/cancel-loop") {
+      return Effect.sync(() => {
+        if (!self.loopState || !self.loopState.active) {
+          if (self.agent?.emit) {
+            self.agent.emit({ kind: "system", data: "No active loop to cancel." });
+          }
+          return;
+        }
+        self.loopState.aborted = true;
+        self.agent.Abort();
+        if (self.agent?.emit) {
+          self.agent.emit({ kind: "system", data: "Loop cancelled by user." });
+        }
+      });
+    }
+
     if (!self.available) return Effect.fail(new Error(NOT_CONNECTED));
+
+    // Check if this is a loop start command
+    if (cleanText.startsWith("/loop") && cleanText !== "/loop-cancel" && cleanText !== "/cancel-loop") {
+      if (self.loopState && self.loopState.active) {
+        return Effect.fail(new Error("A loop is already active. Cancel it first with /loop-cancel."));
+      }
+
+      const taskPart = cleanText.slice(5).trim();
+      let maxIter = 0;
+      const maxMatch = taskPart.match(/(?:^|\s)--max\s+(\d+)\s*$/);
+      let task = taskPart;
+      if (maxMatch) {
+        maxIter = parseInt(maxMatch[1], 10);
+        task = task.replace(/(?:^|\s)--max\s+(\d+)\s*$/, "").trim();
+      }
+
+      if (task === "") {
+        return Effect.fail(new Error("Usage: /loop <task> [--max N]"));
+      }
+
+      let promise = "DONE";
+      const promiseMatch = task.match(/<promise>([^<]+)<\/promise>/);
+      if (promiseMatch) {
+        const custom = promiseMatch[1].trim();
+        if (custom !== "") {
+          promise = custom;
+        }
+      }
+
+      self.loopState = {
+        active: true,
+        task,
+        iteration: 0,
+        maxIterations: maxIter,
+        completionPromise: promise,
+        aborted: false,
+      };
+
+      return Effect.async<void, Error>((resume) => {
+        const controller = new AbortController();
+        const onAbort = () => {
+          if (self.loopState) self.loopState.aborted = true;
+          controller.abort();
+        };
+        // Propagate external signal abort to our loop cancellation
+        controller.signal.addEventListener("abort", () => {
+          if (self.loopState) self.loopState.aborted = true;
+        });
+
+        const runIteration = async () => {
+          if (!self.loopState || self.loopState.aborted || controller.signal.aborted || self.agent.userAbortFired()) {
+            if (self.agent.emit) {
+              self.agent.emit({
+                kind: "loop_status",
+                data: { active: false, iteration: 0, maxIterations: 0, task: "" }
+              });
+            }
+            self.loopState = null;
+            return resume(Effect.void);
+          }
+
+          self.loopState.iteration++;
+          const iter = self.loopState.iteration;
+
+          if (self.agent.emit) {
+            self.agent.emit({
+              kind: "loop_status",
+              data: {
+                active: true,
+                iteration: iter,
+                maxIterations: maxIter,
+                task: task,
+              }
+            });
+          }
+
+          try {
+            if (iter === 1) {
+              await self.agent.LoopPrompt(controller.signal, self.config, task, self.agent.emit);
+            } else {
+              await self.agent.LoopContinue(controller.signal, self.config, task, iter, self.agent.emit);
+            }
+
+            if (self.loopState?.aborted || controller.signal.aborted || self.agent.userAbortFired()) {
+              if (self.agent.emit) {
+                self.agent.emit({
+                  kind: "loop_status",
+                  data: { active: false, iteration: 0, maxIterations: 0, task: "" }
+                });
+              }
+              self.loopState = null;
+              return resume(Effect.void);
+            }
+
+            // Check if loop target completed
+            let complete = false;
+            for (let i = self.agent.messages.length - 1; i >= 0; i--) {
+              if (self.agent.messages[i].role === "assistant") {
+                const asstText = content_string(self.agent.messages[i]);
+                if (asstText.includes(`<promise>${promise}</promise>`)) {
+                  complete = true;
+                }
+                break;
+              }
+            }
+
+            if (complete) {
+              if (self.agent.emit) {
+                self.agent.emit({
+                  kind: "system",
+                  data: `Loop finished successfully after ${iter} iterations.`,
+                });
+                self.agent.emit({
+                  kind: "loop_status",
+                  data: { active: false, iteration: 0, maxIterations: 0, task: "" }
+                });
+              }
+              self.loopState = null;
+              return resume(Effect.void);
+            }
+
+            if (maxIter > 0 && iter >= maxIter) {
+              if (self.agent.emit) {
+                self.agent.emit({
+                  kind: "system",
+                  data: `Loop stopped: max iterations (${maxIter}) reached.`,
+                });
+                self.agent.emit({
+                  kind: "loop_status",
+                  data: { active: false, iteration: 0, maxIterations: 0, task: "" }
+                });
+              }
+              self.loopState = null;
+              return resume(Effect.void);
+            }
+
+            // Small breathing room before next iteration
+            await new Promise((r) => setTimeout(r, 100));
+            await runIteration();
+          } catch (cause) {
+            if (self.agent.emit) {
+              self.agent.emit({
+                kind: "loop_status",
+                data: { active: false, iteration: 0, maxIterations: 0, task: "" }
+              });
+            }
+            if (self.loopState?.aborted || controller.signal.aborted || self.agent.userAbortFired()) {
+              console.log("Loop execution interrupted by user.");
+              self.loopState = null;
+              return resume(Effect.void);
+            }
+            self.loopState = null;
+            return resume(
+              Effect.fail(cause instanceof Error ? cause : new Error(String(cause)))
+            );
+          }
+        };
+
+        runIteration().catch((err) => {
+          if (self.agent.emit) {
+            self.agent.emit({
+              kind: "loop_status",
+              data: { active: false, iteration: 0, maxIterations: 0, task: "" }
+            });
+          }
+          self.loopState = null;
+          resume(Effect.fail(err instanceof Error ? err : new Error(String(err))));
+        });
+      });
+    }
+
+    // Standard non-loop prompt path
     return Effect.async<void, Error>((resume) => {
       const controller = new AbortController();
       const mappedAttachments = attachments?.map((att) => ({

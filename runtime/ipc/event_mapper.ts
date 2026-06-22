@@ -29,7 +29,8 @@ export type BackendMessage =
       details?: string;
     }
   | { type: "done" }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "loop.status"; active: boolean; iteration: number; maxIterations: number; task: string };
 
 type CoreEvent = { kind: string; data: unknown };
 
@@ -132,6 +133,17 @@ export const mapAgentEvent = (event: unknown): BackendMessage | null => {
         connections: Array.isArray(d.connections) ? d.connections : [],
         catalog: d.catalog,
         error: typeof d.error === "string" && d.error !== "" ? d.error : undefined,
+      };
+    }
+
+    case "loop_status": {
+      const d = as_record(data);
+      return {
+        type: "loop.status",
+        active: d.active === true,
+        iteration: Number(d.iteration) || 0,
+        maxIterations: Number(d.maxIterations) || 0,
+        task: as_string(d.task)
       };
     }
 

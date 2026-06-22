@@ -15,6 +15,7 @@ interface ChatWorkspaceProps {
   isStreaming: boolean
   syncingThread: boolean
   repoStatus: RepoStatus | null
+  loopStatus: { active: boolean; iteration: number; maxIterations: number; task: string } | null
   onSend: (text: string) => void
   onAbort: () => void
   onSelectModel: (provider: string, modelId: string, thinkingLevel: string) => void
@@ -31,6 +32,7 @@ export const ChatWorkspace = memo(function ChatWorkspace({
   isStreaming,
   syncingThread,
   repoStatus,
+  loopStatus,
   onSend,
   onAbort,
   onSelectModel,
@@ -47,6 +49,7 @@ export const ChatWorkspace = memo(function ChatWorkspace({
       isStreaming={isStreaming}
       onAbort={onAbort}
       repoStatus={repoStatus}
+      loopStatus={loopStatus}
       onOpenSettingsModels={onOpenSettingsModels}
       footer={
         <ModelPicker

@@ -117,6 +117,7 @@ export type AgentEvent =
   | { type: "bridge_exit"; code: number | null }
   | { type: "connection_changed"; connections: ConnectionInfo[]; catalog: ModelCatalog; error?: string }
   | { type: "settings_error"; command: string; error: string }
+  | { type: "loop_status"; active: boolean; iteration: number; maxIterations: number; task: string }
   // Anything else we don't handle yet
   | { type: "other" }
 

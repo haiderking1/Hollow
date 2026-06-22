@@ -1,6 +1,10 @@
 // PORT: mirrors backend/opencode/models.go
 
 import { Effect } from "effect";
+import fs from "node:fs";
+import fsPromises from "node:fs/promises";
+import path from "node:path";
+import { home_dir } from "../enoughhome/home";
 import {
   provider_codex,
   provider_neuralwatt,
@@ -40,6 +44,34 @@ export class registry {
   private _zen_err: Error | null = null;
   private _neuralwatt_err: Error | null = null;
   private _codex_err: Error | null = null;
+
+  constructor() {
+    this.load_from_cache();
+  }
+
+  private load_from_cache() {
+    const providers = ["opencode-go", "opencode-zen", "neuralwatt", "openai-codex"];
+    for (const p of providers) {
+      try {
+        const cachePath = path.join(home_dir(), "cache", `provider_${p}_models.json`);
+        if (fs.existsSync(cachePath)) {
+          const content = fs.readFileSync(cachePath, "utf8");
+          const parsed = JSON.parse(content) as model_info[];
+          if (Array.isArray(parsed)) {
+            if (p === "opencode-zen") {
+              this._zen_models = parsed;
+            } else if (p === "neuralwatt") {
+              this._neuralwatt_models = parsed;
+            } else if (p === "openai-codex") {
+              this._codex_models = parsed;
+            } else {
+              this._models = parsed;
+            }
+          }
+        }
+      } catch {}
+    }
+  }
 
   models(): model_info[] {
     return [...this._models];
@@ -88,6 +120,15 @@ export class registry {
         this._models = fetched;
         this._err = null;
       }
+      try {
+        const cacheDir = path.join(home_dir(), "cache");
+        await fsPromises.mkdir(cacheDir, { recursive: true });
+        await fsPromises.writeFile(
+          path.join(cacheDir, `provider_${provider}_models.json`),
+          JSON.stringify(fetched, null, 2),
+          "utf8"
+        );
+      } catch {}
       return null;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
@@ -148,6 +189,15 @@ export class registry {
       const fetched = await Effect.runPromise(fetch_codex_models(ctx, access_token));
       this._codex_models = fetched;
       this._codex_err = null;
+      try {
+        const cacheDir = path.join(home_dir(), "cache");
+        await fsPromises.mkdir(cacheDir, { recursive: true });
+        await fsPromises.writeFile(
+          path.join(cacheDir, `provider_${provider_codex}_models.json`),
+          JSON.stringify(fetched, null, 2),
+          "utf8"
+        );
+      } catch {}
       return null;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));

@@ -179,9 +179,10 @@ const defaultModelFor = (provider: string): string => {
 /** Build the full Settings snapshot: refreshed model catalog + per-provider connection state. */
 const buildConnectionsResult = (
   runtime: AgentRuntimeImpl,
+  force?: boolean,
 ): Effect.Effect<{ type: "connections.list"; connections: ConnectionInfo[]; catalog: WsModelsCatalog }, never> =>
   Effect.gen(function* () {
-    yield* refreshDesktopModelRegistry();
+    yield* refreshDesktopModelRegistry(force);
     const catalog = yield* buildModelsCatalog(runtime);
     const connections = yield* Effect.all(
       model_providers().map((p) =>
@@ -295,25 +296,57 @@ const checkConnected = (providerId: string): Effect.Effect<boolean, never> => {
   }
 };
 
-const refreshDesktopModelRegistry = (): Effect.Effect<void, never> => {
+const refreshedProviders = new Set<string>();
+
+const refreshDesktopModelRegistry = (force?: boolean): Effect.Effect<void, never> => {
   return Effect.gen(function* () {
+    if (force) {
+      refreshedProviders.clear();
+    }
     // OpenCode and Zen share the same account/key; NeuralWatt has its own.
     const go_key_res = yield* Effect.either(get_api_key(provider_opencode));
     if (go_key_res._tag === "Right" && go_key_res.right !== "") {
       const key = go_key_res.right;
-      yield* Effect.promise(() => default_registry.refresh(undefined, provider_opencode, default_endpoint, key));
-      yield* Effect.promise(() => default_registry.refresh(undefined, provider_opencode_zen, default_zen_endpoint, key));
+      if (!refreshedProviders.has(provider_opencode)) {
+        const err = yield* Effect.promise(() => default_registry.refresh(undefined, provider_opencode, default_endpoint, key));
+        if (!err) {
+          refreshedProviders.add(provider_opencode);
+        }
+      }
+      if (!refreshedProviders.has(provider_opencode_zen)) {
+        const err = yield* Effect.promise(() => default_registry.refresh(undefined, provider_opencode_zen, default_zen_endpoint, key));
+        if (!err) {
+          refreshedProviders.add(provider_opencode_zen);
+        }
+      }
+    } else {
+      refreshedProviders.delete(provider_opencode);
+      refreshedProviders.delete(provider_opencode_zen);
     }
     const neuralwatt_key_res = yield* Effect.either(get_api_key(provider_neuralwatt));
     if (neuralwatt_key_res._tag === "Right" && neuralwatt_key_res.right !== "") {
-      yield* Effect.promise(() => default_registry.refresh(undefined, provider_neuralwatt, default_neuralwatt_endpoint, neuralwatt_key_res.right));
+      if (!refreshedProviders.has(provider_neuralwatt)) {
+        const err = yield* Effect.promise(() => default_registry.refresh(undefined, provider_neuralwatt, default_neuralwatt_endpoint, neuralwatt_key_res.right));
+        if (!err) {
+          refreshedProviders.add(provider_neuralwatt);
+        }
+      }
+    } else {
+      refreshedProviders.delete(provider_neuralwatt);
     }
     const has_cdx = yield* has_codex_auth();
     if (has_cdx) {
-      const creds_res = yield* Effect.either(resolve_codex_credentials(new AbortController().signal));
-      if (creds_res._tag === "Right") {
-        yield* Effect.promise(() => default_registry.refresh_codex(undefined, creds_res.right.access_token));
+      if (!refreshedProviders.has(provider_codex)) {
+        const creds_res = yield* Effect.either(resolve_codex_credentials(new AbortController().signal));
+        if (creds_res._tag === "Right") {
+          const err = yield* Effect.promise(() => default_registry.refresh_codex(undefined, creds_res.right.access_token));
+          if (!err) {
+            refreshedProviders.add(provider_codex);
+          }
+        }
       }
+    } else {
+      refreshedProviders.delete(provider_codex);
     }
   }).pipe(
     Effect.catchAll(() => Effect.void)
@@ -561,7 +594,13 @@ export class DesktopBridge {
           return yield* buildModelsCatalog(runtime);
         }
         case "listModels": {
-          yield* refreshDesktopModelRegistry();
+          void Effect.runPromise(
+            Effect.gen(function* () {
+              yield* refreshDesktopModelRegistry();
+              const result = yield* buildConnectionsResult(runtime);
+              self.emitConnectionChanged(result);
+            }).pipe(Effect.catchAll(() => Effect.void))
+          );
           const catalog = yield* buildModelsCatalog(runtime);
           return catalog;
         }
@@ -592,7 +631,7 @@ export class DesktopBridge {
             yield* apply_provider_model(provider, defaultModelFor(provider), "");
           }).pipe(Effect.mapError(asError));
           yield* runtime.reconnect();
-          return yield* buildConnectionsResult(runtime);
+          return yield* buildConnectionsResult(runtime, true);
         }
         case "removeKey": {
           const provider = command.provider;
@@ -604,7 +643,7 @@ export class DesktopBridge {
           }
           // Removing the active provider's key degrades the runtime (available=false).
           yield* runtime.reconnect();
-          return yield* buildConnectionsResult(runtime);
+          return yield* buildConnectionsResult(runtime, true);
         }
         case "startCodexLogin": {
           // Abort any previous in-flight login before starting a new one.
@@ -621,11 +660,11 @@ export class DesktopBridge {
             .then(async () => {
               await Effect.runPromise(enable_codex_provider().pipe(Effect.mapError(asError)));
               await Effect.runPromise(runtime.reconnect());
-              const result = await Effect.runPromise(buildConnectionsResult(runtime));
+              const result = await Effect.runPromise(buildConnectionsResult(runtime, true));
               self.emitConnectionChanged(result);
             })
             .catch(async (e) => {
-              const result = await Effect.runPromise(buildConnectionsResult(runtime));
+              const result = await Effect.runPromise(buildConnectionsResult(runtime, true));
               self.emitConnectionChanged({
                 connections: result.connections,
                 catalog: result.catalog,
