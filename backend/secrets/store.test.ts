@@ -104,8 +104,10 @@ describe("secrets — file mode (ENOUGH_CREDENTIALS_FILE)", () => {
   it("file written with 0600 permissions", async () => {
     const { set_api_key } = await import("./store");
     run(set_api_key("sk-perms"));
-    const mode = fs.statSync(credPath).mode & 0o777;
-    expect(mode).toBe(0o600);
+    if (process.platform !== "win32") {
+      const mode = fs.statSync(credPath).mode & 0o777;
+      expect(mode).toBe(0o600);
+    }
   });
 });
 
