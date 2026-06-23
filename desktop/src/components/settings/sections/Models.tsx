@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { ExternalLink, RefreshCw, Search, Sparkles } from "lucide-react"
 import type { AgentModel, ModelCatalog } from "../../../agent/rpc"
 import { cn } from "../../../lib/utils"
-import { EmptyState, SectionHeader, SettingsCard } from "../controls"
+import { EmptyState, SettingsCard } from "../controls"
 import OpenCodeIcon from "../../../assets/icons/OpenCode_dark.svg"
 import OpenAIIcon from "../../../assets/icons/OpenAI_dark.svg"
 import NeuralWattIcon from "../../../assets/icons/neuralwatt.svg"
@@ -65,9 +65,7 @@ export function Models({
 
   if (models.length === 0) {
     return (
-      <>
-        <SectionHeader>Models</SectionHeader>
-        <EmptyState
+      <EmptyState
           icon={<Sparkles className="h-8 w-8" strokeWidth={1.5} />}
           title="No models available"
         >
@@ -83,7 +81,6 @@ export function Models({
             </button>
           )}
         </EmptyState>
-      </>
     )
   }
 

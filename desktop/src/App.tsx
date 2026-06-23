@@ -657,6 +657,12 @@ export default function App() {
     setSettingsOpen(true)
   }, [])
 
+  const handleOpenSettingsProviders = useCallback(() => {
+    send({ type: "list_connections" })
+    setSettingsSection("providers")
+    setSettingsOpen(true)
+  }, [])
+
   const handleCloseSettings = useCallback(() => {
     setSettingsOpen(false)
     setSettingsSection(null)
@@ -757,6 +763,7 @@ export default function App() {
             onToggleModelEnabled={handleToggleModelEnabled}
             onRefreshCatalog={handleRefreshCatalog}
             onOpenSettingsModels={handleOpenSettingsModels}
+            onOpenSettingsProviders={handleOpenSettingsProviders}
           />
           <TerminalPanel open={terminalOpen} />
         </div>

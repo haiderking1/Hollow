@@ -9,6 +9,7 @@ interface ModelPickerProps {
   onToggleEnabled?: (modelId: string) => void
   onRefreshCatalog?: () => void
   onOpenSettingsModels?: () => void
+  onOpenSettingsProviders?: () => void
 }
 
 // Cursor-style model picker using app CSS tokens so it adapts to any theme.
@@ -36,10 +37,13 @@ export function ModelPicker({
   onToggleEnabled,
   onRefreshCatalog,
   onOpenSettingsModels,
+  onOpenSettingsProviders,
 }: ModelPickerProps) {
   const state = catalog?.state
   const providers = catalog?.providers ?? []
   const models = catalog?.models ?? []
+  const hasConnectedProvider = providers.some((p) => p.connected)
+  const hasModels = models.length > 0
 
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -113,16 +117,17 @@ export function ModelPicker({
     setQuery("")
   }
 
-  // Loading fallback: plain trigger text.
-  if (!catalog || providers.length === 0) {
+  // No provider connected — don't show a fake model name.
+  if (!catalog || !hasConnectedProvider || !hasModels) {
     return (
       <button
         type="button"
-        disabled
-        className="inline-flex items-center gap-1 text-[13px] font-medium leading-none"
+        disabled={disabled}
+        onClick={() => onOpenSettingsProviders?.() ?? onOpenSettingsModels?.()}
+        className="inline-flex items-center gap-1 text-[13px] font-medium leading-none transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         style={{ color: C.muted }}
       >
-        <span>Model</span>
+        <span>Connect provider</span>
         <ChevronDown size={12} strokeWidth={2} style={{ color: C.muted }} />
       </button>
     )

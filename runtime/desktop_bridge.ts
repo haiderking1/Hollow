@@ -432,6 +432,23 @@ const buildModelsCatalog = (runtime: AgentRuntimeImpl): Effect.Effect<WsModelsCa
       }
     }
 
+    const anyConnected = providers.some((p) => p.connected);
+    if (!anyConnected || models.length === 0) {
+      return {
+        type: "models.catalog" as const,
+        providers,
+        models,
+        state: {
+          provider: "",
+          modelId: "",
+          modelName: "",
+          thinkingLevel: "",
+          contextLabel: "",
+          reasoning: false,
+        },
+      };
+    }
+
     const state: WsModelStateDTO = {
       provider,
       modelId,

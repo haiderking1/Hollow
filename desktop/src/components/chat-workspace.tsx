@@ -22,6 +22,7 @@ interface ChatWorkspaceProps {
   onToggleModelEnabled?: (modelId: string) => void
   onRefreshCatalog?: () => void
   onOpenSettingsModels?: () => void
+  onOpenSettingsProviders?: () => void
 }
 
 export const ChatWorkspace = memo(function ChatWorkspace({
@@ -39,6 +40,7 @@ export const ChatWorkspace = memo(function ChatWorkspace({
   onToggleModelEnabled,
   onRefreshCatalog,
   onOpenSettingsModels,
+  onOpenSettingsProviders,
 }: ChatWorkspaceProps) {
   const showEmpty = messages.length === 0
   const streaming = isStreaming || syncingThread
@@ -59,6 +61,7 @@ export const ChatWorkspace = memo(function ChatWorkspace({
           onToggleEnabled={onToggleModelEnabled}
           onRefreshCatalog={onRefreshCatalog}
           onOpenSettingsModels={onOpenSettingsModels}
+          onOpenSettingsProviders={onOpenSettingsProviders}
         />
       }
     />

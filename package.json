@@ -10,7 +10,7 @@
     "start": "bun runtime/main.ts",
     "start:prompt": "bun runtime/main.ts --prompt",
     "electron": "electron .",
-    "electron:dev": "concurrently -k -s first \"bun run dev\" \"VITE_DEV_SERVER_URL=http://localhost:1420 electron .\"",
+    "electron:dev": "concurrently -k -s first \"bun run dev\" \"node scripts/electron-dev.cjs\"",
     "dev": "vite --config desktop/vite.config.ts",
     "build:desktop": "vite build --config desktop/vite.config.ts"
   },
