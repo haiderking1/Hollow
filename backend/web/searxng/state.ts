@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/searxng/state.go
+// PORT: backend/web/searxng/state.go
 
 import path from "node:path";
 import fs from "node:fs";

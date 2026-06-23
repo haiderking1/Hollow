@@ -1,4 +1,4 @@
-// PORT: mirrors backend/config/provider.go
+// PORT: backend/config/provider.go
 
 import { Effect } from "effect";
 import { config_error, type config_error as config_error_type } from "./error";

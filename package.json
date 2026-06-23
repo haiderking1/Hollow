@@ -4,9 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "main": "runtime/electron/entry.cjs",
-  "description": "Hollow — TypeScript runtime + Electron desktop for the Enough agent (Go→TS port experiment).",
+  "description": "Hollow — AI coding agent with TypeScript runtime and Electron desktop.",
   "scripts": {
-    "port:next": "./scripts/port-next.sh",
     "typecheck": "tsc --noEmit",
     "start": "bun runtime/main.ts",
     "start:prompt": "bun runtime/main.ts --prompt",

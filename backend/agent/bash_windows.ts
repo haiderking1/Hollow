@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/bash_windows.go
+// PORT: backend/agent/bash_windows.go
 
 import { ChildProcess, spawnSync } from "node:child_process";
 

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/providers.go
+// PORT: backend/opencode/providers.go
 
 export const provider_opencode = "opencode-go";
 export const provider_opencode_zen = "opencode-zen";

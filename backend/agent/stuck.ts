@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/stuck.go
+// PORT: backend/agent/stuck.go
 
 import { Agent } from "./agent";
 import { type message, string_content } from "../opencode/types";

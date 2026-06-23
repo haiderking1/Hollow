@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/context.go
+// PORT: backend/session/context.go
 
 import {
   type_session,

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/launch_unix.go
+// PORT: backend/browser/launch_unix.go
 
 import { type SpawnOptions } from "node:child_process";
 

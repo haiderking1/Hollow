@@ -21,8 +21,8 @@ function Get-WindowsArch {
 
 function Set-GitBashEnvVar {
     $candidates = @()
-    $EnoughHome = Join-Path $env:LOCALAPPDATA "enough"
-    $gitDir = Join-Path $EnoughHome "git"
+    $HollowHome = Join-Path $env:LOCALAPPDATA "hollow"
+    $gitDir = Join-Path $HollowHome "git"
 
     $candidates += Join-Path $gitDir "bin\bash.exe"
     $candidates += Join-Path $gitDir "usr\bin\bash.exe"
@@ -42,15 +42,15 @@ function Set-GitBashEnvVar {
 
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path $candidate)) {
-            [Environment]::SetEnvironmentVariable("ENOUGH_GIT_BASH_PATH", $candidate, "User")
-            $env:ENOUGH_GIT_BASH_PATH = $candidate
-            Write-Info "Set ENOUGH_GIT_BASH_PATH=$candidate"
+            [Environment]::SetEnvironmentVariable("HOLLOW_GIT_BASH_PATH", $candidate, "User")
+            $env:HOLLOW_GIT_BASH_PATH = $candidate
+            Write-Info "Set HOLLOW_GIT_BASH_PATH=$candidate"
             return $true
         }
     }
 
-    Write-Warn "Could not locate bash.exe -- Enough may not find Git Bash."
-    Write-Info "If needed, set ENOUGH_GIT_BASH_PATH manually to your bash.exe path."
+    Write-Warn "Could not locate bash.exe -- Hollow may not find Git Bash."
+    Write-Info "If needed, set HOLLOW_GIT_BASH_PATH manually to your bash.exe path."
     return $false
 }
 
@@ -66,8 +66,8 @@ function Install-Git {
         Write-Warn "git on PATH but bash.exe not found - downloading PortableGit..."
     }
 
-    $EnoughHome = Join-Path $env:LOCALAPPDATA "enough"
-    $gitDir = Join-Path $EnoughHome "git"
+    $HollowHome = Join-Path $env:LOCALAPPDATA "hollow"
+    $gitDir = Join-Path $HollowHome "git"
 
     Write-Info "Downloading PortableGit to $gitDir\ ..."
     Write-Info '(no admin rights required; isolated from any system Git install)'

@@ -1,10 +1,10 @@
-// PORT: mirrors backend/approval/write_approval.go
+// PORT: backend/approval/write_approval.go
 
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { Effect } from "effect";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import type { runtime } from "../config/config";
 
 export const subsystem_memory = "memory";
@@ -399,5 +399,5 @@ todos:
   - confirm JSON.stringify formatting is acceptable equivalent to json.MarshalIndent
 notes:
   - Functions returning (T, error) use Effect.Effect<T, approval_error>.
-  - Reuses existing enoughhome and config runtime types.
+  - Reuses existing hollowhome and config runtime types.
 */

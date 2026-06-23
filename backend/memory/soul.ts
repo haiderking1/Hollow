@@ -1,12 +1,12 @@
-// PORT: mirrors backend/memory/soul.go
+// PORT: backend/memory/soul.go
 
 import fs from "node:fs";
 import path from "node:path";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import { threatPatternIDs, ScanScope } from "./scan";
 
 // SOUL.md — the agent's primary identity. When present, its content becomes
-// the first stable block of the system prompt, replacing the default Enough
+// the first stable block of the system prompt, replacing the default Hollow
 // persona. disclosurePolicy (anti base-model disclosure) always follows SOUL;
 // it does not override the user's chosen name or persona.
 

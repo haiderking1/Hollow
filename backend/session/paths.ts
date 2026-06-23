@@ -1,9 +1,9 @@
-// PORT: mirrors backend/session/paths.go
+// PORT: backend/session/paths.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 
 export const agent_dir_name = ".hollow";
 export const agent_subdir = "agent";

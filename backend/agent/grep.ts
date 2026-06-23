@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/grep.go
+// PORT: backend/agent/grep.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";

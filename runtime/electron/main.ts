@@ -137,7 +137,7 @@ app.whenReady().then(async () => {
       "[electron] Runtime boot failed (agent unavailable):",
       err instanceof Error ? err.message : err,
     );
-    console.warn("[electron] Opening UI in degraded mode — connect a provider in ~/.enough to chat.");
+    console.warn("[electron] Opening UI in degraded mode — connect a provider in ~/.hollow to chat.");
     // Always boot a degraded runtime so IPC registers and the UI is usable,
     // instead of bricking every renderer call with "No handler registered".
     result = await Effect.runPromise(degradedRuntime(process.cwd()));

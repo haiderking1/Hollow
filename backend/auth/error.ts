@@ -1,4 +1,4 @@
-// PORT: mirrors backend/auth/common errors
+// PORT: backend/auth/common errors
 
 export type auth_error = {
   readonly _tag: "AuthError";

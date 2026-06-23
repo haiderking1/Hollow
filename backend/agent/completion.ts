@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/completion.go
+// PORT: backend/agent/completion.go
 
 import { type obligation } from "./obligations/registry";
 import { type message } from "../opencode/types";

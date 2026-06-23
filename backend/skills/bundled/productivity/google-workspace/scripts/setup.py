@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Google Workspace OAuth2 setup for Enough.
+"""Google Workspace OAuth2 setup for Hollow.
 
 Fully non-interactive — designed to be driven by the agent via bash commands.
 
@@ -35,12 +35,12 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from _enough_home import display_enough_home, get_enough_home
+from _hollow_home import display_hollow_home, get_hollow_home
 
-ENOUGH_HOME = get_enough_home()
-TOKEN_PATH = ENOUGH_HOME / "google_token.json"
-CLIENT_SECRET_PATH = ENOUGH_HOME / "google_client_secret.json"
-PENDING_AUTH_PATH = ENOUGH_HOME / "google_oauth_pending.json"
+HOLLOW_HOME = get_hollow_home()
+TOKEN_PATH = HOLLOW_HOME / "google_token.json"
+CLIENT_SECRET_PATH = HOLLOW_HOME / "google_client_secret.json"
+PENDING_AUTH_PATH = HOLLOW_HOME / "google_oauth_pending.json"
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -88,7 +88,7 @@ def _format_missing_scopes(missing_scopes: list[str]) -> str:
     return (
         "Token is valid but missing required Google Workspace scopes:\n"
         f"{bullets}\n"
-        "Run the Google Workspace setup again from this same Enough session to refresh consent."
+        "Run the Google Workspace setup again from this same Hollow session to refresh consent."
     )
 
 
@@ -252,7 +252,7 @@ def check_auth(quiet: bool = False):
 
 
 def store_client_secret(path: str):
-    """Copy and validate client_secret.json to Enough home."""
+    """Copy and validate client_secret.json to Hollow home."""
     src = Path(path).expanduser().resolve()
     if not src.exists():
         print(f"ERROR: File not found: {src}")
@@ -412,7 +412,7 @@ def exchange_auth_code(code: str):
     TOKEN_PATH.write_text(json.dumps(token_payload, indent=2))
     PENDING_AUTH_PATH.unlink(missing_ok=True)
     print(f"OK: Authenticated. Token saved to {TOKEN_PATH}")
-    print(f"Profile-scoped token location: {display_enough_home()}/google_token.json")
+    print(f"Profile-scoped token location: {display_hollow_home()}/google_token.json")
 
 
 def revoke():
@@ -449,7 +449,7 @@ def revoke():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Google Workspace OAuth setup for Enough")
+    parser = argparse.ArgumentParser(description="Google Workspace OAuth setup for Hollow")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--check", action="store_true", help="Check if auth is valid (exit 0=yes, 1=no)")
     group.add_argument("--check-live", action="store_true", help="Check auth with a real API call (detects disabled_client)")

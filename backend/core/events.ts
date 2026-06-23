@@ -1,5 +1,5 @@
-// PORT: mirrors backend/core/events.go
-// Ported from backend/core/events.go
+// PORT: backend/core/events.go
+// backend/core/events.go
 // Effect wiring is not needed in this file because events.go contains only
 // data shapes and string constants; no function returns (T, error).
 
@@ -48,7 +48,7 @@ export const event_workflow_end = "workflow_end";
 // RuntimeNoticePrefix marks runtime-injected continuation messages (e.g. the
 // turn-incomplete notice). They are real user-role messages for the model but
 // internal plumbing for humans — frontends must not render them in the chat.
-export const runtime_notice_prefix = "[enough-runtime] ";
+export const runtime_notice_prefix = "[hollow-runtime] ";
 
 export type log_entry = {
   level: string;

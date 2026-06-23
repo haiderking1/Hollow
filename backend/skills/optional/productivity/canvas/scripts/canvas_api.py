@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Canvas LMS API CLI for Enough.
+"""Canvas LMS API CLI for Hollow.
 
 A thin CLI wrapper around the Canvas REST API.
 Authenticates using a personal access token from environment variables.
@@ -29,7 +29,7 @@ def _check_config():
         missing.append("CANVAS_BASE_URL")
     if missing:
         hermes_env = os.path.join(
-            os.environ.get("ENOUGH_HOME", os.path.expanduser("~/.enough")), ".env"
+            os.environ.get("HOLLOW_HOME", os.path.expanduser("~/.hollow")), ".env"
         )
         print(
             f"Missing required environment variables: {', '.join(missing)}\n"
@@ -127,7 +127,7 @@ def list_assignments(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Canvas LMS API CLI for Enough"
+        description="Canvas LMS API CLI for Hollow"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/shell/command_unix.go
+// PORT: backend/shell/command_unix.go
 
 // setHideWindow is a no-op on non-Windows.
 export const set_hide_window = (_cmd: unknown): void => {

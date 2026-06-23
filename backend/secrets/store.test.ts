@@ -18,22 +18,22 @@ const run = <A, E>(effect: Effect.Effect<A, E>): [A | null, E | null] => {
 const tempCredPath = (): string =>
   path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hollow-secrets-")), "credentials");
 
-// ── File-only tests (ENOUGH_CREDENTIALS_FILE set) ──────────────────────────
+// ── File-only tests (HOLLOW_CREDENTIALS_FILE set) ──────────────────────────
 // These never touch the user's OS keyring. The keyring module is never called
 // because use_keyring() returns false when the env var is set.
 
-describe("secrets — file mode (ENOUGH_CREDENTIALS_FILE)", () => {
+describe("secrets — file mode (HOLLOW_CREDENTIALS_FILE)", () => {
   let credPath: string;
   let savedEnv: string | undefined;
 
   beforeEach(() => {
-    savedEnv = process.env.ENOUGH_CREDENTIALS_FILE;
+    savedEnv = process.env.HOLLOW_CREDENTIALS_FILE;
     credPath = tempCredPath();
-    process.env.ENOUGH_CREDENTIALS_FILE = credPath;
+    process.env.HOLLOW_CREDENTIALS_FILE = credPath;
   });
 
   afterEach(() => {
-    process.env.ENOUGH_CREDENTIALS_FILE = savedEnv;
+    process.env.HOLLOW_CREDENTIALS_FILE = savedEnv;
     try { fs.rmSync(path.dirname(credPath), { recursive: true, force: true }); } catch {}
     mock.restore();
   });
@@ -119,13 +119,13 @@ describe("secrets — keyring priority (mocked)", () => {
   let savedEnv: string | undefined;
 
   beforeEach(() => {
-    savedEnv = process.env.ENOUGH_CREDENTIALS_FILE;
+    savedEnv = process.env.HOLLOW_CREDENTIALS_FILE;
     credPath = tempCredPath();
-    process.env.ENOUGH_CREDENTIALS_FILE = credPath;
+    process.env.HOLLOW_CREDENTIALS_FILE = credPath;
   });
 
   afterEach(() => {
-    process.env.ENOUGH_CREDENTIALS_FILE = savedEnv;
+    process.env.HOLLOW_CREDENTIALS_FILE = savedEnv;
     try { fs.rmSync(path.dirname(credPath), { recursive: true, force: true }); } catch {}
     mock.restore();
   });
@@ -133,7 +133,7 @@ describe("secrets — keyring priority (mocked)", () => {
   it("keyring hit → returns key without reading file", async () => {
     // Enable keyring by unsetting the env var. When keyring returns a hit,
     // the file at ~/.config/enough/credentials is never read.
-    process.env.ENOUGH_CREDENTIALS_FILE = "";
+    process.env.HOLLOW_CREDENTIALS_FILE = "";
     // Also write a sentinel file at the default path to prove it wasn't read.
     // We can't safely do that (it's the user's home dir), so we just verify
     // the key matches the mock.
@@ -154,7 +154,7 @@ describe("secrets — keyring priority (mocked)", () => {
 
   it("keyring miss → falls back to file", async () => {
     // Write the file first via file mode, then switch to keyring mode
-    // and mock keyring to miss. With ENOUGH_CREDENTIALS_FILE set (file mode),
+    // and mock keyring to miss. With HOLLOW_CREDENTIALS_FILE set (file mode),
     // use_keyring() returns false and goes straight to the file.
     // We verify the file path logic separately through get_api_key.
     const store = await import("./store");
@@ -174,10 +174,10 @@ describe("secrets — keyring priority (mocked)", () => {
     run(store.set_api_key("sk-initial"));
     expect(fs.existsSync(credPath)).toBe(true);
 
-    // Now mock keyring_set to succeed. Since ENOUGH_CREDENTIALS_FILE is set,
+    // Now mock keyring_set to succeed. Since HOLLOW_CREDENTIALS_FILE is set,
     // use_keyring() is false and keyring isn't called. To test that
     // keyring_set success → remove_file is called, we need keyring enabled
-    // (ENOUGH_CREDENTIALS_FILE unset). But then active_credentials_path
+    // (HOLLOW_CREDENTIALS_FILE unset). But then active_credentials_path
     // resolves to ~/.config/evenable/credentials, not our temp.
     // This behavior is verified by the Go test suite; we leave this here
     // as documentation of the intended behavior:

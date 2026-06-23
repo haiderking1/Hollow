@@ -1,7 +1,7 @@
 # Design System: Stripe
 
 
-> **Enough — Implementation Notes**
+> **Hollow — Implementation Notes**
 >
 > The original site uses proprietary fonts. For self-contained HTML output, use these CDN substitutes:
 > - **Primary:** `Source Sans 3` | **Mono:** `Source Code Pro`

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/glob.go
+// PORT: backend/agent/glob.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/runtime_client.go
+// PORT: backend/opencode/runtime_client.go
 
 import type { runtime } from "../config/config";
 import { client, new_client, new_codex_client } from "./client";

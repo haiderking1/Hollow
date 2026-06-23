@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Telephony helper for the Enough optional telephony skill.
+"""Telephony helper for the Hollow optional telephony skill.
 
 Capabilities:
-- Persist telephony provider credentials to the Enough .env file ($ENOUGH_HOME/.env)
+- Persist telephony provider credentials to the Hollow .env file ($HOLLOW_HOME/.env)
 - Search for, buy, and remember Twilio phone numbers
 - Make direct Twilio calls (TwiML <Say> or <Play>)
 - Send SMS / MMS via Twilio
@@ -69,7 +69,7 @@ class OwnedTwilioNumber:
 
 
 def _hermes_home() -> Path:
-    return Path(os.environ.get("ENOUGH_HOME", "~/.enough")).expanduser()
+    return Path(os.environ.get("HOLLOW_HOME", "~/.hollow")).expanduser()
 
 
 def _env_path() -> Path:
@@ -1146,22 +1146,22 @@ def save_vapi(
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Enough telephony helper")
+    parser = argparse.ArgumentParser(description="Hollow telephony helper")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("diagnose", help="Show saved telephony state and provider readiness")
 
-    p = sub.add_parser("save-twilio", help="Save Twilio credentials to the Enough .env file")
+    p = sub.add_parser("save-twilio", help="Save Twilio credentials to the Hollow .env file")
     p.add_argument("account_sid")
     p.add_argument("auth_token")
     p.add_argument("--phone-number", default="")
     p.add_argument("--phone-sid", default="")
 
-    p = sub.add_parser("save-bland", help="Save Bland.ai settings to the Enough .env file")
+    p = sub.add_parser("save-bland", help="Save Bland.ai settings to the Hollow .env file")
     p.add_argument("api_key")
     p.add_argument("--voice", default=BLAND_DEFAULT_VOICE)
 
-    p = sub.add_parser("save-vapi", help="Save Vapi settings to the Enough .env file")
+    p = sub.add_parser("save-vapi", help="Save Vapi settings to the Hollow .env file")
     p.add_argument("api_key")
     p.add_argument("--phone-number-id", default="")
     p.add_argument("--voice-provider", default=VAPI_DEFAULT_VOICE_PROVIDER)

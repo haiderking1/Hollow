@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/models.go
+// PORT: backend/agent/models.go
 
 import { provider_opencode } from "../opencode/providers";
 import { resolve_context_window } from "../opencode/context";

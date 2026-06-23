@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/system_prompt.go
+// PORT: backend/agent/system_prompt.go
 
 import fs from "node:fs";
 import path from "node:path";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/bundle.go
+// PORT: backend/skills/bundle.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";
@@ -14,7 +14,7 @@ export const agentReferenceSkillPath = path.join(
   __dirname,
   "bundled",
   "autonomous-ai-agents",
-  "enough-agent",
+  "hollow-agent",
   "SKILL.md"
 );
 
@@ -31,11 +31,11 @@ export function getAgentReferenceSkillBytes(): Buffer {
   return cachedSkillBytes;
 }
 
-// ExtractEnoughSkillIfMissing ensures the canonical enough-agent reference skill
+// ExtractHollowSkillIfMissing ensures the canonical hollow-agent reference skill
 // exists under ~/.hollow/skills/ (SyncSkills is the primary path; this is a
 // lightweight fallback for first-run before sync completes).
-export function ExtractEnoughSkillIfMissing(): Effect.Effect<void, Error> {
-  const dir = path.join(SkillsDir(), "autonomous-ai-agents", "enough-agent");
+export function ExtractHollowSkillIfMissing(): Effect.Effect<void, Error> {
+  const dir = path.join(SkillsDir(), "autonomous-ai-agents", "hollow-agent");
   const target = path.join(dir, "SKILL.md");
 
   return Effect.tryPromise({

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/bash_unix.go
+// PORT: backend/agent/bash_unix.go
 
 import { ChildProcess } from "node:child_process";
 import process from "node:process";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/tools_registry.go
+// PORT: backend/agent/tools_registry.go
 
 import { type tool } from "../opencode/types";
 import { type runtime } from "../config/config";

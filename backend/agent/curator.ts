@@ -54,7 +54,7 @@ export const curatorDryRunBanner =
   "═══════════════════════════════════════════════════════════════";
 
 export const curatorReviewPrompt =
-  "You are running as Enough's background skill CURATOR. This is an " +
+  "You are running as Hollow's background skill CURATOR. This is an " +
   "UMBRELLA-BUILDING consolidation pass, not a passive audit and not a " +
   "duplicate-finder.\n\n" +
   "The goal of the skill collection is a LIBRARY OF CLASS-LEVEL " +
@@ -75,7 +75,7 @@ export const curatorReviewPrompt =
   "Archives are recoverable; deletion is not.\n" +
   "3. DO NOT touch skills shown as pinned=yes. Skip them entirely.\n" +
   "3b. DO NOT archive, delete, consolidate, move, or otherwise modify any " +
-  "skill named in the protected built-ins list (currently: enough-agent). These " +
+  "skill named in the protected built-ins list (currently: hollow-agent). These " +
   "back load-bearing UX and are filtered out of the candidate list below — " +
   "never resurrect one as an archive or absorb target.\n" +
   "4. DO NOT use usage counters as a reason to skip consolidation. The " +
@@ -184,7 +184,7 @@ export const curatorReviewPrompt =
 export const curatorPruneBuiltinsNote =
   "\n\nPRUNE-BUILTINS MODE IS ON: bundled built-in skills " +
   "MAY be archived for staleness/irrelevance, overriding hard rule #1 " +
-  "for bundled skills ONLY — EXCEPT the protected built-ins (enough-agent), " +
+  "for bundled skills ONLY — EXCEPT the protected built-ins (hollow-agent), " +
   "which remain strictly off-limits. Treat a stale built-in the same as " +
   "a stale agent-created skill: archive it (never delete).";
 
@@ -315,7 +315,7 @@ export async function runCuratorLLMPass(
   curator.notify = notify;
   curator.executeTool = curator.executeTool || Agent.prototype.executeTool;
 
-  const cachedPrompt = "You are Enough's background skill curator. You maintain the " +
+  const cachedPrompt = "You are Hollow's background skill curator. You maintain the " +
     "skill library at ~/.hollow/skills/. Follow the task instructions exactly.";
   curator.cachedSystemPrompt = cachedPrompt;
   curator.messages = [

@@ -1,5 +1,5 @@
-// PORT: mirrors backend/fslock/lock_unix.go
-// Ported from backend/fslock/lock_unix.go
+// PORT: backend/fslock/lock_unix.go
+// backend/fslock/lock_unix.go
 // Exclusive file-lock helpers for Unix via flock(2).
 
 import { Effect } from "effect";

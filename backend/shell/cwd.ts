@@ -1,4 +1,4 @@
-// PORT: mirrors backend/shell/cwd.go
+// PORT: backend/shell/cwd.go
 
 import os from "node:os";
 import path from "node:path";

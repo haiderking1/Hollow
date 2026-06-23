@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/list.go
+// PORT: backend/session/list.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";
@@ -6,7 +6,7 @@ import fs_sync from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { home_agent_dir, session_dir, sessions_subdir } from "./paths";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import { manager } from "./manager";
 import {
   type info,

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/tools.go
+// PORT: backend/agent/tools.go
 
 import { Effect } from "effect";
 import { type tool } from "../opencode/types";

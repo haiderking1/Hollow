@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/parallel_fork.go
+// PORT: backend/agent/parallel_fork.go
 
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -67,8 +67,8 @@ export async function runParallelForks(
       return ["Parallel forks aborted.", false];
     }
     const id = `fork-${i + 1}`;
-    const branch = `enough-fork/${runID}/${id}`;
-    const base = path.join(os.tmpdir(), "enough-fork-" + runID);
+    const branch = `hollow-fork/${runID}/${id}`;
+    const base = path.join(os.tmpdir(), "hollow-fork-" + runID);
     const dir = path.join(base, id);
     try {
       fs.mkdirSync(base, { recursive: true, mode: 0o755 });

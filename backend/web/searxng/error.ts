@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/searxng/common errors
+// PORT: backend/web/searxng/common errors
 
 export type searxng_error = {
   readonly _tag: "SearxngError";

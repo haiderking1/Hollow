@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/vm_loop.go
+// PORT: backend/workflow/vm_loop.go
 
 export class vmLoop {
   private activePromisesCount = 0;

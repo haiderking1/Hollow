@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/think_tags.go
+// PORT: backend/opencode/think_tags.go
 
 import { get_reasoning, string_content, content_string, type message } from "./types";
 

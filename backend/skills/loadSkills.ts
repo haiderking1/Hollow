@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/loadSkills.go
+// PORT: backend/skills/loadSkills.go
 
 import path from "node:path";
 import { type runtime } from "../config/config";

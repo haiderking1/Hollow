@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/url_guard.go
+// PORT: backend/web/url_guard.go
 
 import dns from "node:dns/promises";
 
@@ -49,7 +49,7 @@ export const validate_fetch_url = async (raw: string): Promise<URL> => {
 };
 
 export const allow_private_fetch = (): boolean => {
-  return process.env.ENOUGH_WEB_ALLOW_PRIVATE === "1";
+  return process.env.HOLLOW_WEB_ALLOW_PRIVATE === "1";
 };
 
 export const is_private_ip = (ip: string): boolean => {
@@ -75,7 +75,7 @@ export const is_private_ip = (ip: string): boolean => {
 };
 
 export const user_agent = (): string => {
-  return "Enough/1.0 (+https://github.com/enough/enough)";
+  return "Hollow/1.0 (+https://github.com/haiderking1/Hollow)";
 };
 
 /*

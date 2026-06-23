@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/bash.go
+// PORT: backend/agent/bash.go
 
 import { Effect } from "effect";
 import { type tool } from "../opencode/types";
@@ -72,7 +72,7 @@ export function bashTool(): tool {
     type: "function",
     function: {
       name: "bash",
-      description: "Run a shell command in the project workspace. Do NOT run mpv, sixel, blessed, or full-screen TUI apps — they break the Enough terminal. Use curl, tests, and plain-text commands only.",
+      description: "Run a shell command in the project workspace. Do NOT run mpv, sixel, blessed, or full-screen TUI apps — they break the Hollow terminal. Use curl, tests, and plain-text commands only.",
       parameters: new TextEncoder().encode(JSON.stringify(schema)),
     },
   };

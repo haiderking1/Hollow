@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/frontmatter.go
+// PORT: backend/skills/frontmatter.go
 
 import path from "node:path";
 import { PlatformMap, PromptIndexDescriptionMax } from "./constants";

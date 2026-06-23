@@ -1,4 +1,4 @@
-// PORT: mirrors backend/mcp/manager.go
+// PORT: backend/mcp/manager.go
 
 import { Effect } from "effect";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -320,7 +320,7 @@ export class manager {
               protocolVersion: "2024-11-05",
               capabilities: {},
               clientInfo: {
-                name: "enough-mcp-client",
+                name: "hollow-mcp-client",
                 version: "1.0.0",
               },
             },

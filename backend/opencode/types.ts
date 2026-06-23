@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/types.go
+// PORT: backend/opencode/types.go
 
 export type json_raw_message = Uint8Array;
 

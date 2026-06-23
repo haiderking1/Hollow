@@ -1,5 +1,4 @@
 bin/
-/enough
 *.test
 docs/
 
@@ -14,10 +13,10 @@ dist/
 .agents/
 .codex/
 
-# Enough runtime in project dirs
-.enough/
+# Hollow runtime data in project dirs
+.hollow/
 
-# Go tooling (legacy from the Go codebase)
+# Go tooling (legacy)
 coverage.out
 coverage.html
 *.prof

@@ -1,9 +1,9 @@
-// PORT: mirrors backend/opencode/catalog.go
+// PORT: backend/opencode/catalog.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import { provider_opencode, provider_opencode_zen, type model_info } from "./providers";
 import { normalize_model } from "./models";
 import { format_thinking_label } from "./thinking";

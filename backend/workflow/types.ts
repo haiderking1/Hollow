@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/types.go
+// PORT: backend/workflow/types.go
 
 export const DefaultMaxConcurrency = 16;
 export const DefaultMaxTotalAgents = 1000;

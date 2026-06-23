@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/memory_correction.go
+// PORT: backend/agent/memory_correction.go
 
 // userMessageSignalsProfileCorrection reports whether the user's message likely
 // corrects how the assistant addressed them or interpreted USER PROFILE text.

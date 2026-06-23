@@ -1,10 +1,10 @@
-// PORT: mirrors backend/auth/store.go
+// PORT: backend/auth/store.go
 
 import path from "node:path";
 import fs from "node:fs";
 import { Effect } from "effect";
 import { auth_error, type auth_error as auth_error_type } from "./error";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 
 export const provider_openai_codex = "openai-codex";
 
@@ -146,5 +146,5 @@ todos:
   - confirm 0o600/0o700 permission bits are meaningful on target runtime
 notes:
   - Functions returning (T, error) are modeled as Effect.Effect<T, auth_error>.
-  - Reuses existing home_dir from backend/enoughhome.
+  - Reuses existing home_dir from backend/hollowhome.
 */

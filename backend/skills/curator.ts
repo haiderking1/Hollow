@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/curator.go
+// PORT: backend/skills/curator.go
 
 import fs from "node:fs";
 import path from "node:path";
@@ -17,7 +17,7 @@ import {
 // CuratorProtectedBuiltins are bundled skills the curator must never archive
 // or consolidate, regardless of prune_builtins, pin state, or LLM judgment.
 export const CuratorProtectedBuiltins: Record<string, boolean> = {
-  "enough-agent": true,
+  "hollow-agent": true,
 };
 
 // CuratorState is the persistent scheduler + status record
@@ -70,9 +70,9 @@ export function IsProtectedBuiltin(name: string): boolean {
   return !!CuratorProtectedBuiltins[name];
 }
 
-// IsBundledSkillName reports whether the skill ships with Enough.
+// IsBundledSkillName reports whether the skill ships with Hollow.
 export function IsBundledSkillName(name: string): boolean {
-  return name === "enough-agent";
+  return name === "hollow-agent";
 }
 
 // loadSuppressed returns the set of bundled skills previously archived by the curator.

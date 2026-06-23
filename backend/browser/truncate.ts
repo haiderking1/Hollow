@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/truncate.go
+// PORT: backend/browser/truncate.go
 
 export const MaxScrapeBytes = 50 * 1024;
 export const MaxScrapeLines = 2000;

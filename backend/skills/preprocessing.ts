@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/preprocessing.go
+// PORT: backend/skills/preprocessing.go
 
 import { Effect } from "effect";
 import path from "node:path";
@@ -31,12 +31,12 @@ export function DefaultPreprocessingConfig(): PreprocessingConfig {
 function substituteTemplateVars(content: string, skillDir: string, sessionId: string): string {
   let res = content;
   if (skillDir !== "") {
-    res = res.replaceAll("${ENOUGH_SKILL_DIR}", skillDir);
+    res = res.replaceAll("${HOLLOW_SKILL_DIR}", skillDir);
     res = res.replaceAll("${HERMES_SKILL_DIR}", skillDir);
     res = res.replaceAll("${FLAME_SKILL_DIR}", skillDir);
   }
   if (sessionId !== "") {
-    res = res.replaceAll("${ENOUGH_SESSION_ID}", sessionId);
+    res = res.replaceAll("${HOLLOW_SESSION_ID}", sessionId);
     res = res.replaceAll("${HERMES_SESSION_ID}", sessionId);
     res = res.replaceAll("${FLAME_SESSION_ID}", sessionId);
   }

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/web_fetch.go
+// PORT: backend/agent/web_fetch.go
 
 import { Effect } from "effect";
 import { type tool } from "../opencode/types";

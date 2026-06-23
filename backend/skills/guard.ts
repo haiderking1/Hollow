@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/guard.go
+// PORT: backend/skills/guard.go
 
 import fs from "node:fs";
 import path from "node:path";

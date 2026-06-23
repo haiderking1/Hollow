@@ -1,4 +1,4 @@
-// PORT: mirrors backend/shell/command_windows.go
+// PORT: backend/shell/command_windows.go
 
 // setHideWindow hides the child console window on Windows in the Go version.
 // Node/Bun child_process does this with the windowsHide option at spawn time.

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/usage.go
+// PORT: backend/skills/usage.go
 
 import { Effect } from "effect";
 import fs from "node:fs";
@@ -140,7 +140,7 @@ function atomicWriteSync(filename: string, data: Uint8Array): void {
   }
 
   // Generate a random temporary filename in the same directory to guarantee atomicity on rename
-  const tmpName = path.join(dir, `enough-atomic-${Math.random().toString(36).substring(2, 10)}`);
+  const tmpName = path.join(dir, `hollow-atomic-${Math.random().toString(36).substring(2, 10)}`);
   try {
     fs.writeFileSync(tmpName, data, { mode: 0o644 });
     fs.renameSync(tmpName, filename);

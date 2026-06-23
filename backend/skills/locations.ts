@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/locations.go
+// PORT: backend/skills/locations.go
 
 import fs from "node:fs";
 import path from "node:path";
@@ -73,8 +73,8 @@ export function SearchLocations(workDir: string, cfg: runtime, agentDirOverride:
 
   current = workDir;
   while (true) {
-    // .enough/skills
-    addDir(path.join(current, ".enough", "skills"), "project", true);
+    // .hollow/skills
+    addDir(path.join(current, ".hollow", "skills"), "project", true);
     // .agents/skills
     addDir(path.join(current, ".agents", "skills"), "project", false);
 

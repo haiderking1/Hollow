@@ -2,7 +2,7 @@
 name: honcho
 description: Configure and use Honcho memory with Hermes -- cross-session user modeling, multi-profile peer isolation, observation config, dialectic reasoning, session summaries, and context budget enforcement. Use when setting up Honcho, troubleshooting memory, managing profiles with Honcho peers, or tuning observation, recall, and dialectic settings.
 version: 2.0.0
-author: Enough
+author: Hollow
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -16,7 +16,7 @@ prerequisites:
 
 # Honcho Memory for Hermes
 
-> **Not available in Enough:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Enough does not ship). Load the **`enough`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
+> **Not available in Hollow:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Hollow does not ship). Load the **`hollow`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
 
 Honcho provides AI-native cross-session user modeling. It learns who the user is across conversations and gives every Hermes profile its own peer identity while sharing a unified view of the user.
 
@@ -122,10 +122,10 @@ Honcho sessions scope where messages and observations land. Strategy options:
 |----------|----------|
 | `per-directory` (default) | One session per working directory |
 | `per-repo` | One session per git repository root |
-| `per-session` | New Honcho session each Enough run |
+| `per-session` | New Honcho session each Hollow run |
 | `global` | Single session across all directories |
 
-Manual override: `enough honcho map my-project-name`
+Manual override: `hollow honcho map my-project-name`
 
 ### Recall Modes
 
@@ -339,7 +339,7 @@ In `hybrid` and `context` modes, base context (user representation + card + sess
 
 ## Config Reference
 
-Config file: `$ENOUGH_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global).
+Config file: `$HOLLOW_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global).
 
 ### Key settings
 
@@ -391,13 +391,13 @@ This fix addresses edge cases where raw user conclusions containing markup or sp
 ## Troubleshooting
 
 ### "Honcho not configured"
-Run `enough honcho setup`. Ensure `memory.provider: honcho` is in `~/.enough/config.json`.
+Run `hollow honcho setup`. Ensure `memory.provider: honcho` is in `~/.hollow/config.json`.
 
 ### Memory not persisting across sessions
-Check `enough honcho status` -- verify `saveMessages: true` and `writeFrequency` isn't `session` (which only writes on exit).
+Check `hollow honcho status` -- verify `saveMessages: true` and `writeFrequency` isn't `session` (which only writes on exit).
 
 ### Profile not getting its own peer
-Use `--clone` when creating: `enough profile create <name> --clone`. For existing profiles: `enough honcho sync`.
+Use `--clone` when creating: `hollow profile create <name> --clone`. For existing profiles: `hollow honcho sync`.
 
 ### Observation changes in dashboard not reflected
 Observation config is synced from the server on each session init. Start a new session after changing settings in the Honcho UI.
@@ -415,19 +415,19 @@ Session summary requires at least one prior turn in the current Honcho session. 
 
 | Command | Description |
 |---------|-------------|
-| `enough honcho setup` | Interactive setup wizard (cloud/local, identity, observation, recall, sessions) |
-| `enough honcho status` | Show resolved config, connection test, peer info for active profile |
-| `enough honcho enable` | Enable Honcho for the active profile (creates host block if needed) |
-| `enough honcho disable` | Disable Honcho for the active profile |
-| `enough honcho peer` | Show or update peer names (`--user <name>`, `--ai <name>`, `--reasoning <level>`) |
-| `enough honcho peers` | Show peer identities across all profiles |
-| `enough honcho mode` | Show or set recall mode (`hybrid`, `context`, `tools`) |
-| `enough honcho tokens` | Show or set token budgets (`--context <N>`, `--dialectic <N>`) |
-| `enough honcho sessions` | List known directory-to-session-name mappings |
-| `enough honcho map <name>` | Map current working directory to a Honcho session name |
-| `enough honcho identity` | Seed AI peer identity or show both peer representations |
-| `enough honcho sync` | Create host blocks for all Hermes profiles that don't have one yet |
-| `enough honcho migrate` | Step-by-step migration guide from OpenClaw native memory to Enough + Honcho |
-| `enough memory setup` | Generic memory provider picker (selecting "honcho" runs the same wizard) |
-| `enough memory status` | Show active memory provider and config |
-| `enough memory off` | Disable external memory provider |
+| `hollow honcho setup` | Interactive setup wizard (cloud/local, identity, observation, recall, sessions) |
+| `hollow honcho status` | Show resolved config, connection test, peer info for active profile |
+| `hollow honcho enable` | Enable Honcho for the active profile (creates host block if needed) |
+| `hollow honcho disable` | Disable Honcho for the active profile |
+| `hollow honcho peer` | Show or update peer names (`--user <name>`, `--ai <name>`, `--reasoning <level>`) |
+| `hollow honcho peers` | Show peer identities across all profiles |
+| `hollow honcho mode` | Show or set recall mode (`hybrid`, `context`, `tools`) |
+| `hollow honcho tokens` | Show or set token budgets (`--context <N>`, `--dialectic <N>`) |
+| `hollow honcho sessions` | List known directory-to-session-name mappings |
+| `hollow honcho map <name>` | Map current working directory to a Honcho session name |
+| `hollow honcho identity` | Seed AI peer identity or show both peer representations |
+| `hollow honcho sync` | Create host blocks for all Hermes profiles that don't have one yet |
+| `hollow honcho migrate` | Step-by-step migration guide from OpenClaw native memory to Hollow + Honcho |
+| `hollow memory setup` | Generic memory provider picker (selecting "honcho" runs the same wizard) |
+| `hollow memory status` | Show active memory provider and config |
+| `hollow memory off` | Disable external memory provider |

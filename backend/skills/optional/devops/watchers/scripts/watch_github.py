@@ -5,11 +5,11 @@ Usage (via cron with --no-agent):
 
     cron (Hermes-only — use bash + cron on host) create hermes-issues \\
       --schedule "*/5 * * * *" --no-agent \\
-      --script "$ENOUGH_HOME/skills/devops/watchers/scripts/watch_github.py" \\
+      --script "$HOLLOW_HOME/skills/devops/watchers/scripts/watch_github.py" \\
       --script-args "--name hermes-issues --repo NousResearch/hermes-agent --scope issues"
 
-Set GITHUB_TOKEN (or GH_TOKEN) in the Enough .env file
-(``${ENOUGH_HOME:-~/.enough}/.env``) to avoid the 60 req/hr
+Set GITHUB_TOKEN (or GH_TOKEN) in the Hollow .env file
+(``${HOLLOW_HOME:-~/.hollow}/.env``) to avoid the 60 req/hr
 anonymous rate limit.
 
 Scopes: issues | pulls | releases | commits.  Or pass --search QUERY to
@@ -113,7 +113,7 @@ def main() -> int:
 
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "Enough-Watcher/1.0",
+        "User-Agent": "Hollow-Watcher/1.0",
     }
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:

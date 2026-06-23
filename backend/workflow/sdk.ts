@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/sdk.go
+// PORT: backend/workflow/sdk.go
 
 import { Effect } from "effect";
 import { type AgentOptions, type AgentResult } from "./types";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/spawn.go
+// PORT: backend/workflow/spawn.go
 
 import { type AgentOptions, type AgentResult, type AgentSnapshot } from "./types";
 import { Runtime } from "./runtime";

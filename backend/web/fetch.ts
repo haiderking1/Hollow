@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/fetch.go
+// PORT: backend/web/fetch.go
 
 import { Effect } from "effect";
 import { type page_hit, fetch_error, fetch_failure_kind, max_fetch_cap } from "./types";

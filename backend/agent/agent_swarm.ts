@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/agent_swarm.go
+// PORT: backend/agent/agent_swarm.go
 
 import { Effect } from "effect";
 import { type tool, type message, type chat_request, string_content, content_string } from "../opencode/types";
@@ -351,7 +351,7 @@ Agent.prototype.runIsolatedSwarmWorker = async function (
   const id = swarmTaskID(task, index);
   const safe = safeSwarmID(id);
   const branch = `swarm/${runID}/${safe}`;
-  const base = path.join(os.tmpdir(), `enough-swarm-${runID}`);
+  const base = path.join(os.tmpdir(), `hollow-swarm-${runID}`);
   const dir = path.join(base, safe);
 
   try {

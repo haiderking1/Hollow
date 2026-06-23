@@ -8,7 +8,7 @@ description: >
   running locally.
 platforms: [linux, macos, windows]
 version: 1.0.0
-author: Enough + Nous Research
+author: Hollow + Nous Research
 license: MIT
 metadata:
   hermes:

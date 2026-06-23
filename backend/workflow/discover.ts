@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/discover.go
+// PORT: backend/workflow/discover.go
 
 import { Effect } from "effect";
 import fs from "node:fs";
@@ -12,7 +12,7 @@ interface ScriptCandidate {
 export function FindLatestScript(workDir: string): Effect.Effect<string, Error> {
   return Effect.try({
     try: () => {
-      const root = path.join(workDir, ".enough", "workflows");
+      const root = path.join(workDir, ".hollow", "workflows");
       if (!fs.existsSync(root)) {
         throw new Error(`no workflow scripts found under ${root}`);
       }

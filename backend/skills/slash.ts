@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/slash.go
+// PORT: backend/skills/slash.go
 
 import { Effect } from "effect";
 import fs from "node:fs";

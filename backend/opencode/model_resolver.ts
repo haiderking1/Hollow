@@ -8,7 +8,7 @@
 import { Effect } from "effect";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import {
   provider_codex,
   provider_neuralwatt,

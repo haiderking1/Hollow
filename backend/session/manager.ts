@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/manager.go
+// PORT: backend/session/manager.go
 
 import { fingerprint_store, new_fingerprint_store } from "./fingerprints";
 import { Effect } from "effect";

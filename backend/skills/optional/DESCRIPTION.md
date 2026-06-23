@@ -2,14 +2,14 @@
 
 Official skills maintained by Nous Research that are **not activated by default**.
 
-These skills ship with the Enough repository but are not copied to
-`~/.enough/skills/` during setup. They are discoverable via the Skills Hub:
+These skills ship with the Hollow repository but are not copied to
+`~/.hollow/skills/` during setup. They are discoverable via the Skills Hub:
 
 ```bash
 enough skills browse               # browse all skills, official shown first
 enough skills browse --source official  # browse only official optional skills
 enough skills search <query>       # finds optional skills labeled "official"
-enough skills install <identifier> # copies to ~/.enough/skills/ and activates
+enough skills install <identifier> # copies to ~/.hollow/skills/ and activates
 ```
 
 ## Why optional?

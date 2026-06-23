@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/extract.go
+// PORT: backend/web/extract.go
 
 import { Effect } from "effect";
 import {

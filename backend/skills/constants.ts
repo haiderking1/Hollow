@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/constants.go
+// PORT: backend/skills/constants.go
 
 export const MaxSkillNameLength = 64;
 export const MaxSkillDescriptionLength = 1024;

@@ -12,7 +12,7 @@ metadata:
 
 # Kanban Orchestrator — Decomposition Playbook
 
-> **Not available in Enough:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Enough does not ship). Load the **`enough`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
+> **Not available in Hollow:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Hollow does not ship). Load the **`hollow`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
 
 > The **core worker lifecycle** (including the `kanban_create` fan-out pattern and the "decompose, don't execute" rule) is auto-injected into every kanban process via the `KANBAN_GUIDANCE` system-prompt block. This skill is the deeper playbook when you're an orchestrator profile whose whole job is routing.
 
@@ -26,7 +26,7 @@ Before fanning out, you must ground the decomposition in the profiles that actua
 
 Use one of these:
 
-- `enough profile list` — prints the table of profiles configured on this machine. Run it through your terminal tool if you have one; otherwise ask the user.
+- `hollow profile list` — prints the table of profiles configured on this machine. Run it through your terminal tool if you have one; otherwise ask the user.
 - `kanban_list(assignee="<some-name>")` — sanity-check a single name. Returns an empty list (rather than an error) for an unknown assignee, so this only confirms a name you're already considering.
 - **Just ask the user.** "What profiles do you have set up?" is a fine first turn when the goal needs more than one specialist.
 
@@ -149,7 +149,7 @@ Tell them what you created in plain prose, naming the actual profiles you used:
 > - **T3** (`<profile-B>`): synthesizes T1 + T2 into a recommendation
 > - **T4** (`<profile-C>`): turns T3 into a CTO memo
 >
-> The dispatcher will pick up T1 and T2 now. T3 starts when both finish. You'll get a gateway ping when T4 completes. Use the dashboard or `enough kanban tail <id>` to follow along.
+> The dispatcher will pick up T1 and T2 now. T3 starts when both finish. You'll get a gateway ping when T4 completes. Use the dashboard or `hollow kanban tail <id>` to follow along.
 
 ## Common patterns
 
@@ -209,8 +209,8 @@ Write the body as **explicit acceptance criteria** — the judge is only as good
 
 When a worker profile keeps crashing, hallucinating, or getting blocked by its own mistakes (usually: wrong model, missing skill, broken credential), the kanban dashboard flags the task with a ⚠ badge and opens a **Recovery** section in the drawer. Three primary actions:
 
-1. **Reclaim** (or `enough kanban reclaim <task_id>`) — abort the running worker immediately and reset the task to `ready`. The existing claim TTL is ~15 min; this is the fast path out.
-2. **Reassign** (or `enough kanban reassign <task_id> <new-profile> --reclaim`) — switch the task to a different profile (one that exists on this setup) and let the dispatcher pick it up with a fresh worker.
-3. **Change profile model** — the dashboard prints a copy-paste hint for `enough -p <profile> model` since profile config lives on disk; edit it in a terminal, then Reclaim to retry with the new model.
+1. **Reclaim** (or `hollow kanban reclaim <task_id>`) — abort the running worker immediately and reset the task to `ready`. The existing claim TTL is ~15 min; this is the fast path out.
+2. **Reassign** (or `hollow kanban reassign <task_id> <new-profile> --reclaim`) — switch the task to a different profile (one that exists on this setup) and let the dispatcher pick it up with a fresh worker.
+3. **Change profile model** — the dashboard prints a copy-paste hint for `hollow -p <profile> model` since profile config lives on disk; edit it in a terminal, then Reclaim to retry with the new model.
 
 Hallucination warnings appear on tasks where a worker's `kanban_complete(created_cards=[...])` claim included card ids that don't exist or weren't created by the worker's profile (the gate blocks the completion), or where the free-form summary references `t_<hex>` ids that don't resolve (advisory prose scan, non-blocking). Both produce audit events that persist even after recovery actions — the trail stays for debugging.

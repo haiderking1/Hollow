@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/format.go
+// PORT: backend/skills/format.go
 
 import { type Skill } from "./types";
 

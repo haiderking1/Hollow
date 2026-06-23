@@ -1,5 +1,5 @@
-// PORT: mirrors backend/toolsets/registry.go
-// Ported from backend/toolsets/registry.go
+// PORT: backend/toolsets/registry.go
+// backend/toolsets/registry.go
 
 // Maps each tool name to its toolset category.
 export const tool_to_toolset: Record<string, string> = {

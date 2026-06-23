@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/agent.go
+// PORT: backend/agent/agent.go
 
 import { Effect } from "effect";
 import { type message, type tool, string_content, content_string, get_reasoning, type chat_request } from "../opencode/types";

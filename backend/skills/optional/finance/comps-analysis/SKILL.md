@@ -322,7 +322,7 @@ Skip: Heavy R&D or CapEx metrics
 
 **5 operating metrics** - Revenue, Growth, 2-3 margins/efficiency metrics
 **5 valuation metrics** - Market Cap, EV, 3 multiples
-**= 10 total columns** - Enough to tell the story, not so many you lose the thread
+**= 10 total columns** - enough to tell the story, not so many you lose the thread
 
 If you have more than 15 metrics, you're probably including noise. Edit ruthlessly.
 

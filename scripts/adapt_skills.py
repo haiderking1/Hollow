@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adapt Hermes-ported skill trees to Enough conventions (bundled + optional).
+"""Adapt Hermes-ported skill trees to Hollow conventions (bundled + optional).
 
 Run from repo root: python3 scripts/adapt_skills.py
 
@@ -43,7 +43,7 @@ PROTECT_LINE_RE = re.compile(
     r"# hermes-agent \(deprecated\)|"
     r"not Hermes Agent|"
     r"Hermes-only|"
-    r"NOT IN ENOUGH|"
+    r"NOT IN HOLLOW|"
     r"metadata\.hermes|"
     r"/opt/hermes/|"
     r"hermes\.coder|"
@@ -55,245 +55,245 @@ PROTECT_LINE_RE = re.compile(
 )
 
 REPLACEMENTS: list[tuple[str, str]] = [
-    (r"\$\{HERMES_HOME:-\$HOME/\.hermes\}", "${ENOUGH_HOME:-$HOME/.enough}"),
-    (r"\$\{HERMES_HOME:-~/\.hermes\}", "${ENOUGH_HOME:-~/.enough}"),
-    (r"\$\{HERMES_HOME\}", "${ENOUGH_HOME}"),
-    (r"os\.environ\.get\(\"HERMES_HOME\"", 'os.environ.get("ENOUGH_HOME"'),
-    (r"os\.getenv\(\"HERMES_HOME\"", 'os.getenv("ENOUGH_HOME"'),
-    (r"os\.getenv\('HERMES_HOME'", "os.getenv('ENOUGH_HOME'"),
-    (r"\$HERMES_HOME", "$ENOUGH_HOME"),
-    (r"\bHERMES_HOME\b", "ENOUGH_HOME"),
-    (r"HERMES_CFG", "ENOUGH_CFG"),
-    (r"HERMES_PLATFORM", "ENOUGH_PLATFORM"),
-    (r"HERMES_KANBAN_", "ENOUGH_KANBAN_"),
-    (r"HERMES_SKILL_DIR", "ENOUGH_SKILL_DIR"),
-    (r"HERMES_SESSION_ID", "ENOUGH_SESSION_ID"),
-    (r"~/\.hermes/", "~/.enough/"),
-    (r"/\.hermes/", "/.enough/"),
-    (r"~/.hermes", "~/.enough"),
-    (r"\.hermes/plans", ".enough/plans"),
-    (r"\.hermes/prefill\.json", ".enough/prefill.json"),
-    (r"author: Hermes Agent \+", "author: Enough +"),
-    (r"author: Hermes Agent \(", "author: Enough ("),
-    (r"author: Hermes Agent \+", "author: Enough +"),
-    (r"author: Hermes Agent", "author: Enough"),
-    (r"Hermes Agent \+", "Enough +"),
-    (r"Hermes Agent \(", "Enough ("),
-    (r"Hermes Agent — Implementation Notes", "Enough — Implementation Notes"),
-    (r"Hermes CLI", "Enough CLI"),
-    (r"## Hermes Agent Integration", "## Enough Integration"),
-    (r"## Hermes Integration", "## Enough Integration"),
-    (r"\*\*For Hermes:\*\*", "**For Enough:**"),
-    (r"Rules for Hermes Agents", "Rules for Enough Agents"),
-    (r"Hermes Orchestration Guide", "Enough Orchestration Guide"),
-    (r"via the Hermes terminal", "via Enough's bash tool"),
-    (r"via Hermes terminal", "via Enough bash"),
-    (r"Hermes interacts with", "Enough interacts with"),
-    (r"Hermes terminal", "Enough bash"),
+    (r"\$\{HERMES_HOME:-\$HOME/\.hermes\}", "${HOLLOW_HOME:-$HOME/.hollow}"),
+    (r"\$\{HERMES_HOME:-~/\.hermes\}", "${HOLLOW_HOME:-~/.hollow}"),
+    (r"\$\{HERMES_HOME\}", "${HOLLOW_HOME}"),
+    (r"os\.environ\.get\(\"HERMES_HOME\"", 'os.environ.get("HOLLOW_HOME"'),
+    (r"os\.getenv\(\"HERMES_HOME\"", 'os.getenv("HOLLOW_HOME"'),
+    (r"os\.getenv\('HERMES_HOME'", "os.getenv('HOLLOW_HOME'"),
+    (r"\$HERMES_HOME", "$HOLLOW_HOME"),
+    (r"\bHERMES_HOME\b", "HOLLOW_HOME"),
+    (r"HERMES_CFG", "HOLLOW_CFG"),
+    (r"HERMES_PLATFORM", "HOLLOW_PLATFORM"),
+    (r"HERMES_KANBAN_", "HOLLOW_KANBAN_"),
+    (r"HERMES_SKILL_DIR", "HOLLOW_SKILL_DIR"),
+    (r"HERMES_SESSION_ID", "HOLLOW_SESSION_ID"),
+    (r"~/\.hermes/", "~/.hollow/"),
+    (r"/\.hermes/", "/.hollow/"),
+    (r"~/.hermes", "~/.hollow"),
+    (r"\.hermes/plans", ".hollow/plans"),
+    (r"\.hermes/prefill\.json", ".hollow/prefill.json"),
+    (r"author: Hermes Agent \+", "author: Hollow +"),
+    (r"author: Hermes Agent \(", "author: Hollow ("),
+    (r"author: Hermes Agent \+", "author: Hollow +"),
+    (r"author: Hermes Agent", "author: Hollow"),
+    (r"Hermes Agent \+", "Hollow +"),
+    (r"Hermes Agent \(", "Hollow ("),
+    (r"Hermes Agent — Implementation Notes", "Hollow — Implementation Notes"),
+    (r"Hermes CLI", "Hollow CLI"),
+    (r"## Hermes Agent Integration", "## Hollow Integration"),
+    (r"## Hermes Integration", "## Hollow Integration"),
+    (r"\*\*For Hermes:\*\*", "**For Hollow:**"),
+    (r"Rules for Hermes Agents", "Rules for Hollow Agents"),
+    (r"Hermes Orchestration Guide", "Hollow Orchestration Guide"),
+    (r"via the Hermes terminal", "via Hollow's bash tool"),
+    (r"via Hermes terminal", "via Hollow bash"),
+    (r"Hermes interacts with", "Hollow interacts with"),
+    (r"Hermes terminal", "Hollow bash"),
     (r"Use these Hermes tools", "Use these tools"),
-    (r"Use Hermes tools", "Use Enough's tools"),
+    (r"Use Hermes tools", "Use Hollow's tools"),
     (r"Hermes file tools", "file tools (read_file, write_file, bash, grep)"),
-    (r"Hermes tool subprocesses", "Enough bash subprocesses"),
+    (r"Hermes tool subprocesses", "Hollow bash subprocesses"),
     (r"Hermes-run ", "Enough-run "),
-    (r"Hermes adaptation:", "Enough adaptation:"),
+    (r"Hermes adaptation:", "Hollow adaptation:"),
     (r"Hermes-facing", "Enough-facing"),
-    (r"Hermes config paths", "Enough config paths"),
-    (r"from Hermes config", "from Enough config"),
-    (r"Hermes config\.json", "Enough config.json"),
-    (r"Hermes config\.yaml", "Enough config.json"),
-    (r"Read current model and provider from Hermes", "Read current model from Enough"),
-    (r"Restart Hermes", "Restart Enough"),
-    (r"integrated into hermes-agent", "integrated into Enough"),
+    (r"Hermes config paths", "Hollow config paths"),
+    (r"from Hermes config", "from Hollow config"),
+    (r"Hermes config\.json", "Hollow config.json"),
+    (r"Hermes config\.yaml", "Hollow config.json"),
+    (r"Read current model and provider from Hermes", "Read current model from Hollow"),
+    (r"Restart Hermes", "Restart Hollow"),
+    (r"integrated into hermes-agent", "integrated into Hollow"),
     (r"hermes-agent skill", "enough skill"),
-    (r"hermes-agent-skill-authoring", "enough-skill-authoring"),
+    (r"hermes-agent-skill-authoring", "hollow-skill-authoring"),
     (r"debugging-hermes-tui-commands", "enough"),
     (r"openclaw_to_hermes", "openclaw_to_enough"),
-    (r"OpenClaw to Hermes", "OpenClaw to Enough"),
-    (r"migrate.*Hermes Agent", "migrate to Enough"),
-    (r"`hermes teams-pipeline", "(teams-pipeline not in Enough — Hermes-only)"),
-    (r"`hermes skills", "`enough skills"),
-    (r"`hermes chat -q", "`enough -q"),
+    (r"OpenClaw to Hermes", "OpenClaw to Hollow"),
+    (r"migrate.*Hermes Agent", "migrate to Hollow"),
+    (r"`hermes teams-pipeline", "(teams-pipeline not in Hollow — Hermes-only)"),
+    (r"`hermes skills", "`hollow skills"),
+    (r"`hermes chat -q", "`hollow -q"),
     (r"`hermes chat", "`enough"),
     (r"`hermes --tui", "`enough"),
-    (r"`hermes setup", "`/connect` or `~/.enough/config.json`"),
+    (r"`hermes setup", "`/connect` or `~/.hollow/config.json`"),
     (r"`hermes model", "`/model` in the TUI"),
-    (r"`hermes config set", "edit `~/.enough/config.json`"),
-    (r"`hermes config", "edit `~/.enough/config.json`"),
-    (r"`hermes doctor", "`enough skills sync`"),
-    (r"`hermes update", "rebuild/reinstall Enough"),
-    (r"`hermes plugins", "(plugins not in Enough)"),
-    (r"`hermes gateway", "(gateway not in Enough)"),
-    (r"`hermes tools", "Enough agent tools"),
-    (r"`hermes ", "`enough "),
+    (r"`hermes config set", "edit `~/.hollow/config.json`"),
+    (r"`hermes config", "edit `~/.hollow/config.json`"),
+    (r"`hermes doctor", "`hollow skills sync`"),
+    (r"`hermes update", "rebuild/reinstall Hollow"),
+    (r"`hermes plugins", "(plugins not in Hollow)"),
+    (r"`hermes gateway", "(gateway not in Hollow)"),
+    (r"`hermes tools", "Hollow agent tools"),
+    (r"`hermes ", "`hollow "),
     (r"\bhermes skills\b", "enough skills"),
-    (r"\bhermes gateway\b", "Enough TUI"),
-    (r"\btui_gateway\b", "Enough TUI"),
-    (r"\bhermes update\b", "reinstall Enough"),
-    (r"\bhermes doctor\b", "enough skills sync"),
-    (r"/home/bb/hermes-agent", "the Enough project"),
-    (r"hermes-agent\.nousresearch\.com", "github.com/enough/enough"),
-    (r"via `hermes setup`", "in `~/.enough/.env`"),
-    (r"\bhermes setup\b", "`/connect` or `~/.enough/config.json`"),
+    (r"\bhermes gateway\b", "Hollow UI"),
+    (r"\btui_gateway\b", "Hollow UI"),
+    (r"\bhermes update\b", "reinstall Hollow"),
+    (r"\bhermes doctor\b", "hollow skills sync"),
+    (r"/home/bb/hermes-agent", "the Hollow project"),
+    (r"hermes-agent\.nousresearch\.com", "github.com/haiderking1/Hollow"),
+    (r"via `hermes setup`", "in `~/.hollow/.env`"),
+    (r"\bhermes setup\b", "`/connect` or `~/.hollow/config.json`"),
     (r"config\.yaml", "config.json"),
-    (r"get_hermes_home\(\)", "get_enough_home()"),
-    (r"display_hermes_home\(\)", "display_enough_home()"),
-    (r"from _hermes_home import", "from _enough_home import"),
-    (r"import _hermes_home", "import _enough_home"),
+    (r"get_hermes_home\(\)", "get_hollow_home()"),
+    (r"display_hermes_home\(\)", "display_hollow_home()"),
+    (r"from _hermes_home import", "from _hollow_home import"),
+    (r"import _hermes_home", "import _hollow_home"),
     (r"_hermes_env=", "_enough_env="),
     (r"\b_hermes_env\b", "_enough_env"),
-    (r"running Hermes", "running Enough"),
+    (r"running Hermes", "running Hollow"),
     (r"the Hermes Docker", "a Docker"),
     (r"official Hermes Docker", "containerized"),
-    (r"machine running Hermes", "machine running Enough"),
-    (r"Hermes-specific", "Enough-specific"),
-    (r"Debugging Hermes", "Debugging Enough"),
-    (r"in Hermes,", "in Enough,"),
-    (r"in Hermes ", "in Enough "),
-    (r"Inside Hermes", "Inside Enough"),
-    (r"From inside Hermes", "From inside Enough"),
-    (r"Hermes, launch", "Enough, launch"),
-    (r"Hermes subagents", "Enough swarm workers"),
+    (r"machine running Hermes", "machine running Hollow"),
+    (r"Hermes-specific", "Hollow-specific"),
+    (r"Debugging Hermes", "Debugging Hollow"),
+    (r"in Hermes,", "in Hollow,"),
+    (r"in Hermes ", "in Hollow "),
+    (r"Inside Hermes", "Inside Hollow"),
+    (r"From inside Hermes", "From inside Hollow"),
+    (r"Hermes, launch", "Hollow, launch"),
+    (r"Hermes subagents", "Hollow swarm workers"),
     (r"Hermes test runner", "go test"),
-    (r"the Hermes Kanban", "Kanban (Hermes-only — not in Enough)"),
+    (r"the Hermes Kanban", "Kanban (Hermes-only — not in Hollow)"),
     (r"Hermes Kanban", "Kanban (Hermes-only)"),
     (r"commands: \[hermes\]", "commands: [enough]"),
     (r"prerequisites:\s*\n\s*commands: \[enough\]", "prerequisites:\n  commands: [bash]"),
     (r"docker, ssh, modal, and daytona backends", "the local workspace"),
     (r"local, docker, ssh, modal, and daytona", "local"),
-    (r"Path\.home\(\) / \"\.hermes\"", 'Path.home() / ".enough"'),
-    (r"Path\.home\(\) / '\.hermes'", "Path.home() / '.enough'"),
-    (r"str\(Path\.home\(\) / \"\.hermes\"\)", 'str(Path.home() / ".enough")'),
-    (r"User-Agent\": \"hermes-agent/", 'User-Agent": "enough-agent/'),
-    (r"User-Agent\": \"Hermes-Watcher/", 'User-Agent": "Enough-Watcher/'),
+    (r"Path\.home\(\) / \"\.hermes\"", 'Path.home() / ".hollow"'),
+    (r"Path\.home\(\) / '\.hermes'", "Path.home() / '.hollow'"),
+    (r"str\(Path\.home\(\) / \"\.hermes\"\)", 'str(Path.home() / ".hollow")'),
+    (r"User-Agent\": \"hermes-agent/", 'User-Agent": "hollow-agent/'),
+    (r"User-Agent\": \"Hermes-Watcher/", 'User-Agent": "Hollow-Watcher/'),
     (r"\"source\": \"hermes-agent\"", '"source": "enough"'),
-    (r"ported into hermes-agent", "ported into Enough"),
-    (r"hermes-agent repository", "Enough repository"),
-    (r"hermes-agent repo", "Enough repo"),
-    (r"parent hermes-agent repo", "parent Enough repo"),
-    (r"Hermes' own native MCP", "Enough's native MCP (if configured)"),
+    (r"ported into hermes-agent", "ported into Hollow"),
+    (r"hermes-agent repository", "Hollow repository"),
+    (r"hermes-agent repo", "Hollow repo"),
+    (r"parent hermes-agent repo", "parent Hollow repo"),
+    (r"Hermes' own native MCP", "Hollow's native MCP (if configured)"),
     (r"Hermes' browser tools", "browser tools (if available)"),
-    (r"Hermes' gateway adapters", "Enough gateway adapters (Hermes-only)"),
-    (r"Hermes has three design-related", "Enough has three design-related"),
-    (r"Hermes has `image_generate`", "Enough has `image_generate`"),
-    (r"compose with other Hermes skills", "compose with other Enough skills"),
-    (r"### Hermes Tools Reference", "### Enough Tools Reference"),
-    (r"from Hermes,", "from Enough,"),
-    (r"from Hermes ", "from Enough "),
-    (r"\(use this from Hermes\)", "(use this from Enough)"),
-    (r"Non-interactive \(use this from Hermes\)", "Non-interactive (use this from Enough)"),
-    (r"hermes-outreach", "enough-outreach"),
-    (r"description=\"Hermes telephony", 'description="Enough telephony'),
-    (r"Hermes telephony helper", "Enough telephony helper"),
+    (r"Hermes' gateway adapters", "Hollow gateway adapters (Hermes-only)"),
+    (r"Hermes has three design-related", "Hollow has three design-related"),
+    (r"Hermes has `image_generate`", "Hollow has `image_generate`"),
+    (r"compose with other Hermes skills", "compose with other Hollow skills"),
+    (r"### Hermes Tools Reference", "### Hollow Tools Reference"),
+    (r"from Hermes,", "from Hollow,"),
+    (r"from Hermes ", "from Hollow "),
+    (r"\(use this from Hermes\)", "(use this from Hollow)"),
+    (r"Non-interactive \(use this from Hermes\)", "Non-interactive (use this from Hollow)"),
+    (r"hermes-outreach", "hollow-outreach"),
+    (r"description=\"Hermes telephony", 'description="Hollow telephony'),
+    (r"Hermes telephony helper", "Hollow telephony helper"),
     (r"Hermes already ships PyYAML", "PyYAML may already be installed"),
-    (r"\$HERMES_OSINT_CACHE", "$ENOUGH_OSINT_CACHE"),
-    (r"~/.cache/hermes-osint/", "~/.cache/enough-osint/"),
-    (r"running as Hermes inside", "running as Enough inside"),
-    (r"help=\"Hermes home directory\"", 'help="Enough home directory (~/.enough)"'),
+    (r"\$HERMES_OSINT_CACHE", "$HOLLOW_OSINT_CACHE"),
+    (r"~/.cache/hermes-osint/", "~/.cache/hollow-osint/"),
+    (r"running as Hermes inside", "running as Hollow inside"),
+    (r"help=\"Hermes home directory\"", 'help="Hollow home directory (~/.hollow)"'),
     (r"hermes_home = os.environ", "enough_home = os.environ"),
-    (r"_HERMES_HOME = Path", "_ENOUGH_HOME = Path"),
-    (r"name: hermes-s6-container-supervision", "name: enough-s6-container-supervision"),
-    (r"# Hermes s6-overlay", "# s6-overlay (Hermes Docker image — not in Enough)"),
-    (r"related_skills: \[enough, enough-dev\]", "related_skills: [enough]"),
+    (r"_HERMES_HOME = Path", "_HOLLOW_HOME = Path"),
+    (r"name: hermes-s6-container-supervision", "name: hollow-s6-container-supervision"),
+    (r"# Hermes s6-overlay", "# s6-overlay (Hermes Docker image — not in Hollow)"),
+    (r"related_skills: \[enough, hollow-dev\]", "related_skills: [enough]"),
     (r"hermes --toolsets mcp", "enough --skills agentmail -q"),
     (r"```yaml\nmcp_servers:", "```json\n\"mcp_servers\":"),
     (r"hermes whatsapp", "(whatsapp gateway — Hermes-only)"),
-    (r"hermes mcp list", "enough skills list (MCP via config.json)"),
+    (r"hermes mcp list", "hollow skills list (MCP via config.json)"),
     (r"hermes cron", "cron (Hermes-only — use bash + cron on host)"),
-    (r"hermes config set", "edit ~/.enough/config.json"),
-    (r"# Hermes config paths", "# Enough config paths"),
+    (r"hermes config set", "edit ~/.hollow/config.json"),
+    (r"# Hermes config paths", "# Hollow config paths"),
 ]
 
 SECOND_PASS: list[tuple[str, str]] = [
-    (r"\bfor Hermes Agent\b", "for Enough"),
-    (r"\bHermes Agent\b", "Enough"),
-    (r"\bHermes Gateway\b", "messaging gateway (Hermes-only — not in Enough)"),
-    (r"\bHermes config\b", "Enough `config.json`"),
-    (r"\bHermes session\b", "Enough session"),
-    (r"\bHermes memory\b", "Enough memory (MEMORY.md)"),
+    (r"\bfor Hermes Agent\b", "for Hollow"),
+    (r"\bHermes Agent\b", "Hollow"),
+    (r"\bHermes Gateway\b", "messaging gateway (Hermes-only — not in Hollow)"),
+    (r"\bHermes config\b", "Hollow `config.json`"),
+    (r"\bHermes session\b", "Hollow session"),
+    (r"\bHermes memory\b", "Hollow memory (MEMORY.md)"),
     (r"\bHermes TTS\b", "TTS"),
     (r"\bHermes STT\b", "STT"),
-    (r"\bHermes-native\b", "Enough-native"),
+    (r"\bHermes-native\b", "Hollow-native"),
     (r"\bHermes-managed\b", "managed"),
     (r"\bHermes Email gateway\b", "email gateway (Hermes-only)"),
     (r"\bHermes Email\b", "email gateway (Hermes-only)"),
-    (r"\bGive Hermes\b", "Give Enough"),
-    (r"\bturn Hermes into\b", "turn Enough into"),
-    (r"\bsave credentials into Hermes\b", "save credentials to `~/.enough/.env`"),
+    (r"\bGive Hermes\b", "Give Hollow"),
+    (r"\bturn Hermes into\b", "turn Hollow into"),
+    (r"\bsave credentials into Hermes\b", "save credentials to `~/.hollow/.env`"),
     (r"\bHermes setups\b", "multi-agent setups"),
-    (r"\bRestart the Hermes\b", "Restart Enough"),
-    (r"\bRestart Hermes\b", "Restart Enough"),
-    (r"\bfrom Hermes gateway\b", "from Enough"),
-    (r"\bfrom Hermes,\b", "from Enough,"),
-    (r"\bfrom Hermes \b", "from Enough "),
-    (r"\bfrom a Hermes\b", "from Enough"),
-    (r"\bvia Hermes\b", "via Enough"),
-    (r"\bto Hermes\b", "to Enough"),
-    (r"\bin Hermes\b", "in Enough"),
-    (r"\bWhen Hermes\b", "When Enough"),
-    (r"\bIf Hermes\b", "If Enough"),
-    (r"\bthe Hermes\b", "the Enough"),
-    (r"\bHermes Configuration\b", "Enough Configuration"),
-    (r"\bHermes configuration\b", "Enough configuration"),
+    (r"\bRestart the Hermes\b", "Restart Hollow"),
+    (r"\bRestart Hermes\b", "Restart Hollow"),
+    (r"\bfrom Hermes gateway\b", "from Hollow"),
+    (r"\bfrom Hermes,\b", "from Hollow,"),
+    (r"\bfrom Hermes \b", "from Hollow "),
+    (r"\bfrom a Hermes\b", "from Hollow"),
+    (r"\bvia Hermes\b", "via Hollow"),
+    (r"\bto Hermes\b", "to Hollow"),
+    (r"\bin Hermes\b", "in Hollow"),
+    (r"\bWhen Hermes\b", "When Hollow"),
+    (r"\bIf Hermes\b", "If Hollow"),
+    (r"\bthe Hermes\b", "the Hollow"),
+    (r"\bHermes Configuration\b", "Hollow Configuration"),
+    (r"\bHermes configuration\b", "Hollow configuration"),
     (r"\bHermes MCP\b", "MCP (configure in `config.json` if supported)"),
-    (r"\bHermes ->\b", "Enough ->"),
-    (r"\bHermes swarm\b", "Enough swarm"),
-    (r"\bHermes subagent\b", "Enough subagent"),
-    (r"\bHermes worker\b", "Enough worker"),
-    (r"\bHermes CLI\b", "Enough CLI"),
-    (r"\bHermes tool\b", "Enough tool"),
-    (r"\bHermes tools\b", "Enough tools"),
-    (r"\bHermes run\b", "Enough run"),
-    (r"\bHermes process\b", "Enough process"),
+    (r"\bHermes ->\b", "Hollow ->"),
+    (r"\bHermes swarm\b", "Hollow swarm"),
+    (r"\bHermes subagent\b", "Hollow subagent"),
+    (r"\bHermes worker\b", "Hollow worker"),
+    (r"\bHermes CLI\b", "Hollow CLI"),
+    (r"\bHermes tool\b", "Hollow tool"),
+    (r"\bHermes tools\b", "Hollow tools"),
+    (r"\bHermes run\b", "Hollow run"),
+    (r"\bHermes process\b", "Hollow process"),
     (r"\bHermes user\b", "user"),
     (r"\bHermes operator\b", "operator"),
     (r"\bHermes developer\b", "developer"),
-    (r"^hermes teams-pipeline", "# NOT IN ENOUGH (Hermes CLI only): hermes teams-pipeline"),
-    (r"`hermes-agent` \(Enough swarm", "`agent_swarm` (Enough swarm"),
+    (r"^hermes teams-pipeline", "# NOT IN HOLLOW (Hermes CLI only): hermes teams-pipeline"),
+    (r"`hermes-agent` \(Hollow swarm", "`agent_swarm` (Hollow swarm"),
     (r"related_skills:.*hermes-video", "related_skills: [ascii-video, manim-video]"),
-    (r"hermes-agent@", "enough-agent@"),
-    (r"username \(e\.g\. `hermes-agent`\)", "username (e.g. `enough-agent`)"),
-    (r"description: Plan mode:.*\.hermes/plans/", "description: \"Plan mode: write an actionable markdown plan to .enough/plans/, no execution.\""),
-    (r"description: Give the agent its own dedicated email.*hermes-agent@", 'description: "Give Enough its own dedicated email inbox via AgentMail."'),
-    (r"description: Give Hermes phone", 'description: "Give Enough phone capabilities via Twilio/Bland/Vapi (optional skill)."'),
-    (r"Typical Hermes Workflow", "Typical Enough workflow"),
-    (r"Important Notes for Hermes", "Important Notes for Enough"),
-    (r"for Hermes\.", "for Enough."),
-    (r"Hermes can", "Enough can"),
-    (r"Hermes' existing", "Enough's existing"),
-    (r"So Hermes can", "So Enough can"),
-    (r"exists so Hermes can", "exists so Enough can"),
+    (r"hermes-agent@", "hollow-agent@"),
+    (r"username \(e\.g\. `hermes-agent`\)", "username (e.g. `hollow-agent`)"),
+    (r"description: Plan mode:.*\.hermes/plans/", "description: \"Plan mode: write an actionable markdown plan to .hollow/plans/, no execution.\""),
+    (r"description: Give the agent its own dedicated email.*hermes-agent@", 'description: "Give Hollow its own dedicated email inbox via AgentMail."'),
+    (r"description: Give Hermes phone", 'description: "Give Hollow phone capabilities via Twilio/Bland/Vapi (optional skill)."'),
+    (r"Typical Hermes Workflow", "Typical Hollow workflow"),
+    (r"Important Notes for Hermes", "Important Notes for Hollow"),
+    (r"for Hermes\.", "for Hollow."),
+    (r"Hermes can", "Hollow can"),
+    (r"Hermes' existing", "Hollow's existing"),
+    (r"So Hermes can", "So Hollow can"),
+    (r"exists so Hermes can", "exists so Hollow can"),
     (r"`hermes --tui", "`enough"),
     (r"\bhermes --tui\b", "enough"),
-    (r"github\.com/NousResearch/hermes-agent", "github.com/enough/enough"),
+    (r"github\.com/NousResearch/hermes-agent", "github.com/haiderking1/Hollow"),
     (r"```bash\nhermes\n```", "```bash\nenough\n```"),
-    (r"\bI want Hermes to own\b", "I want Enough to own"),
+    (r"\bI want Hermes to own\b", "I want Hollow to own"),
     (r"\bpairs well with Hermes `text_to_speech`", "pairs well with TTS via bash"),
     (r"\bHermes's configured TTS\b", "configured TTS"),
     (r"\bHermes's existing `text_to_speech`", "TTS via bash or external API"),
     (r"\bAsk Hermes to create\b", "Generate"),
-    (r"\bThis is Hermes calling\b", "This is Enough calling"),
+    (r"\bThis is Hermes calling\b", "This is Hollow calling"),
     (r"\bHermes rendering / audio\b", "rendering / audio"),
     (r"\bcreates Hermes profiles\b", "creates Hermes profiles"),  # Hermes-only kanban — keep
     (r"\bHermes profile rules\b", "Hermes profile rules"),  # keep
-    (r"hermes-agent/skills/", "Enough skills tree (bundled/)"),
-    (r"hermes-agent-harness", "enough-harness"),
-    (r"hermes-tool-quirks", "enough-tool-quirks"),
-    (r"hermes-agent-dev", "enough-dev"),
-    (r"hermes-agent-comfyui", "enough-comfyui"),
-    (r"~/Downloads/hermes-google", "~/Downloads/enough-google"),
-    (r"For Hermes itself,", "In Enough,"),
-    (r"like \"hermes-agent\"", "like \"enough-agent\""),
-    (r"Give it a name like \"hermes-agent\"", "Give it a name like \"enough-agent\""),
-    (r"title like \"hermes-agent-", "title like \"enough-agent-"),
-    (r"purzbeats/hermes-agent-comfyui", "purzbeats/enough-comfyui-helper"),
-    (r"hermes-google-client-secret", "enough-google-client-secret"),
+    (r"hermes-agent/skills/", "Hollow skills tree (bundled/)"),
+    (r"hermes-agent-harness", "hollow-harness"),
+    (r"hermes-tool-quirks", "hollow-tool-quirks"),
+    (r"hermes-agent-dev", "hollow-dev"),
+    (r"hermes-agent-comfyui", "hollow-comfyui"),
+    (r"~/Downloads/hermes-google", "~/Downloads/hollow-google"),
+    (r"For Hermes itself,", "In Hollow,"),
+    (r"like \"hermes-agent\"", "like \"hollow-agent\""),
+    (r"Give it a name like \"hermes-agent\"", "Give it a name like \"hollow-agent\""),
+    (r"title like \"hermes-agent-", "title like \"hollow-agent-"),
+    (r"purzbeats/hermes-agent-comfyui", "purzbeats/hollow-comfyui-helper"),
+    (r"hermes-google-client-secret", "hollow-google-client-secret"),
 ]
 
 RELATED_SKILL_RE = re.compile(
     r"(related_skills:\s*\[[^\]]*)\bhermes-agent\b([^\]]*\])"
 )
 
-ENOUGH_HOME_PY = '''"""Resolve ENOUGH_HOME for standalone skill scripts."""
+HOLLOW_HOME_PY = '''"""Resolve HOLLOW_HOME for standalone skill scripts."""
 
 from __future__ import annotations
 
@@ -301,33 +301,33 @@ import os
 from pathlib import Path
 
 
-def get_enough_home() -> Path:
-    val = os.environ.get("ENOUGH_HOME", "").strip()
+def get_hollow_home() -> Path:
+    val = os.environ.get("HOLLOW_HOME", "").strip()
     if val:
         return Path(val)
     legacy = os.environ.get("HERMES_HOME", "").strip()
     if legacy:
         return Path(legacy)
-    return Path.home() / ".enough"
+    return Path.home() / ".hollow"
 
 
-def display_enough_home() -> str:
-    home = get_enough_home()
+def display_hollow_home() -> str:
+    home = get_hollow_home()
     try:
         return "~/" + str(home.relative_to(Path.home()))
     except ValueError:
         return str(home)
 
 
-get_hermes_home = get_enough_home
-display_hermes_home = display_enough_home
+get_hermes_home = get_hollow_home
+display_hermes_home = display_hollow_home
 '''
 
 HERMES_AGENT_STUB = """---
 name: hermes-agent
 description: "Deprecated alias — load the enough skill instead."
 version: 2.1.0
-author: Enough
+author: Hollow
 license: MIT
 platforms: [linux, darwin, windows]
 disable-model-invocation: true
@@ -339,11 +339,11 @@ metadata:
 
 # hermes-agent (deprecated)
 
-You are running **Enough**, not Hermes Agent. Load the **`enough`** skill for all self-configuration, paths, and CLI commands.
+You are running **Hollow**, not Hermes Agent. Load the **`hollow`** skill for all self-configuration, paths, and CLI commands.
 """
 
 HERMES_ONLY_BANNER = """
-> **Not available in Enough:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Enough does not ship). Load the **`enough`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
+> **Not available in Hollow:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Hollow does not ship). Load the **`hollow`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
 """
 
 HERMES_ONLY_SKILLS = {
@@ -388,7 +388,7 @@ def inject_hermes_only_banner(skill_md: Path) -> None:
     if not name or name not in HERMES_ONLY_SKILLS:
         return
     text = skill_md.read_text(encoding="utf-8")
-    if "Not available in Enough" in text:
+    if "Not available in Hollow" in text:
         return
     m = re.search(r"\n---\s*\n\n(# [^\n]+\n)", text)
     if m:
@@ -399,16 +399,16 @@ def inject_hermes_only_banner(skill_md: Path) -> None:
     skill_md.write_text(text, encoding="utf-8")
 
 
-def ensure_enough_home_helper(scripts_dir: Path) -> None:
+def ensure_hollow_home_helper(scripts_dir: Path) -> None:
     if not scripts_dir.is_dir():
         return
-    target = scripts_dir / "_enough_home.py"
+    target = scripts_dir / "_hollow_home.py"
     if not target.exists():
-        target.write_text(ENOUGH_HOME_PY, encoding="utf-8")
+        target.write_text(HOLLOW_HOME_PY, encoding="utf-8")
     legacy = scripts_dir / "_hermes_home.py"
     if not legacy.exists():
         legacy.write_text(
-            '"""Deprecated — use _enough_home."""\nfrom _enough_home import *  # noqa: F403\n',
+            '"""Deprecated — use _hollow_home."""\nfrom _hollow_home import *  # noqa: F403\n',
             encoding="utf-8",
         )
 
@@ -431,7 +431,7 @@ def process_tree(root: Path) -> int:
         if path.name == "SKILL.md":
             inject_hermes_only_banner(path)
         if path.parent.name == "scripts":
-            ensure_enough_home_helper(path.parent)
+            ensure_hollow_home_helper(path.parent)
     return changed
 
 
@@ -440,12 +440,12 @@ def post_process() -> None:
     stub = REPO / "backend/skills/bundled/autonomous-ai-agents/hermes-agent/SKILL.md"
     stub.write_text(HERMES_AGENT_STUB, encoding="utf-8")
 
-    # Remove Hermes-only reference docs (misleading in Enough)
+    # Remove Hermes-only reference docs (misleading in Hollow)
     refs = REPO / "backend/skills/bundled/autonomous-ai-agents/hermes-agent/references"
     if refs.is_dir():
         for f in refs.glob("*.md"):
             f.write_text(
-                "# Moved\n\nLoad the **`enough`** skill. This Hermes-only reference is not applicable to Enough.\n",
+                "# Moved\n\nLoad the **`hollow`** skill. This Hermes-only reference is not applicable to Hollow.\n",
                 encoding="utf-8",
             )
 
@@ -460,7 +460,7 @@ def post_process() -> None:
 
     # Sync enough embed copies
     enough_bundled = REPO / "backend/skills/bundled/enough/SKILL.md"
-    enough_embed = REPO / "backend/skills/enough_skill/SKILL.md"
+    enough_embed = REPO / "backend/skills/hollow_skill/SKILL.md"
     if enough_bundled.exists():
         shutil.copy2(enough_bundled, enough_embed)
 

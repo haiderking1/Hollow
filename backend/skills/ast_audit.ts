@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/ast_audit.go
+// PORT: backend/skills/ast_audit.go
 
 import { Effect } from "effect";
 import fs from "node:fs";

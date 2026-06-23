@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/manage_actions.go
+// PORT: backend/skills/manage_actions.go
 import fs from "node:fs";
 import path from "node:path";
 import { Effect } from "effect";
@@ -629,7 +629,7 @@ function pinnedGuard(name: string): string {
   const um = LoadUsage();
   const rec = um[name];
   if (rec && rec.pinned) {
-    return `Skill '${name}' is pinned and cannot be deleted by skill_manage. Ask the user to run \`/curator-unpin ${name}\` or \`enough curator unpin ${name}\` if they want to delete it. Patches and edits are allowed on pinned skills; only deletion is blocked.`;
+    return `Skill '${name}' is pinned and cannot be deleted by skill_manage. Ask the user to run \`/curator-unpin ${name}\` or \`hollow curator unpin ${name}\` if they want to delete it. Patches and edits are allowed on pinned skills; only deletion is blocked.`;
   }
   return "";
 }

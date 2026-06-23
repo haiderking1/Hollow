@@ -1,7 +1,7 @@
-// PORT: mirrors backend/skills/paths.go
+// PORT: backend/skills/paths.go
 
 import path from "node:path";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 
 export function HomeDir(): string {
   return home_dir();

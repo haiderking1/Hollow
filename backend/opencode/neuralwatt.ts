@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/neuralwatt.go
+// PORT: backend/opencode/neuralwatt.go
 
 import { Effect } from "effect";
 

@@ -1,6 +1,6 @@
 ---
 name: telephony
-description: Give Enough phone capabilities without core tool changes. Provision and persist a Twilio number, send and receive SMS/MMS, make direct calls, and place AI-driven outbound calls through Bland.ai or Vapi.
+description: Give Hollow phone capabilities without core tool changes. Provision and persist a Twilio number, send and receive SMS/MMS, make direct calls, and place AI-driven outbound calls through Bland.ai or Vapi.
 version: 1.0.0
 author: Nous Research
 license: MIT
@@ -17,7 +17,7 @@ metadata:
 This optional skill gives Hermes practical phone capabilities while keeping telephony out of the core tool list.
 
 It ships with a helper script, `scripts/telephony.py`, that can:
-- save provider credentials into `${ENOUGH_HOME:-~/.enough}/.env`
+- save provider credentials into `${HOLLOW_HOME:-~/.hollow}/.env`
 - search for and buy a Twilio phone number
 - remember that owned number for later sessions
 - send SMS / MMS from the owned number
@@ -36,7 +36,7 @@ This skill is meant to cover the practical phone tasks users actually want:
 - preserving that number and related IDs between sessions
 - future-friendly telephony identity for inbound SMS polling and other automations
 
-It does **not** turn Enough into a real-time inbound phone gateway. Inbound SMS is handled by polling the Twilio REST API. That is enough for many workflows, including notifications and some one-time-code retrieval, without adding core webhook infrastructure.
+It does **not** turn Hollow into a real-time inbound phone gateway. Inbound SMS is handled by polling the Twilio REST API. That is enough for many workflows, including notifications and some one-time-code retrieval, without adding core webhook infrastructure.
 
 ## Safety rules — mandatory
 
@@ -44,7 +44,7 @@ It does **not** turn Enough into a real-time inbound phone gateway. Inbound SMS 
 2. Never dial emergency numbers.
 3. Never use telephony for harassment, spam, impersonation, or anything illegal.
 4. Treat third-party phone numbers as sensitive operational data:
-   - do not save them to Enough memory (MEMORY.md)
+   - do not save them to Hollow memory (MEMORY.md)
    - do not include them in skill docs, summaries, or follow-up notes unless the user explicitly wants that
 5. It is fine to persist the **agent-owned Twilio number** because that is part of the user's configuration.
 6. VoIP numbers are **not guaranteed** to work for all third-party 2FA flows. Use with caution and set user expectations clearly.
@@ -53,7 +53,7 @@ It does **not** turn Enough into a real-time inbound phone gateway. Inbound SMS 
 
 Use this logic instead of hardcoded provider routing:
 
-### 1) "I want Enough to own a real phone number"
+### 1) "I want Hollow to own a real phone number"
 Use **Twilio**.
 
 Why:
@@ -104,7 +104,7 @@ Why:
 
 The skill persists telephony state in two places:
 
-### `${ENOUGH_HOME:-~/.enough}/.env`
+### `${HOLLOW_HOME:-~/.hollow}/.env`
 Used for long-lived provider credentials and owned-number IDs, for example:
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
@@ -115,7 +115,7 @@ Used for long-lived provider credentials and owned-number IDs, for example:
 - `VAPI_PHONE_NUMBER_ID`
 - `PHONE_PROVIDER` (AI call provider: bland or vapi)
 
-### `~/.enough/telephony_state.json`
+### `~/.hollow/telephony_state.json`
 Used for skill-only state that should survive across sessions, for example:
 - remembered default Twilio number / SID
 - remembered Vapi phone number ID
@@ -130,7 +130,7 @@ This means:
 After installing this skill, locate the script like this:
 
 ```bash
-SCRIPT="$(find ~/.enough/skills -path '*/telephony/scripts/telephony.py' -print -quit)"
+SCRIPT="$(find ~/.hollow/skills -path '*/telephony/scripts/telephony.py' -print -quit)"
 ```
 
 If `SCRIPT` is empty, the skill is not installed yet.
@@ -151,7 +151,7 @@ enough skills install official/productivity/telephony
 Sign up at:
 - https://www.twilio.com/try-twilio
 
-Then save credentials to `~/.enough/.env`:
+Then save credentials to `~/.hollow/.env`:
 
 ```bash
 python3 "$SCRIPT" save-twilio ACXXXXXXXXXXXXXXXXXXXXXXXXXXXX your_auth_token_here
@@ -241,7 +241,7 @@ python3 "$SCRIPT" save-twilio AC... auth_token_here
 python3 "$SCRIPT" twilio-search --country US --area-code 702 --limit 10
 ```
 
-3. Buy it and save it into `${ENOUGH_HOME:-~/.enough}/.env` + state:
+3. Buy it and save it into `${HOLLOW_HOME:-~/.hollow}/.env` + state:
 ```bash
 python3 "$SCRIPT" twilio-buy "+17025551234" --save-env
 ```
@@ -283,7 +283,7 @@ This is the main answer to “how do I access messages the number receives next 
 ### D. Make a direct Twilio call with built-in TTS
 
 ```bash
-python3 "$SCRIPT" twilio-call "+15551230000" --message "Hello! This is Enough calling with your status update." --voice Polly.Joanna
+python3 "$SCRIPT" twilio-call "+15551230000" --message "Hello! This is Hollow calling with your status update." --voice Polly.Joanna
 ```
 
 ### E. Call with a prerecorded / custom voice message
@@ -378,7 +378,7 @@ When the user asks for a call or text:
 4. Confirm with the user before dialing or texting.
 5. Use the correct command.
 6. Poll for results if needed.
-7. Summarize the outcome without persisting third-party numbers to Enough memory (MEMORY.md).
+7. Summarize the outcome without persisting third-party numbers to Hollow memory (MEMORY.md).
 
 ## What this skill still does not do
 
@@ -395,7 +395,7 @@ Those would require more infrastructure than a pure optional skill.
 - `twilio-inbox` polls the REST API; it is not instant push delivery.
 - Vapi outbound calling still depends on having a valid imported number.
 - Bland is easiest, but not always the best-sounding.
-- Do not store arbitrary third-party phone numbers in Enough memory.
+- Do not store arbitrary third-party phone numbers in Hollow memory.
 
 ## Verification checklist
 
@@ -403,7 +403,7 @@ After setup, you should be able to do all of the following with just this skill:
 
 1. `diagnose` shows provider readiness and remembered state
 2. search and buy a Twilio number
-3. persist that number to `${ENOUGH_HOME:-~/.enough}/.env`
+3. persist that number to `${HOLLOW_HOME:-~/.hollow}/.env`
 4. send an SMS from the owned number
 5. poll inbound texts for the owned number later
 6. place a direct Twilio call

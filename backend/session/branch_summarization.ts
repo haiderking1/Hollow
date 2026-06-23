@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/branch_summarization.go
+// PORT: backend/session/branch_summarization.go
 
 import { Effect } from "effect";
 import type { message } from "../opencode/types";

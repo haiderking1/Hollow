@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/cdp.go
+// PORT: backend/browser/cdp.go
 
 import { Effect } from "effect";
 import {
@@ -168,7 +168,7 @@ export function clearCdpSessionCache(): void {
 }
 
 export function get_browser_cdp_base_url(): string {
-  const u = (process.env.ENOUGH_BROWSER_CDP_URL || "").trim();
+  const u = (process.env.HOLLOW_BROWSER_CDP_URL || "").trim();
   if (u === "") {
     return "http://127.0.0.1:9222";
   }
@@ -182,12 +182,12 @@ export function assert_allowed_cdp_url(baseUrl: string): Effect.Effect<URL, Erro
       if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
         throw new Error(`Browser CDP URL must be http(s): ${baseUrl}`);
       }
-      const allowRemote = process.env.ENOUGH_BROWSER_ALLOW_REMOTE === "1";
+      const allowRemote = process.env.HOLLOW_BROWSER_ALLOW_REMOTE === "1";
       const host = parsed.hostname.toLowerCase();
       const isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
       if (!isLocal && !allowRemote) {
         throw new Error(
-          `Browser CDP URL must be localhost (set ENOUGH_BROWSER_ALLOW_REMOTE=1 for remote debugging): ${baseUrl}`
+          `Browser CDP URL must be localhost (set HOLLOW_BROWSER_ALLOW_REMOTE=1 for remote debugging): ${baseUrl}`
         );
       }
       return parsed;

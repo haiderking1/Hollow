@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""OpenClaw -> Enough migration helper.
+"""OpenClaw -> Hollow migration helper.
 
 This script migrates the parts of an OpenClaw user footprint that map cleanly
-into Enough, archives selected unmapped docs for manual review, and
+into Hollow, archives selected unmapped docs for manual review, and
 reports exactly what was skipped and why.
 """
 
@@ -45,7 +45,7 @@ WORKSPACE_INSTRUCTIONS_FILENAME = "AGENTS" + ".md"
 MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     "soul": {
         "label": "SOUL.md",
-        "description": "Import the OpenClaw persona file into Enough SOUL/MEMORY.",
+        "description": "Import the OpenClaw persona file into Hollow SOUL/MEMORY.",
     },
     "workspace-agents": {
         "label": "Workspace instructions",
@@ -53,67 +53,67 @@ MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     },
     "memory": {
         "label": "MEMORY.md",
-        "description": "Import long-term memory entries into Enough memories.",
+        "description": "Import long-term memory entries into Hollow memories.",
     },
     "user-profile": {
         "label": "USER.md",
-        "description": "Import user profile entries into Enough memories.",
+        "description": "Import user profile entries into Hollow memories.",
     },
     "messaging-settings": {
         "label": "Messaging settings",
-        "description": "Import Enough-compatible messaging settings such as allowlists and working directory.",
+        "description": "Import Hollow-compatible messaging settings such as allowlists and working directory.",
     },
     "secret-settings": {
         "label": "Allowlisted secrets",
-        "description": "Import the small allowlist of Enough-compatible secrets when explicitly enabled.",
+        "description": "Import the small allowlist of Hollow-compatible secrets when explicitly enabled.",
     },
     "command-allowlist": {
         "label": "Command allowlist",
-        "description": "Merge OpenClaw exec approval patterns into Enough command_allowlist.",
+        "description": "Merge OpenClaw exec approval patterns into Hollow command_allowlist.",
     },
     "skills": {
         "label": "User skills",
-        "description": "Copy OpenClaw skills into ~/.enough/skills/openclaw-imports/.",
+        "description": "Copy OpenClaw skills into ~/.hollow/skills/openclaw-imports/.",
     },
     "tts-assets": {
         "label": "TTS assets",
-        "description": "Copy compatible workspace TTS assets into ~/.enough/tts/.",
+        "description": "Copy compatible workspace TTS assets into ~/.hollow/tts/.",
     },
     "discord-settings": {
         "label": "Discord settings",
-        "description": "Import Discord bot token and allowlist into Enough .env.",
+        "description": "Import Discord bot token and allowlist into Hollow .env.",
     },
     "slack-settings": {
         "label": "Slack settings",
-        "description": "Import Slack bot/app tokens and allowlist into Enough .env.",
+        "description": "Import Slack bot/app tokens and allowlist into Hollow .env.",
     },
     "whatsapp-settings": {
         "label": "WhatsApp settings",
-        "description": "Import WhatsApp allowlist into Enough .env.",
+        "description": "Import WhatsApp allowlist into Hollow .env.",
     },
     "signal-settings": {
         "label": "Signal settings",
-        "description": "Import Signal account, HTTP URL, and allowlist into Enough .env.",
+        "description": "Import Signal account, HTTP URL, and allowlist into Hollow .env.",
     },
     "provider-keys": {
         "label": "Provider API keys",
-        "description": "Import model provider API keys into Enough .env (requires --migrate-secrets).",
+        "description": "Import model provider API keys into Hollow .env (requires --migrate-secrets).",
     },
     "model-config": {
         "label": "Default model",
-        "description": "Import the default model setting into Enough config.json.",
+        "description": "Import the default model setting into Hollow config.json.",
     },
     "tts-config": {
         "label": "TTS configuration",
-        "description": "Import TTS provider and voice settings into Enough config.json.",
+        "description": "Import TTS provider and voice settings into Hollow config.json.",
     },
     "shared-skills": {
         "label": "Shared skills",
-        "description": "Copy shared OpenClaw skills from ~/.openclaw/skills/ into Enough.",
+        "description": "Copy shared OpenClaw skills from ~/.openclaw/skills/ into Hollow.",
     },
     "daily-memory": {
         "label": "Daily memory files",
-        "description": "Merge daily memory entries from workspace/memory/ into Enough MEMORY.md.",
+        "description": "Merge daily memory entries from workspace/memory/ into Hollow MEMORY.md.",
     },
     "archive": {
         "label": "Archive unmapped docs",
@@ -121,7 +121,7 @@ MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     },
     "mcp-servers": {
         "label": "MCP servers",
-        "description": "Import MCP server definitions from OpenClaw into Enough config.json.",
+        "description": "Import MCP server definitions from OpenClaw into Hollow config.json.",
     },
     "plugins-config": {
         "label": "Plugins configuration",
@@ -129,7 +129,7 @@ MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     },
     "cron-jobs": {
         "label": "Cron / scheduled tasks",
-        "description": "Import cron job definitions. Archive for manual recreation via (cron not in Enough).",
+        "description": "Import cron job definitions. Archive for manual recreation via (cron not in Hollow).",
     },
     "hooks-config": {
         "label": "Hooks and webhooks",
@@ -137,7 +137,7 @@ MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     },
     "agent-config": {
         "label": "Agent defaults and multi-agent setup",
-        "description": "Import agent defaults (compaction, context, thinking) into Enough `config.json`. Archive multi-agent list.",
+        "description": "Import agent defaults (compaction, context, thinking) into Hollow `config.json`. Archive multi-agent list.",
     },
     "gateway-config": {
         "label": "Gateway configuration",
@@ -145,11 +145,11 @@ MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     },
     "session-config": {
         "label": "Session configuration",
-        "description": "Import session reset policies (daily/idle) into Enough session_reset config.",
+        "description": "Import session reset policies (daily/idle) into Hollow session_reset config.",
     },
     "full-providers": {
         "label": "Full model provider definitions",
-        "description": "Import custom model providers (baseUrl, apiType, headers) into Enough custom_providers.",
+        "description": "Import custom model providers (baseUrl, apiType, headers) into Hollow custom_providers.",
     },
     "deep-channels": {
         "label": "Deep channel configuration",
@@ -157,15 +157,15 @@ MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     },
     "browser-config": {
         "label": "Browser configuration",
-        "description": "Import browser automation settings into Enough config.json.",
+        "description": "Import browser automation settings into Hollow config.json.",
     },
     "tools-config": {
         "label": "Tools configuration",
-        "description": "Import tool settings (exec timeout, sandbox, web search) into Enough config.json.",
+        "description": "Import tool settings (exec timeout, sandbox, web search) into Hollow config.json.",
     },
     "approvals-config": {
         "label": "Approval rules",
-        "description": "Import approval mode and rules into Enough config.json approvals section.",
+        "description": "Import approval mode and rules into Hollow config.json approvals section.",
     },
     "memory-backend": {
         "label": "Memory backend configuration",
@@ -355,7 +355,7 @@ def load_yaml_file(path: Path) -> Dict[str, Any]:
 
 def dump_yaml_file(path: Path, data: Dict[str, Any]) -> None:
     if yaml is None:
-        raise RuntimeError("PyYAML is required to update Enough config.json")
+        raise RuntimeError("PyYAML is required to update Hollow config.json")
     ensure_parent(path)
     path.write_text(
         yaml.safe_dump(data, sort_keys=False, allow_unicode=False),
@@ -396,17 +396,17 @@ def backup_existing(path: Path, backup_root: Path) -> Optional[Path]:
 
 
 # ── Brand rewriting ─────────────────────────────────────────
-# Replace OpenClaw brand names with Enough in migrated text so that
+# Replace OpenClaw brand names with Hollow in migrated text so that
 # memory entries, user profiles, SOUL.md, and workspace instructions
 # read as self-referential to the new agent identity.
 #
-# Case-preserving: ``OpenClaw`` → ``Enough`` (prose), but lowercase matches
+# Case-preserving: ``OpenClaw`` → ``Hollow`` (prose), but lowercase matches
 # like ``openclaw`` → ``enough`` (so filesystem paths like ``~/.openclaw``
-# become ``~/.enough`` — the real Enough home — not the broken ``~/.Hermes``).
+# become ``~/.hollow`` — the real Hollow home — not the broken ``~/.Hermes``).
 _REBRAND_PATTERNS: List[Tuple[re.Pattern, str]] = [
-    (re.compile(r'\bOpen[\s-]?Claw\b', re.IGNORECASE), 'Enough'),
-    (re.compile(r'\bClawdBot\b', re.IGNORECASE), 'Enough'),
-    (re.compile(r'\bMoltBot\b', re.IGNORECASE), 'Enough'),
+    (re.compile(r'\bOpen[\s-]?Claw\b', re.IGNORECASE), 'Hollow'),
+    (re.compile(r'\bClawdBot\b', re.IGNORECASE), 'Hollow'),
+    (re.compile(r'\bMoltBot\b', re.IGNORECASE), 'Hollow'),
 ]
 
 
@@ -414,10 +414,10 @@ def _case_preserving_replacement(replacement: str):
     """Return a re.sub replacement fn that lowercases the result when the
     matched text was all-lowercase.
 
-    Keeps ``OpenClaw`` → ``Enough`` but maps ``openclaw`` → ``enough`` so a
+    Keeps ``OpenClaw`` → ``Hollow`` but maps ``openclaw`` → ``enough`` so a
     filesystem path like ``~/.openclaw/config.json`` rewrites to
-    ``~/.enough/config.json`` (the real Enough home) instead of the broken
-    ``~/.Enough/config.json``.
+    ``~/.hollow/config.json`` (the real Hollow home) instead of the broken
+    ``~/.Hollow/config.json``.
     """
     def _sub(match: "re.Match[str]") -> str:
         matched = match.group(0)
@@ -428,7 +428,7 @@ def _case_preserving_replacement(replacement: str):
 
 
 def rebrand_text(text: str) -> str:
-    """Replace OpenClaw / ClawdBot / MoltBot brand names with Enough.
+    """Replace OpenClaw / ClawdBot / MoltBot brand names with Hollow.
 
     Preserves case so filesystem-path matches (lowercase) don't become
     capitalized directory names that don't exist.
@@ -668,7 +668,7 @@ def write_report(output_dir: Path, report: Dict[str, Any]) -> None:
         grouped.setdefault(item["status"], []).append(item)
 
     lines = [
-        "# OpenClaw -> Enough Migration Report",
+        "# OpenClaw -> Hollow Migration Report",
         "",
         f"- Timestamp: {redacted['timestamp']}",
         f"- Mode: {redacted['mode']}",
@@ -781,7 +781,7 @@ class Migrator:
     def is_selected(self, option_id: str) -> bool:
         return option_id in self.selected_options
 
-    # Option ids that mutate the Enough config.json file.  Once any one of
+    # Option ids that mutate the Hollow config.json file.  Once any one of
     # them records a conflict/error on config.json, subsequent ones are
     # short-circuited to avoid partial writes.  Keep in sync with methods
     # that call load_yaml_file(target_root / "config.json") + dump_yaml_file.
@@ -1062,7 +1062,7 @@ class Migrator:
             warnings.append(
                 "API keys and other credentials were detected but not imported. "
                 "Re-run with --migrate-secrets to copy supported keys into the "
-                "Enough env file."
+                "Hollow env file."
             )
         return warnings
 
@@ -1083,7 +1083,7 @@ class Migrator:
                 else "Review the migration report."
             )
             steps.append(
-                "Start a new Enough session (or /reset) to pick up the imported config."
+                "Start a new Hollow session (or /reset) to pick up the imported config."
             )
         if summary.get("conflict", 0) > 0:
             steps.append(
@@ -1228,7 +1228,7 @@ class Migrator:
             self.record("command-allowlist", source, destination, "skipped", "No allowlist patterns found")
             return
         if not destination.exists():
-            self.record("command-allowlist", source, destination, "skipped", "Enough config.json does not exist yet")
+            self.record("command-allowlist", source, destination, "skipped", "Hollow config.json does not exist yet")
             return
 
         config = load_yaml_file(destination)
@@ -1330,7 +1330,7 @@ class Migrator:
         if isinstance(workspace, str) and workspace.strip():
             ws_path = workspace.strip()
             # Skip if the workspace points inside the OpenClaw source directory —
-            # that path will be stale after migration and would cause the Enough
+            # that path will be stale after migration and would cause the Hollow
             # gateway to use the old OpenClaw workspace as its cwd, picking up
             # OpenClaw's AGENTS.md, MEMORY.md, etc.
             try:
@@ -1356,7 +1356,7 @@ class Migrator:
         if additions:
             self.merge_env_values(additions, "messaging-settings", self.source_root / "openclaw.json")
         else:
-            self.record("messaging-settings", self.source_root / "openclaw.json", self.target_root / ".env", "skipped", "No Enough-compatible messaging settings found")
+            self.record("messaging-settings", self.source_root / "openclaw.json", self.target_root / ".env", "skipped", "No Hollow-compatible messaging settings found")
 
     def handle_secret_settings(self, config: Optional[Dict[str, Any]] = None) -> None:
         config = config or self.load_openclaw_config()
@@ -1400,7 +1400,7 @@ class Migrator:
                 self.source_root / "openclaw.json",
                 self.target_root / ".env",
                 "skipped",
-                "No allowlisted Enough-compatible secrets found",
+                "No allowlisted Hollow-compatible secrets found",
                 supported_targets=sorted(SUPPORTED_SECRET_TARGETS),
             )
 
@@ -1533,7 +1533,7 @@ class Migrator:
                             None,
                             "skipped",
                             f"Provider '{provider_name}' uses a {raw_key['source']}-backed SecretRef "
-                            f"that cannot be auto-migrated. Add this key manually via: edit ~/.enough/config.json",
+                            f"that cannot be auto-migrated. Add this key manually via: edit ~/.hollow/config.json",
                         )
                     continue
 
@@ -2059,16 +2059,16 @@ class Migrator:
         ]
         for candidate in candidates:
             if candidate:
-                self.archive_path(candidate, reason="No direct Enough destination; archived for manual review")
+                self.archive_path(candidate, reason="No direct Hollow destination; archived for manual review")
 
         for rel in ("workspace/.learnings", "workspace/memory"):
             candidate = self.source_root / rel
             if candidate.exists():
-                self.archive_path(candidate, reason="No direct Enough destination; archived for manual review")
+                self.archive_path(candidate, reason="No direct Hollow destination; archived for manual review")
 
         partially_extracted = [
-            ("openclaw.json", "Selected Enough-compatible values were extracted; raw OpenClaw config was not copied."),
-            ("credentials/telegram-default-allowFrom.json", "Selected Enough-compatible values were extracted; raw credentials file was not copied."),
+            ("openclaw.json", "Selected Hollow-compatible values were extracted; raw OpenClaw config was not copied."),
+            ("credentials/telegram-default-allowFrom.json", "Selected Hollow-compatible values were extracted; raw credentials file was not copied."),
         ]
         for rel, reason in partially_extracted:
             candidate = self.source_root / rel
@@ -2117,7 +2117,7 @@ class Migrator:
                 continue
             if name in existing_mcp and not self.overwrite:
                 self.record("mcp-servers", f"mcp.servers.{name}", f"mcp_servers.{name}", "conflict",
-                            "MCP server already exists in Enough config")
+                            "MCP server already exists in Hollow config")
                 continue
 
             hermes_srv: Dict[str, Any] = {}
@@ -2228,7 +2228,7 @@ class Migrator:
                 dest = self.archive_dir / "cron-config.json"
                 dest.write_text(json.dumps(cron, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
                 self.record("cron-jobs", "openclaw.json cron.*", str(dest), "archived",
-                            "Cron config archived. Use (cron not in Enough) to recreate jobs manually.")
+                            "Cron config archived. Use (cron not in Hollow) to recreate jobs manually.")
             else:
                 self.record("cron-jobs", "openclaw.json cron.*", "archive/cron-config.json",
                             "archived", "Would archive cron config")
@@ -2302,7 +2302,7 @@ class Migrator:
             agent_cfg["verbose"] = defaults["verboseDefault"]
             changes = True
         if defaults.get("thinkingDefault"):
-            # Map OpenClaw thinking -> Enough reasoning_effort
+            # Map OpenClaw thinking -> Hollow reasoning_effort
             thinking = defaults["thinkingDefault"]
             if thinking in {"always", "high", "xhigh"}:
                 agent_cfg["reasoning_effort"] = "high"
@@ -2373,7 +2373,7 @@ class Migrator:
                 self.maybe_backup(hermes_cfg_path)
                 dump_yaml_file(hermes_cfg_path, hermes_cfg)
             self.record("agent-config", "openclaw.json agents.defaults", "config.json agent/compression/terminal",
-                        "migrated", "Agent defaults mapped to Enough `config.json`")
+                        "migrated", "Agent defaults mapped to Hollow `config.json`")
 
         # Archive multi-agent list
         if agent_list:
@@ -2408,7 +2408,7 @@ class Migrator:
             dest = self.archive_dir / "gateway-config.json"
             dest.write_text(json.dumps(gateway, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         self.record("gateway-config", "openclaw.json gateway.*", "archive/gateway-config.json",
-                    "archived", "Gateway config archived. Use 'Enough TUI' to configure.")
+                    "archived", "Gateway config archived. Use 'Hollow UI' to configure.")
 
         # Extract gateway auth token to .env if present
         auth = gateway.get("auth") or {}
@@ -2603,7 +2603,7 @@ class Migrator:
                         continue
                     self._set_env_var(env_key, str(val), f"channels.{ch_name}.{oc_key}")
 
-        # Map Discord-specific settings to Enough `config.json`
+        # Map Discord-specific settings to Hollow `config.json`
         discord_cfg = channels.get("discord") or {}
         if discord_cfg:
             hermes_cfg_path = self.target_root / "config.json"
@@ -2653,7 +2653,7 @@ class Migrator:
         browser_hermes = hermes_cfg.get("browser") or {}
         changed = False
 
-        # Map fields that have Enough equivalents
+        # Map fields that have Hollow equivalents
         if browser.get("cdpUrl"):
             browser_hermes["cdp_url"] = browser["cdpUrl"]
             changed = True
@@ -2842,7 +2842,7 @@ class Migrator:
         if not self.output_dir:
             return
         notes = [
-            "# OpenClaw -> Enough Migration Notes",
+            "# OpenClaw -> Hollow Migration Notes",
             "",
             "This document lists items that require manual attention after migration.",
             "",
@@ -2860,7 +2860,7 @@ class Migrator:
                 "## Archived Items (Manual Review Needed)",
                 "",
                 "These OpenClaw configurations were archived because they don't have a",
-                "direct 1:1 mapping in Enough. Review each file and recreate manually:",
+                "direct 1:1 mapping in Hollow. Review each file and recreate manually:",
                 "",
             ])
             for item in archived:
@@ -2870,9 +2870,9 @@ class Migrator:
         conflicts = [i for i in self.items if i.status == "conflict"]
         if conflicts:
             notes.extend([
-                "## Conflicts (Existing Enough Config Not Overwritten)",
+                "## Conflicts (Existing Hollow Config Not Overwritten)",
                 "",
-                "These items already existed in your Enough `config.json`. Re-run with",
+                "These items already existed in your Hollow `config.json`. Re-run with",
                 "`--overwrite` to force, or merge manually:",
                 "",
             ])
@@ -2893,29 +2893,29 @@ class Migrator:
             "## IMPORTANT: Archive the OpenClaw Directory",
             "",
             "After migration, your OpenClaw directory still exists on disk with workspace",
-            "state files (todo.json, sessions, logs). If the Enough agent discovers these",
-            "directories, it may read/write to them instead of the Enough state, causing",
+            "state files (todo.json, sessions, logs). If the Hollow agent discovers these",
+            "directories, it may read/write to them instead of the Hollow state, causing",
             "confusion (e.g., cron jobs reading a different todo list than interactive sessions).",
             "",
-            "**Strongly recommended:** Run `enough claw cleanup` to rename the OpenClaw",
+            "**Strongly recommended:** Run `hollow claw cleanup` to rename the OpenClaw",
             "directory to `.openclaw.pre-migration`. This prevents the agent from finding it.",
             "The directory is renamed, not deleted — you can undo this at any time.",
             "",
             "If you skip this step and notice the agent getting confused about workspaces",
-            "or todo lists, run `enough claw cleanup` to fix it.",
+            "or todo lists, run `hollow claw cleanup` to fix it.",
             "",
-            "## Enough-Specific Setup",
+            "## Hollow-Specific Setup",
             "",
             "After migration, you may want to:",
-            "- Run `enough claw cleanup` to archive the OpenClaw directory (prevents state confusion)",
-            "- Run `/connect` or `~/.enough/config.json`` to configure any remaining settings",
-            "- Run `enough mcp list` to verify MCP servers were imported correctly",
+            "- Run `hollow claw cleanup` to archive the OpenClaw directory (prevents state confusion)",
+            "- Run `/connect` or `~/.hollow/config.json`` to configure any remaining settings",
+            "- Run `hollow mcp list` to verify MCP servers were imported correctly",
         ])
 
         if has_cron_config_archive:
-            notes.append("- Run `enough cron` to recreate scheduled tasks (see archive/cron-config.json)")
+            notes.append("- Run `hollow cron` to recreate scheduled tasks (see archive/cron-config.json)")
         elif has_cron_store_archive:
-            notes.append("- Run `enough cron` to recreate scheduled tasks (see archived cron-store)")
+            notes.append("- Run `hollow cron` to recreate scheduled tasks (see archived cron-store)")
 
         # Check if skills were imported
         has_skills = any(i.kind == "skills" and i.status == "migrated" for i in self.items)
@@ -2945,8 +2945,8 @@ class Migrator:
             ])
 
         notes.extend([
-            "- Run (gateway not in Enough) install` if you need the gateway service",
-            "- Review `~/.enough/config.json` for any adjustments",
+            "- Run (gateway not in Hollow) install` if you need the gateway service",
+            "- Review `~/.hollow/config.json` for any adjustments",
             "",
         ])
 
@@ -2958,19 +2958,19 @@ class Migrator:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Migrate OpenClaw user state into Enough.")
+    parser = argparse.ArgumentParser(description="Migrate OpenClaw user state into Hollow.")
     parser.add_argument("--source", default=str(Path.home() / ".openclaw"), help="OpenClaw home directory")
-    parser.add_argument("--target", default=os.environ.get("ENOUGH_HOME") or str(Path.home() / ".enough"), help="Enough home directory (~/.enough)")
+    parser.add_argument("--target", default=os.environ.get("HOLLOW_HOME") or str(Path.home() / ".hollow"), help="Hollow home directory (~/.hollow)")
     parser.add_argument(
         "--workspace-target",
         help="Optional workspace root where the workspace instructions file should be copied",
     )
     parser.add_argument("--execute", action="store_true", help="Apply changes instead of reporting a dry run")
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing Enough targets after backing them up")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing Hollow targets after backing them up")
     parser.add_argument(
         "--migrate-secrets",
         action="store_true",
-        help="Import a narrow allowlist of Enough-compatible secrets into the target env file",
+        help="Import a narrow allowlist of Hollow-compatible secrets into the target env file",
     )
     parser.add_argument(
         "--skill-conflict",
@@ -3044,7 +3044,7 @@ def main() -> int:
 
     print()
     print(f"  ╔══════════════════════════════════════════════════════╗")
-    print(f"  ║   OpenClaw -> Enough Migration   [{mode_label:>8s}]   ║")
+    print(f"  ║   OpenClaw -> Hollow Migration   [{mode_label:>8s}]   ║")
     print(f"  ╠══════════════════════════════════════════════════════╣")
     print(f"  ║  Source:  {str(report['source_root'])[:42]:<42s}  ║")
     print(f"  ║  Target:  {str(report['target_root'])[:42]:<42s}  ║")
@@ -3067,7 +3067,7 @@ def main() -> int:
             seen_kinds.add(label)
             dest = item.get("destination") or ""
             if dest.startswith(str(report["target_root"])):
-                dest = "~/.enough/" + dest[len(str(report["target_root"])) + 1:]
+                dest = "~/.hollow/" + dest[len(str(report["target_root"])) + 1:]
             meta = MIGRATION_OPTION_METADATA.get(label, {})
             display = meta.get("label", label)
             print(f"    ✔ {display:<35s} -> {dest}")
@@ -3113,8 +3113,8 @@ def main() -> int:
     if args.execute:
         print()
         print("  Next steps:")
-        print("    1. Review ~/.enough/config.json")
-        print("    2. Run: enough skills list (MCP via config.json)")
+        print("    1. Review ~/.hollow/config.json")
+        print("    2. Run: hollow skills list (MCP via config.json)")
         if any(i["kind"] == "cron-jobs" and i["status"] == "archived" for i in items):
             print("    3. Recreate cron jobs: cron (Hermes-only — use bash + cron on host)")
         if report.get("output_dir"):

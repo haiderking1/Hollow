@@ -32,8 +32,8 @@ def _state_dir() -> Path:
     override = os.environ.get("WATCHER_STATE_DIR")
     if override:
         return Path(override)
-    # Default: $ENOUGH_HOME/watcher-state/, falling back to ~/.enough/watcher-state/.
-    enough_home = os.environ.get("ENOUGH_HOME") or str(Path.home() / ".enough")
+    # Default: $HOLLOW_HOME/watcher-state/, falling back to ~/.hollow/watcher-state/.
+    enough_home = os.environ.get("HOLLOW_HOME") or str(Path.home() / ".hollow")
     return Path(hermes_home) / "watcher-state"
 
 

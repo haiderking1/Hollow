@@ -19,7 +19,7 @@ metadata:
 
 # Kanban Video Orchestrator
 
-> **Not available in Enough:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Enough does not ship). Load the **`enough`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
+> **Not available in Hollow:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Hollow does not ship). Load the **`hollow`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
 
 Wrap any video request — from a 15-second product teaser to a 5-minute narrative
 short to a music video to an ASCII loop — in a Kanban (Hermes-only) pipeline that
@@ -101,11 +101,11 @@ Generate a setup script (`setup.sh`) and run it. The script:
 
 1. Creates the project workspace (`~/projects/video-pipeline/<slug>/`)
 2. Copies any provided assets into `taste/`, `audio/`, `assets/`
-3. Creates each Hermes profile via `enough profile create --clone`
+3. Creates each Hermes profile via `hollow profile create --clone`
 4. Writes per-profile `SOUL.md` (personality + role definition)
 5. Configures profile YAML (toolsets, always_load skills, cwd)
 6. Writes `brief.md`, `TEAM.md`, and `taste/` content
-7. Fires the initial `enough kanban create` task assigned to the director
+7. Fires the initial `hollow kanban create` task assigned to the director
 
 Use `scripts/bootstrap_pipeline.py` to generate setup.sh from a brief +
 team-design JSON. See **[references/kanban-setup.md](references/kanban-setup.md)**
@@ -176,7 +176,7 @@ task graphs. See **[references/examples.md](references/examples.md)**.
 6. **The director never executes.** Even with the full `kanban + terminal +
    file` toolset, the director's `SOUL.md` rules forbid it from executing
    work itself. It decomposes and routes only — every concrete task becomes
-   a `enough kanban create` call to a specialist profile. The
+   a `hollow kanban create` call to a specialist profile. The
    `kanban-orchestrator` skill spells this out further.
 
 7. **Don't over-decompose.** A 30-second product video does NOT need 20 tasks.
@@ -184,7 +184,7 @@ task graphs. See **[references/examples.md](references/examples.md)**.
    right human-review gates.
 
 8. **Verify API keys BEFORE firing.** External APIs (TTS, image-gen,
-   image-to-video) need keys in `${ENOUGH_HOME:-~/.enough}/.env` or the user's secret store.
+   image-to-video) need keys in `${HOLLOW_HOME:-~/.hollow}/.env` or the user's secret store.
    A worker that hits a missing-key error wastes a task slot. The setup
    script's `check_key` helper aborts cleanly if a required key is missing.
 

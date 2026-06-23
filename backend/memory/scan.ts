@@ -1,4 +1,4 @@
-// PORT: mirrors backend/memory/scan.go
+// PORT: backend/memory/scan.go
 
 import { SkillGuardThreatPatterns } from "../skills/guard_patterns";
 import { InvisibleChars } from "../skills/guard";

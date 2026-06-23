@@ -565,7 +565,7 @@ export default function App() {
     })
   }, [])
 
-  // Delete a thread's session file (Enough storage only, not the project folder).
+  // Delete a thread's session file (Hollow storage only, not the project folder).
   const handleDeleteThread = useCallback(
     (id: string) => {
       const wasActive = id === currentSessionId

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/hub_adapters.go
+// PORT: backend/skills/hub_adapters.go
 
 import fs from "node:fs";
 import path from "node:path";

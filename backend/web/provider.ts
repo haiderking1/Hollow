@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/provider.go
+// PORT: backend/web/provider.go
 
 import { Effect } from "effect";
 import { type provider } from "./types";

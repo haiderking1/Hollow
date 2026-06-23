@@ -1,9 +1,9 @@
-// PORT: mirrors backend/skills/bootstrap.go
+// PORT: backend/skills/bootstrap.go
 
 import { Effect } from "effect";
 import fs from "node:fs";
 import { HomeDir, SkillsDir } from "./paths";
-import { ExtractEnoughSkillIfMissing } from "./bundle";
+import { ExtractHollowSkillIfMissing } from "./bundle";
 import { SyncSkills } from "./sync";
 
 // EnsureBootstrapped seeds the skills library on first launch, mirroring
@@ -26,7 +26,7 @@ export function EnsureBootstrapped(): Effect.Effect<void, never> {
 
   return initDirs.pipe(
     Effect.flatMap(() =>
-      ExtractEnoughSkillIfMissing().pipe(
+      ExtractHollowSkillIfMissing().pipe(
         Effect.flatMap(() => SyncSkills(true)),
         Effect.match({
           onFailure: () => undefined,

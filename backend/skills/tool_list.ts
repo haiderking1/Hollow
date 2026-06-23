@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/tool_list.go
+// PORT: backend/skills/tool_list.go
 
 import { type runtime } from "../config/config";
 import { type Skill } from "./types";

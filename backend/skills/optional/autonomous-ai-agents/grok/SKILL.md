@@ -2,7 +2,7 @@
 name: grok
 description: "Delegate coding to xAI Grok Build CLI (features, PRs)."
 version: 0.1.0
-author: Matt Maximo (MattMaximo), Enough
+author: Matt Maximo (MattMaximo), Hollow
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -11,10 +11,10 @@ metadata:
     related_skills: [codex, claude-code, enough]
 ---
 
-# Grok Build CLI — Enough Orchestration Guide
+# Grok Build CLI — Hollow Orchestration Guide
 
 Delegate coding tasks to [Grok Build](https://docs.x.ai/build/overview) (xAI's
-autonomous coding agent CLI, the `grok` command) via Enough's bash tool. Grok
+autonomous coding agent CLI, the `grok` command) via Hollow's bash tool. Grok
 can read files, write code, run shell commands, spawn subagents, and manage git
 workflows. It runs three ways: an interactive TUI, **headless** (`-p`), and as
 an **ACP agent** over JSON-RPC.
@@ -167,7 +167,7 @@ terminal(command="grok --no-auto-update -c -p 'What did you change last time?'",
 To have Grok review local artifacts and return a clean markdown note (for
 Obsidian or a repo) without mutating anything:
 
-1. Prepare stable input files first with Enough tools (`read_file`,
+1. Prepare stable input files first with Hollow tools (`read_file`,
    `write_file`). Snapshot only the relevant context into a temp file rather
    than dumping raw paths.
 2. Run Grok headless **without** `--always-approve` so it cannot auto-write, and
@@ -283,7 +283,7 @@ Put global preferences in `~/.grok/config.toml` (not project-scoped
    `mktemp -d && git init` for scratch commit tasks.
 9. **Clean up tmux sessions** with `tmux kill-session -t <name>` when done.
 
-## Rules for Enough Agents
+## Rules for Hollow Agents
 
 1. **Prefer headless `-p`** for single tasks — cleanest integration, structured
    output via `--output-format json`.

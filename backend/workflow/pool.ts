@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/pool.go
+// PORT: backend/workflow/pool.go
 
 import { Effect } from "effect";
 import { type AgentResult, type PhaseSnapshot, type AgentSnapshot, cloneJSON } from "./types";

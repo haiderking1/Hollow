@@ -1,9 +1,9 @@
-// PORT: mirrors backend/memory/store.go
+// PORT: backend/memory/store.go
 
 import { Effect } from "effect";
 import fs from "node:fs";
 import path from "node:path";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import * as fslockUnix from "../fslock/lock_unix";
 import * as fslockWindows from "../fslock/lock_windows";
 import { atomicWrite } from "../skills/usage";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/client.go
+// PORT: backend/opencode/client.go
 
 import { Effect } from "effect";
 import { prepare_request_messages } from "./messages";

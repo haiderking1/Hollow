@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/tool_path.go
+// PORT: backend/agent/tool_path.go
 
 import { Effect } from "effect";
 import path from "node:path";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/codex_stream.go
+// PORT: backend/opencode/codex_stream.go
 
 import { Effect } from "effect";
 import { codex_cloudflare_headers } from "../auth/codex_headers";

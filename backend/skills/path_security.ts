@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/path_security.go
+// PORT: backend/skills/path_security.go
 
 import path from "node:path";
 

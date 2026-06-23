@@ -1,4 +1,4 @@
-// PORT: mirrors backend/memory/tool.go
+// PORT: backend/memory/tool.go
 
 import { Effect } from "effect";
 import { Store, Result, TargetMemory, TargetUser } from "./store";
@@ -7,7 +7,7 @@ import { Store, Result, TargetMemory, TargetUser } from "./store";
 export const ToolName = "memory";
 
 // ToolDescription is the behavioral guidance shipped in the tool schema.
-// Ported from Hermes' memory tool (tools/memory_tool.py), adapted to Enough
+// Ported from Hermes' memory tool (tools/memory_tool.py), adapted to Hollow
 // (skills instead of session_search for procedures; no session search tool).
 export const ToolDescription =
   "Save durable information to persistent memory that survives across sessions. " +

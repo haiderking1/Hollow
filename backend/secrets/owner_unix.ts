@@ -1,5 +1,5 @@
-// PORT: mirrors backend/secrets/owner_unix.go
-// Ported from backend/secrets/owner_unix.go
+// PORT: backend/secrets/owner_unix.go
+// backend/secrets/owner_unix.go
 //go:build unix placeholder
 
 import fs from "node:fs";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/imageutil/resize.go
+// PORT: backend/imageutil/resize.go
 
 import { Effect } from "effect";
 

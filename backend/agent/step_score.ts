@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/step_score.go
+// PORT: backend/agent/step_score.go
 
 import path from "node:path";
 import { Effect } from "effect";

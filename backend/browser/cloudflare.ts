@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/cloudflare.go
+// PORT: backend/browser/cloudflare.go
 
 import { Effect } from "effect";
 import { type CdpSession, EvaluateExpression } from "./cdp";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/notify_helpers.go
+// PORT: backend/agent/notify_helpers.go
 
 import { subsystem_skills, subsystem_memory } from "../approval/write_approval";
 import { Agent } from "./agent";

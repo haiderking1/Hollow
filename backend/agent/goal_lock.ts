@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/goal_lock.go
+// PORT: backend/agent/goal_lock.go
 
 import { runtime_notice_prefix } from "../core/events";
 

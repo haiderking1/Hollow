@@ -1,7 +1,7 @@
 # Design System: Expo
 
 
-> **Enough — Implementation Notes**
+> **Hollow — Implementation Notes**
 >
 > The original site uses proprietary fonts. For self-contained HTML output, use these CDN substitutes:
 > - **Primary:** `Inter` | **Mono:** `JetBrains Mono`

@@ -1,8 +1,8 @@
 ---
 name: teams-meeting-pipeline
-description: "Operate the Teams meeting summary pipeline via Enough CLI — summarize meetings, inspect pipeline status, replay jobs, manage Microsoft Graph subscriptions."
+description: "Operate the Teams meeting summary pipeline via Hollow CLI — summarize meetings, inspect pipeline status, replay jobs, manage Microsoft Graph subscriptions."
 version: 1.1.0
-author: Enough + Teknium
+author: Hollow + Teknium
 license: MIT
 prerequisites:
   env_vars: [MSGRAPH_TENANT_ID, MSGRAPH_CLIENT_ID, MSGRAPH_CLIENT_SECRET]
@@ -18,11 +18,11 @@ metadata:
 
 # Teams Meeting Pipeline
 
-> **Not available in Enough:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Enough does not ship). Load the **`enough`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
+> **Not available in Hollow:** This skill targets Hermes-only infrastructure (gateway, profiles, plugins, or CLI subcommands Hollow does not ship). Load the **`hollow`** skill for what *this* agent supports. Only proceed if the user explicitly runs Hermes elsewhere.
 
 Use this skill whenever the user asks about Microsoft Teams meeting summaries, transcripts, recordings, action items, Graph subscriptions, or any operational question about the Teams meeting pipeline. Works in any language — the triggers below are examples, not an exhaustive list.
 
-Everything operator-facing is a `enough teams-pipeline` subcommand run via the terminal tool. There are no new model tools for this pipeline — the CLI is the surface.
+Everything operator-facing is a `hollow teams-pipeline` subcommand run via the terminal tool. There are no new model tools for this pipeline — the CLI is the surface.
 
 ## When to use this skill
 
@@ -41,7 +41,7 @@ Multilingual trigger examples (not exhaustive):
 
 ## Prerequisites
 
-Before using the pipeline, verify these are set in `${ENOUGH_HOME:-~/.enough}/.env`:
+Before using the pipeline, verify these are set in `${HOLLOW_HOME:-~/.hollow}/.env`:
 
 ```bash
 MSGRAPH_TENANT_ID=...
@@ -53,9 +53,9 @@ If any are missing, direct the user to the Azure app registration guide at `/doc
 
 ## Command reference
 
-**This skill requires the Hermes-only `hermes teams-pipeline` CLI. Enough does not ship that command.** Use Microsoft Graph API directly via `bash` if you must operate the pipeline from Enough, or run Hermes Agent separately.
+**This skill requires the Hermes-only `hermes teams-pipeline` CLI. Hollow does not ship that command.** Use Microsoft Graph API directly via `bash` if you must operate the pipeline from Hollow, or run Hermes Agent separately.
 
-The original Hermes commands (`validate`, `token-health`, `list`, `show`, `run`, `fetch`, `subscribe`, …) are documented in the Enough repo for operators who use both products.
+The original Hermes commands (`validate`, `token-health`, `list`, `show`, `run`, `fetch`, `subscribe`, …) are documented in the Hollow repo for operators who use both products.
 
 ## Decision tree for common asks
 
@@ -69,9 +69,9 @@ The original Hermes commands (`validate`, `token-health`, `list`, `show`, `run`,
 Microsoft Graph caps webhook subscriptions at 72 hours and **will not auto-renew them**. If `maintain-subscriptions` is not scheduled, meeting notifications silently stop arriving 3 days after any manual subscription creation.
 
 When the user reports "the pipeline worked yesterday but nothing is arriving today":
-1. Run `enough teams-pipeline subscriptions` — if it's empty or all entries show `expirationDateTime` in the past, that's the cause.
+1. Run `hollow teams-pipeline subscriptions` — if it's empty or all entries show `expirationDateTime` in the past, that's the cause.
 2. Recreate with `subscribe` as shown above.
-3. **Set up automated renewal immediately** via `enough cron add`, a systemd timer, or plain crontab. The operator runbook at `/docs/guides/operate-teams-meeting-pipeline#automating-subscription-renewal-required-for-production` has all three options. 12-hour interval is safe (6x headroom against the 72h limit).
+3. **Set up automated renewal immediately** via `hollow cron add`, a systemd timer, or plain crontab. The operator runbook at `/docs/guides/operate-teams-meeting-pipeline#automating-subscription-renewal-required-for-production` has all three options. 12-hour interval is safe (6x headroom against the 72h limit).
 
 ## Other pitfalls
 

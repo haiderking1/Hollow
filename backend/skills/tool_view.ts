@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/tool_view.go
+// PORT: backend/skills/tool_view.go
 import fs from "node:fs";
 import path from "node:path";
 import { Effect } from "effect";
@@ -10,7 +10,7 @@ import {
   ReadinessAvailable,
   ReadinessSetupNeeded,
   ReadinessUnsupported,
-  LoadEnoughEnv,
+  LoadHollowEnv,
   isEnvVarSet,
   normalizeSetupMetadata,
   getRequiredEnvironmentVariables,
@@ -358,7 +358,7 @@ export function executeSkillViewInternal(
       if (is_plugin_disabled(ns, cfg)) {
         return {
           Success: false,
-          Error: `Plugin '${ns}' is disabled. Re-enable with: enough plugins enable ${ns}`,
+          Error: `Plugin '${ns}' is disabled. Re-enable with: hollow plugins enable ${ns}`,
           SetupNeeded: false,
         };
       }
@@ -434,7 +434,7 @@ export function executeSkillViewInternal(
         const banner = get_plugin_sibling_banner(ns, bare);
 
         const requiredEnvVars = getRequiredEnvironmentVariables(resolvedFm);
-        const envMap = LoadEnoughEnv();
+        const envMap = LoadHollowEnv();
 
         const missingRequiredEnvVars: string[] = [];
         for (const envVar of requiredEnvVars) {
@@ -691,7 +691,7 @@ export function executeSkillViewInternal(
   }
 
   const requiredEnvVars = getRequiredEnvironmentVariables(resolvedFm);
-  const envMap = LoadEnoughEnv();
+  const envMap = LoadHollowEnv();
 
   const missingRequiredEnvVars: string[] = [];
   for (const envVar of requiredEnvVars) {

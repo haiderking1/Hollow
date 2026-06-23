@@ -7,7 +7,7 @@ let persistTimer: number | null = null
 
 export function loadZoom(): number {
   try {
-    const saved = localStorage.getItem("enough-zoom")
+    const saved = localStorage.getItem("hollow-zoom")
     if (!saved) return 1.0
     const level = parseFloat(saved)
     if (!Number.isFinite(level)) return 1.0
@@ -37,7 +37,7 @@ function clampZoom(level: number) {
 function persistZoom(level: number) {
   if (persistTimer !== null) window.clearTimeout(persistTimer)
   persistTimer = window.setTimeout(() => {
-    localStorage.setItem("enough-zoom", level.toString())
+    localStorage.setItem("hollow-zoom", level.toString())
     persistTimer = null
   }, 200)
 }

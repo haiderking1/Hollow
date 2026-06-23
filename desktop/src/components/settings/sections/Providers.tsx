@@ -193,7 +193,7 @@ export function Providers({
       >
         {opencodeConnected ? (
           <ConnectedRow
-            note="Key saved locally in ~/.enough"
+            note="Key saved locally in ~/.hollow"
             pending={pending === OPENCODE}
             onDisconnect={() => disconnect(OPENCODE)}
           />
@@ -215,7 +215,7 @@ export function Providers({
       >
         {neuralwattConnected ? (
           <ConnectedRow
-            note="Key saved locally in ~/.enough"
+            note="Key saved locally in ~/.hollow"
             pending={pending === NEURALWATT}
             onDisconnect={() => disconnect(NEURALWATT)}
           />

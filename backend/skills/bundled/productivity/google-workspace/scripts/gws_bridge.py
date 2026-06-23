@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bridge between Enough OAuth token and gws CLI.
+"""Bridge between Hollow OAuth token and gws CLI.
 
 Refreshes the token if expired, then executes gws with the valid access token.
 """
@@ -15,11 +15,11 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from _enough_home import get_hermes_home
+from _hollow_home import get_hermes_home
 
 
 def get_token_path() -> Path:
-    return get_enough_home() / "google_token.json"
+    return get_hollow_home() / "google_token.json"
 
 
 def _normalize_authorized_user_payload(payload: dict) -> dict:

@@ -2,7 +2,7 @@
 name: openhands
 description: Delegate coding to OpenHands CLI (model-agnostic, LiteLLM).
 version: 0.1.0
-author: Tim Koepsel (xzessmedia), Enough
+author: Tim Koepsel (xzessmedia), Hollow
 license: MIT
 platforms: [linux, macos]
 metadata:
@@ -23,7 +23,7 @@ This skill is the headless-mode wrapper for batch / one-shot delegation. The int
 - User wants a coding agent that can run on a non-Anthropic / non-OpenAI provider (DeepSeek, Qwen, Ollama, vLLM, Nous, etc.) — sibling skills `claude-code` and `codex` are tied to one vendor.
 - Multi-step file edits + shell commands inside a workspace.
 
-For Claude-native, prefer `claude-code`. For OpenAI-native, prefer `codex`. For Enough-native subagents, use `delegate_task`.
+For Claude-native, prefer `claude-code`. For OpenAI-native, prefer `codex`. For Hollow-native subagents, use `delegate_task`.
 
 ## Prerequisites
 
@@ -146,4 +146,4 @@ If the JSONL stream ends with a `FinishAction` whose `action.message` mentions `
 
 - [OpenHands GitHub](https://github.com/All-Hands-AI/OpenHands)
 - [OpenHands CLI command reference](https://docs.openhands.dev/openhands/usage/cli/command-reference)
-- Sibling skills: `claude-code` (Anthropic-only), `codex` (OpenAI-only), `opencode` (multi-provider via OpenCode), `agent_swarm` (Enough swarm workers via `delegate_task`).
+- Sibling skills: `claude-code` (Anthropic-only), `codex` (OpenAI-only), `opencode` (multi-provider via OpenCode), `agent_swarm` (Hollow swarm workers via `delegate_task`).

@@ -1,5 +1,5 @@
-// PORT: mirrors backend/secrets/store.go
-// Ported from backend/secrets/store.go
+// PORT: backend/secrets/store.go
+// backend/secrets/store.go
 
 import path from "node:path";
 import fs from "node:fs";
@@ -8,7 +8,7 @@ import { verify_owner } from "./owner_unix";
 import { keyring_get, keyring_set, keyring_delete } from "./keyring";
 
 // Hollow keeps its own OS keyring entries (service "hollow"), separate from
-// Enough's "enough" service — so the two apps don't share API keys.
+// Hollow's "enough" service — so the two apps don't share API keys.
 export const keyring_service = "hollow";
 export const keyring_account = "opencode-api-key";
 
@@ -42,13 +42,13 @@ export const secrets_error = (reason: string, cause: unknown): secrets_error => 
 
 export const err_not_connected = (provider?: string): secrets_error =>
   secrets_error(
-    `not connected for ${normalize_provider(provider)} — run: enough auth add ${normalize_provider(provider)}`,
+    `not connected for ${normalize_provider(provider)} — run: hollow auth add ${normalize_provider(provider)}`,
     null,
   );
 
-// ENOUGH_CREDENTIALS_FILE forces file-based storage and skips the OS keyring.
+// HOLLOW_CREDENTIALS_FILE forces file-based storage and skips the OS keyring.
 // Tests set this so go test cannot overwrite the user's session keyring.
-export const use_keyring = (): boolean => process.env.ENOUGH_CREDENTIALS_FILE === "" || process.env.ENOUGH_CREDENTIALS_FILE === undefined;
+export const use_keyring = (): boolean => process.env.HOLLOW_CREDENTIALS_FILE === "" || process.env.HOLLOW_CREDENTIALS_FILE === undefined;
 
 const is_enoent = (cause: unknown): boolean =>
   typeof cause === "object" &&
@@ -57,7 +57,7 @@ const is_enoent = (cause: unknown): boolean =>
 
 export const active_credentials_path = (provider?: string): Effect.Effect<string, secrets_error> =>
   Effect.gen(function* () {
-    const p = process.env.ENOUGH_CREDENTIALS_FILE;
+    const p = process.env.HOLLOW_CREDENTIALS_FILE;
     if (p !== undefined && p !== "") {
       if (normalize_provider(provider) === default_provider) return p;
       return `${p}.${safe_provider_filename(provider)}`;

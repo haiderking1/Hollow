@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/launch_windows.go
+// PORT: backend/browser/launch_windows.go
 
 import { type SpawnOptions } from "node:child_process";
 

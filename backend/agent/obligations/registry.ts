@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/obligations/registry.go
+// PORT: backend/agent/obligations/registry.go
 
 import { command_matches_any } from "./match";
 

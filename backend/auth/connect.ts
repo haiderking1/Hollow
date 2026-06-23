@@ -1,4 +1,4 @@
-// PORT: mirrors backend/auth/connect.go
+// PORT: backend/auth/connect.go
 
 import { Effect } from "effect";
 import { auth_error, type auth_error as auth_error_type } from "./error";

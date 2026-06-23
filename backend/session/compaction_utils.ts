@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/compaction_utils.go
+// PORT: backend/session/compaction_utils.go
 
 import type { message, usage } from "../opencode/types";
 import { string_content, content_string, content_blocks } from "../opencode/types";

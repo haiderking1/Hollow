@@ -1,4 +1,4 @@
-// PORT: mirrors backend/auth/codex_oauth.go
+// PORT: backend/auth/codex_oauth.go
 
 import { Effect } from "effect";
 import { auth_error, type auth_error as auth_error_type } from "./error";
@@ -247,7 +247,7 @@ export const resolve_codex_credentials = (
     const [state, ok] = result.right;
     if (!ok) {
       return yield* Effect.fail(
-        auth_error("not connected — run: enough auth add openai-codex", null),
+        auth_error("not connected — run: hollow auth add openai-codex", null),
       );
     }
 
@@ -260,7 +260,7 @@ export const resolve_codex_credentials = (
     const refresh = state.tokens.refresh_token;
     if (access === "" || refresh === "") {
       return yield* Effect.fail(
-        auth_error("codex auth incomplete — run: enough auth add openai-codex", null),
+        auth_error("codex auth incomplete — run: hollow auth add openai-codex", null),
       );
     }
 

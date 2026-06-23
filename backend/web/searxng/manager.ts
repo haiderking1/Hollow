@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/searxng/manager.go
+// PORT: backend/web/searxng/manager.go
 
 import path from "node:path";
 import fs from "node:fs";
@@ -17,7 +17,7 @@ const default_settings = (): Uint8Array => {
       return fs.readFileSync(p);
     }
   } catch {}
-  return new TextEncoder().encode("port: 18752\nserver:\n  secret_key: \"enough-local-searxng\"\n");
+  return new TextEncoder().encode("port: 18752\nserver:\n  secret_key: \"hollow-local-searxng\"\n");
 };
 
 const repo_url = "https://github.com/searxng/searxng.git";
@@ -27,7 +27,7 @@ const health_interval_ms = 400;
 let manager_instance: manager | null = null;
 let manager_initialized = false;
 
-// Manager runs a local SearXNG instance for Enough.
+// Manager runs a local SearXNG instance for Hollow.
 export class manager {
   private _cmd: ChildProcess | null = null;
   private _base_url = "";
@@ -100,7 +100,7 @@ export class manager {
     });
   }
 
-  // Stop shuts down a SearXNG process started by Enough.
+  // Stop shuts down a SearXNG process started by Hollow.
   stop(): Effect.Effect<void, searxng_error_type> {
     const self = this;
     return Effect.gen(function* () {
@@ -272,7 +272,7 @@ export const ensure_running = (
   ctx: AbortSignal,
 ): Effect.Effect<string, searxng_error_type> => default_manager().ensure_running(ctx);
 
-// Stop shuts down a SearXNG process started by Enough.
+// Stop shuts down a SearXNG process started by Hollow.
 export const stop = (): Effect.Effect<void, searxng_error_type> => default_manager().stop();
 
 const health_ok_sync = async (ctx: AbortSignal, base: string): Promise<boolean> => {

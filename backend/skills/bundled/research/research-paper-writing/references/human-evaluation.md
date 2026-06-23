@@ -56,7 +56,7 @@ Comprehensive guide for designing, running, and reporting human evaluations in M
 | Study Type | Minimum Items | Minimum Annotators | Notes |
 |------------|--------------|-------------------|-------|
 | Pairwise comparison | 100 pairs | 3 per pair | Detects ~10% win rate difference at p<0.05 |
-| Likert rating | 100 items | 3 per item | Enough for meaningful averages |
+| Likert rating | 100 items | 3 per item | Hollow for meaningful averages |
 | Ranking | 50 sets | 3 per set | Each set contains all systems being compared |
 | Error annotation | 200 items | 2 per item | Higher agreement expected for structured schemes |
 

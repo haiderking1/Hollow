@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/bash.go
+// PORT: backend/workflow/bash.go
 
 import { Effect } from "effect";
 import crypto from "node:crypto";

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/click.go
+// PORT: backend/browser/click.go
 
 import { Effect } from "effect";
 import { type CdpSession, EvaluateExpression } from "./cdp";

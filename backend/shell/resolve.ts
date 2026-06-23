@@ -1,10 +1,10 @@
-// PORT: mirrors backend/shell/resolve.go
+// PORT: backend/shell/resolve.go
 
 import fs from "node:fs";
 import path from "node:path";
 import { Effect } from "effect";
 import { load } from "../config/config";
-import { portable_git_dir } from "../enoughhome/portable_git";
+import { portable_git_dir } from "../hollowhome/portable_git";
 
 export type shell_error = {
   readonly _tag: "ShellError";
@@ -58,7 +58,7 @@ export const resolve_bash = (): Effect.Effect<string, shell_error> =>
       if (shell_path !== "" && is_file(shell_path)) return shell_path;
     }
 
-    const custom = process.env.ENOUGH_GIT_BASH_PATH ?? "";
+    const custom = process.env.HOLLOW_GIT_BASH_PATH ?? "";
     if (custom !== "" && is_file(custom)) return custom;
 
     const p_git_dir = portable_git_dir();
@@ -94,7 +94,7 @@ export const resolve_bash = (): Effect.Effect<string, shell_error> =>
     }
 
     return yield* Effect.fail(shell_error(
-      "Git Bash not found. Enough requires Git for Windows on Windows.\nInstall it using the following command in PowerShell:\n  irm https://raw.githubusercontent.com/haiderking1/Enough/main/scripts/install-windows.ps1 | iex\nOr set the ENOUGH_GIT_BASH_PATH environment variable.",
+      "Git Bash not found. Hollow requires Git for Windows on Windows.\nInstall it using the following command in PowerShell:\n  irm https://raw.githubusercontent.com/haiderking1/Hollow/main/scripts/install-windows.ps1 | iex\nOr set the HOLLOW_GIT_BASH_PATH environment variable.",
       null,
     ));
   });
@@ -110,5 +110,5 @@ todos:
   - verify Windows PATH executable lookup semantics match exec.LookPath exactly
 notes:
   - ResolveBash returns (string, error), modeled as Effect.Effect<string, shell_error>.
-  - Reuses config.load and enoughhome portable_git_dir ports.
+  - Reuses config.load and hollowhome portable_git_dir ports.
 */

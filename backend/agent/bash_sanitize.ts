@@ -1,8 +1,8 @@
-// PORT: mirrors backend/agent/bash_sanitize.go
+// PORT: backend/agent/bash_sanitize.go
 
 const bashBlockedPatterns = [
-  { re: /\bmpv\b/i, hint: "mpv draws video/sixel into stdout and breaks the Enough TUI" },
-  { re: /--vo=(sixel|tct|caca|kitty)/i, hint: "terminal video output cannot run inside Enough" },
+  { re: /\bmpv\b/i, hint: "mpv draws video/sixel into stdout and breaks the Hollow TUI" },
+  { re: /--vo=(sixel|tct|caca|kitty)/i, hint: "terminal video output cannot run inside Hollow" },
   { re: /\bffmpeg\b.*\bpix_fmt=sixel\b/i, hint: "sixel ffmpeg output breaks the TUI" },
   { re: /\bchafa\b/i, hint: "terminal image output breaks the TUI" },
   { re: /\bimg2sixel\b/i, hint: "sixel output breaks the TUI" },
@@ -24,7 +24,7 @@ export function bashCommandBlocked(command: string): string {
 }
 
 // SanitizeBashOutput strips terminal escape sequences (CSI, OSC, DCS/sixel, etc.)
-// so bash tool output cannot corrupt the Enough TUI. Returns cleaned text and
+// so bash tool output cannot corrupt the Hollow TUI. Returns cleaned text and
 // whether significant binary/escape content was removed.
 export function SanitizeBashOutput(inStr: string): [string, boolean] {
   if (inStr === "") {

@@ -212,8 +212,8 @@ const shouldShowDesktopSession = (cwd: string): boolean => {
     for (const part of parts) {
       if (
         part.startsWith("Test") ||
-        part.startsWith("enough-test-tree-") ||
-        part.includes("enough-test-tree")
+        part.startsWith("hollow-test-tree-") ||
+        part.includes("hollow-test-tree")
       ) {
         return false;
       }

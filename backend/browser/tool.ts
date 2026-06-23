@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/tool.go
+// PORT: backend/browser/tool.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";

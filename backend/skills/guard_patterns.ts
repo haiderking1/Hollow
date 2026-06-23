@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/guard_patterns.go
+// PORT: backend/skills/guard_patterns.go
 
 export interface ThreatPattern {
   Regex: RegExp;

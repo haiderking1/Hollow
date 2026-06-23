@@ -1,9 +1,9 @@
-// PORT: mirrors backend/workflow/saved.go
+// PORT: backend/workflow/saved.go
 
 import { Effect } from "effect";
 import fs from "node:fs";
 import path from "node:path";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import { type Meta } from "./types";
 import { Inspect } from "./runtime";
 
@@ -20,7 +20,7 @@ export function ScanSaved(workDir: string): SavedWorkflow[] {
   const byName: Record<string, SavedWorkflow> = {};
   const homeRoot = path.join(home_dir(), "workflows", "saved");
   scanSavedRoot(homeRoot, false, byName);
-  scanSavedRoot(path.join(workDir, ".enough", "workflows", "saved"), true, byName);
+  scanSavedRoot(path.join(workDir, ".hollow", "workflows", "saved"), true, byName);
 
   const out: SavedWorkflow[] = Object.values(byName);
   out.sort((a, b) => a.Name.localeCompare(b.Name));
@@ -82,7 +82,7 @@ export function SaveWorkflow(
       }
 
       const root = project
-        ? path.join(workDir, ".enough", "workflows", "saved")
+        ? path.join(workDir, ".hollow", "workflows", "saved")
         : path.join(home_dir(), "workflows", "saved");
 
       const dir = path.join(root, normalizedName);

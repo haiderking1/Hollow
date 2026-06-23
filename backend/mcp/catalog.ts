@@ -1,4 +1,4 @@
-// PORT: mirrors backend/mcp/catalog.go
+// PORT: backend/mcp/catalog.go
 
 import { Effect } from "effect";
 import { type config, type mcp_server_config } from "../config/config";

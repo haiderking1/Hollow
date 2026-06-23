@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/readiness.go
+// PORT: backend/skills/readiness.go
 
 import fs from "node:fs";
 import path from "node:path";
@@ -33,7 +33,7 @@ export interface SetupBlock {
 
 const envVarNameRe = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-export function LoadEnoughEnv(): Record<string, string> {
+export function LoadHollowEnv(): Record<string, string> {
   const envMap: Record<string, string> = {};
   const home = HomeDir();
   const envPath = path.join(home, ".env");

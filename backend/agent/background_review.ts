@@ -103,7 +103,7 @@ export const skillReviewPrompt =
   "If you notice two existing skills that overlap, note it in your " +
   "reply — the background curator handles consolidation at scale.\n\n" +
   "Protected skills (DO NOT edit these):\n" +
-  "  • Bundled skills (shipped with Enough, e.g. 'enough-agent').\n" +
+  "  • Bundled skills (shipped with Hollow, e.g. 'hollow-agent').\n" +
   "  • Skills installed from external sources.\n" +
   "Pinned skills (marked via /curator-pin) CAN be improved — " +
   "pin only blocks deletion/archive/consolidation by the curator, not " +
@@ -194,7 +194,7 @@ export const combinedReviewPrompt =
   "If you notice overlapping existing skills, mention it — the " +
   "background curator handles consolidation.\n\n" +
   "Protected skills (DO NOT edit these):\n" +
-  "  • Bundled skills (shipped with Enough, e.g. 'enough-agent').\n" +
+  "  • Bundled skills (shipped with Hollow, e.g. 'hollow-agent').\n" +
   "  • Skills installed from external sources.\n" +
   "Pinned skills (marked via /curator-pin) CAN be improved — " +
   "pin only blocks deletion/archive/consolidation by the curator, not " +

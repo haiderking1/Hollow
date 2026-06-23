@@ -8,8 +8,8 @@ OK="${GREEN}✔${NC}"; FAIL="${RED}✘${NC}"; WARN="${YELLOW}⚠${NC}"
 
 TWOZERO_URL="https://www.404zero.com/pisang/twozero.tox"
 TOX_PATH="$HOME/Downloads/twozero.tox"
-ENOUGH_HOME_DIR="${ENOUGH_HOME:-$HOME/.enough}"
-ENOUGH_CFG="${ENOUGH_HOME_DIR}/config.json"
+HOLLOW_HOME_DIR="${HOLLOW_HOME:-$HOME/.hollow}"
+HOLLOW_CFG="${HOLLOW_HOME_DIR}/config.json"
 MCP_PORT=40404
 MCP_ENDPOINT="http://localhost:${MCP_PORT}/mcp"
 
@@ -43,18 +43,18 @@ else
     fi
 fi
 
-# ── 3. Ensure Enough `config.json` has twozero_td MCP entry ──
-if [[ ! -f "$ENOUGH_CFG" ]]; then
-    echo -e " ${FAIL} Enough `config.json` not found at ${ENOUGH_CFG}"
-    manual_steps+=("Create ${ENOUGH_CFG} with twozero_td MCP server entry")
-elif grep -q 'twozero_td' "$ENOUGH_CFG" 2>/dev/null; then
-    echo -e " ${OK} twozero_td MCP entry exists in Enough config"
+# ── 3. Ensure Hollow `config.json` has twozero_td MCP entry ──
+if [[ ! -f "$HOLLOW_CFG" ]]; then
+    echo -e " ${FAIL} Hollow `config.json` not found at ${HOLLOW_CFG}"
+    manual_steps+=("Create ${HOLLOW_CFG} with twozero_td MCP server entry")
+elif grep -q 'twozero_td' "$HOLLOW_CFG" 2>/dev/null; then
+    echo -e " ${OK} twozero_td MCP entry exists in Hollow config"
 else
-    echo -e " ${WARN} Adding twozero_td MCP entry to Enough `config.json`..."
+    echo -e " ${WARN} Adding twozero_td MCP entry to Hollow `config.json`..."
     python3 -c "
 import yaml, sys, copy
 
-cfg_path = '$ENOUGH_CFG'
+cfg_path = '$HOLLOW_CFG'
 with open(cfg_path, 'r') as f:
     cfg = yaml.safe_load(f) or {}
 
@@ -71,8 +71,8 @@ if 'twozero_td' not in cfg['mcp_servers']:
         yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
 " 2>/dev/null && echo -e " ${OK} twozero_td MCP entry added to config" \
               || { echo -e " ${FAIL} Could not update config (is PyYAML installed?)"; \
-                   manual_steps+=("Add twozero_td MCP entry to ${ENOUGH_CFG} manually"); }
-    manual_steps+=("Restart Enough session to pick up config change")
+                   manual_steps+=("Add twozero_td MCP entry to ${HOLLOW_CFG} manually"); }
+    manual_steps+=("Restart Hollow session to pick up config change")
 fi
 
 # ── 4. Test if MCP port is responding ──

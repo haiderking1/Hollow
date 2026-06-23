@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/pipeline.go
+// PORT: backend/workflow/pipeline.go
 
 import { Effect } from "effect";
 import { type PipelineResult, type StageResult, type AgentResult, type AgentOptions, cloneJSON } from "./types";

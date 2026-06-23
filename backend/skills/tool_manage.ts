@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/tool_manage.go
+// PORT: backend/skills/tool_manage.go
 
 import { Effect } from "effect";
 import { type runtime } from "../config/config";

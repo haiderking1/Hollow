@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/runtime.go
+// PORT: backend/workflow/runtime.go
 
 import { Effect } from "effect";
 import vm from "node:vm";
@@ -269,8 +269,8 @@ export class Runtime {
           const context = vm.createContext(sandbox);
           script.runInContext(context);
 
-          const rawMeta = (context as any).__enough_meta;
-          const runFn = (context as any).__enough_run;
+          const rawMeta = (context as any).__hollow_meta;
+          const runFn = (context as any).__hollow_run;
 
           if (!rawMeta) {
             throw new Error("workflow must export const meta");
@@ -426,7 +426,7 @@ export class Runtime {
   configure(meta: Meta): void {
     this.meta = meta;
     this.maxConcurrency = DefaultMaxConcurrency;
-    const envConcurrency = process.env.ENOUGH_WORKFLOW_MAX_CONCURRENCY;
+    const envConcurrency = process.env.HOLLOW_WORKFLOW_MAX_CONCURRENCY;
     if (envConcurrency) {
       const val = parseInt(envConcurrency, 10);
       if (!isNaN(val) && val > 0) {
@@ -438,7 +438,7 @@ export class Runtime {
     }
 
     this.maxTotalAgents = DefaultMaxTotalAgents;
-    const envTotalAgents = process.env.ENOUGH_WORKFLOW_MAX_TOTAL_AGENTS;
+    const envTotalAgents = process.env.HOLLOW_WORKFLOW_MAX_TOTAL_AGENTS;
     if (envTotalAgents) {
       const val = parseInt(envTotalAgents, 10);
       if (!isNaN(val) && val >= 0) {
@@ -570,7 +570,7 @@ export function compileWorkflow(filePath: string): { source: string; script: vm.
   transformed = transformed.replace(exportRunPattern, (match) => {
     return match.replace(/^\bexport\s+/, "");
   });
-  transformed += "\n;globalThis.__enough_meta = meta; globalThis.__enough_run = run;\n";
+  transformed += "\n;globalThis.__hollow_meta = meta; globalThis.__hollow_run = run;\n";
   const script = new vm.Script(transformed, { filename: filePath });
   return { source: data, script };
 }
@@ -591,7 +591,7 @@ export function Inspect(scriptPath: string): Effect.Effect<Meta, Error> {
       const context = vm.createContext(sandbox);
       script.runInContext(context, { timeout: 2000 });
 
-      const rawMeta = (context as any).__enough_meta;
+      const rawMeta = (context as any).__hollow_meta;
       if (!rawMeta) {
         throw new Error("workflow must export const meta");
       }

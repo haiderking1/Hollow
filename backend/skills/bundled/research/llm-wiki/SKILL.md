@@ -2,7 +2,7 @@
 name: llm-wiki
 description: "Karpathy's LLM Wiki: build/query interlinked markdown KB."
 version: 2.1.0
-author: Enough
+author: Hollow
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -35,7 +35,7 @@ Use this skill when the user:
 
 ## Wiki Location
 
-**Location:** Set via `WIKI_PATH` environment variable (e.g. in `${ENOUGH_HOME:-~/.enough}/.env`).
+**Location:** Set via `WIKI_PATH` environment variable (e.g. in `${HOLLOW_HOME:-~/.hollow}/.env`).
 
 If unset, defaults to `~/wiki`.
 

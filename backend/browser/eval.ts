@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/eval.go
+// PORT: backend/browser/eval.go
 
 import { Effect } from "effect";
 import { type ClickPlan, type ClickFeedback } from "./click";

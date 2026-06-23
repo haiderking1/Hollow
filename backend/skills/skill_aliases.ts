@@ -1,13 +1,12 @@
-// PORT: mirrors backend/skills/skill_aliases.go
+// PORT: backend/skills/skill_aliases.go
 
-// ResolveSkillLookupName normalizes legacy skill names from older Enough builds
+// ResolveSkillLookupName normalizes legacy skill names from older Hollow builds
 // or ported Hermes docs to the canonical bundled reference skill.
 export function ResolveSkillLookupName(name: string): string {
   switch (name.trim().toLowerCase()) {
-    case "enough":
-    case "hermes-agent":
-    case "enough-agent":
-      return "enough-agent";
+    case "hollow":
+    case "hollow-agent":
+      return "hollow-agent";
     default:
       return name.trim();
   }

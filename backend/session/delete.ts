@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/delete.go
+// PORT: backend/session/delete.go
 
 import { Effect } from "effect";
 import { spawn } from "node:child_process";

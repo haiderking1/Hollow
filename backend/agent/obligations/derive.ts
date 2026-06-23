@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/obligations/derive.go
+// PORT: backend/agent/obligations/derive.go
 
 import fs from "node:fs";
 import path from "node:path";

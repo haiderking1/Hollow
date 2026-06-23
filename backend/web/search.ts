@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/search.go
+// PORT: backend/web/search.go
 
 import { Effect } from "effect";
 import {

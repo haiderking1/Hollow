@@ -1,5 +1,5 @@
-// PORT: mirrors backend/agent/evidence/continuity.go
-// Ported from backend/agent/evidence/continuity.go
+// PORT: backend/agent/evidence/continuity.go
+// backend/agent/evidence/continuity.go
 
 import {
   ledger,

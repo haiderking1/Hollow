@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/environment.go
+// PORT: backend/skills/environment.go
 
 import fs from "node:fs";
 
@@ -19,8 +19,8 @@ function detectEnvironment(env: string): boolean {
   switch (env) {
     case "kanban":
       if (
-        (process.env.ENOUGH_KANBAN_TASK !== undefined && process.env.ENOUGH_KANBAN_TASK !== "") ||
-        (process.env.ENOUGH_KANBAN_BOARD !== undefined && process.env.ENOUGH_KANBAN_BOARD !== "") ||
+        (process.env.HOLLOW_KANBAN_TASK !== undefined && process.env.HOLLOW_KANBAN_TASK !== "") ||
+        (process.env.HOLLOW_KANBAN_BOARD !== undefined && process.env.HOLLOW_KANBAN_BOARD !== "") ||
         (process.env.HERMES_KANBAN_TASK !== undefined && process.env.HERMES_KANBAN_TASK !== "") ||
         (process.env.HERMES_KANBAN_BOARD !== undefined && process.env.HERMES_KANBAN_BOARD !== "")
       ) {

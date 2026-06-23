@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/types.go
+// PORT: backend/skills/types.go
 
 export interface SourceInfo {
   source: string;

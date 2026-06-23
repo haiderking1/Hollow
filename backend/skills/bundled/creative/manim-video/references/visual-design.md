@@ -120,5 +120,5 @@ For every frame:
 1. What is the ONE thing to look at? (brightest/largest)
 2. What is context? (dimmed to 0.3-0.4)
 3. What is structural? (dimmed to 0.15)
-4. Enough empty space? (>15%)
+4. Hollow empty space? (>15%)
 5. All text readable at phone size?

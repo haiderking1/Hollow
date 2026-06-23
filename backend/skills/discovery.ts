@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/discovery.go
+// PORT: backend/skills/discovery.go
 import fs from "node:fs";
 import path from "node:path";
 import { type runtime } from "../config/config";
@@ -321,7 +321,7 @@ export function loadSkillFromFile(
   const platforms = normalizePlatforms(fm);
 
   let scope = "project";
-  if (skillsRoot.includes(".enough/skills") || skillsRoot.includes(".enough/agent/skills")) {
+  if (skillsRoot.includes(".hollow/skills") || skillsRoot.includes(".hollow/agent/skills")) {
     scope = "user";
   }
 
@@ -458,14 +458,14 @@ export function loadSkillsFromDirInternal(
 }
 
 export function resolvePlatform(): string {
-  if (process.env.ENOUGH_PLATFORM) {
-    return process.env.ENOUGH_PLATFORM;
+  if (process.env.HOLLOW_PLATFORM) {
+    return process.env.HOLLOW_PLATFORM;
   }
   if (process.env.HERMES_PLATFORM) {
     return process.env.HERMES_PLATFORM;
   }
-  if (process.env.ENOUGH_SESSION_PLATFORM) {
-    return process.env.ENOUGH_SESSION_PLATFORM;
+  if (process.env.HOLLOW_SESSION_PLATFORM) {
+    return process.env.HOLLOW_SESSION_PLATFORM;
   }
   if (process.env.HERMES_SESSION_PLATFORM) {
     return process.env.HERMES_SESSION_PLATFORM;

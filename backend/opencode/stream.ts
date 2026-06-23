@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/stream.go
+// PORT: backend/opencode/stream.go
 
 import { Effect } from "effect";
 import { client, client_error, stream_status_error } from "./client";

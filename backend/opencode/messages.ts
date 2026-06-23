@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/messages.go
+// PORT: backend/opencode/messages.go
 
 import { blocks_content, content_blocks, string_content, type content_block, type message, type tool_call } from "./types";
 import { normalize_messages } from "./thinking";

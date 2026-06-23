@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/prompt_index.go
+// PORT: backend/skills/prompt_index.go
 import fs from "node:fs";
 import path from "node:path";
 import { Effect } from "effect";
@@ -6,7 +6,7 @@ import { type runtime } from "../config/config";
 import { type SearchDir } from "./locations";
 import { type SkillSnapshotEntry, type SkillsPromptSnapshot } from "./types";
 import { SnapshotPath } from "./paths";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import { get_available_toolsets } from "../toolsets/registry";
 import { resolvePlatform, IterSkillIndexFiles } from "./discovery";
 import { ParseFrontmatter, skillMatchesPlatform } from "./frontmatter";

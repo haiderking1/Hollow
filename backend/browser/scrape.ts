@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/scrape.go
+// PORT: backend/browser/scrape.go
 
 import { Effect } from "effect";
 

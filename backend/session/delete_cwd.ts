@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/delete_cwd.go
+// PORT: backend/session/delete_cwd.go
 
 import { Effect } from "effect";
 import path from "node:path";

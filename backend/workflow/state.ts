@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/state.go
+// PORT: backend/workflow/state.go
 
 import fs from "node:fs";
 import path from "node:path";
@@ -61,7 +61,7 @@ export function SaveState(state: State): void {
 }
 
 export function FindResumable(workDir: string, id: string): string {
-  const root = path.join(workDir, ".enough", "workflows");
+  const root = path.join(workDir, ".hollow", "workflows");
   if (id !== "") {
     const base = path.basename(id);
     if (base !== id || id === "." || id === "..") {
@@ -102,7 +102,7 @@ export function FindResumable(workDir: string, id: string): string {
 }
 
 export function ListStates(workDir: string): State[] {
-  const root = path.join(workDir, ".enough", "workflows");
+  const root = path.join(workDir, ".hollow", "workflows");
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(root, { withFileTypes: true });
@@ -200,7 +200,7 @@ interface ApprovalFile {
 }
 
 function projectApprovalPath(workDir: string): string {
-  return path.join(workDir, ".enough", "workflows", "approvals.json");
+  return path.join(workDir, ".hollow", "workflows", "approvals.json");
 }
 
 export function IsAlwaysApproved(workDir: string, name: string): boolean {

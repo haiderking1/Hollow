@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/content.go
+// PORT: backend/opencode/content.go
 
 import { blocks_content, string_content, type content_block, type content_image_url, type json_raw_message } from "./types";
 

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/compaction.go
+// PORT: backend/session/compaction.go
 
 import { Effect } from "effect";
 import type { message } from "../opencode/types";

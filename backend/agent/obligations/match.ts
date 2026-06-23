@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/obligations/match.go
+// PORT: backend/agent/obligations/match.go
 
 const curl_cmd_re = /\bcurl(?:\s+-[\w-]+)*\s+https?:\/\/[^\s"'`]+/gi;
 

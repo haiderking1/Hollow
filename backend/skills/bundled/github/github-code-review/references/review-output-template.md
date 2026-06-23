@@ -30,7 +30,7 @@ Use this as the structure for PR review summary comments. Copy and fill in the s
 - [aspect that was done well]
 
 ---
-*Reviewed by Enough*
+*Reviewed by Hollow*
 ```
 
 ## Severity Guide

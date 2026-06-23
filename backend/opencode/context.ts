@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/context.go
+// PORT: backend/opencode/context.go
 
 import { default_registry } from "./models";
 

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/types.go
+// PORT: backend/session/types.go
 
 import type { message } from "../opencode/types";
 

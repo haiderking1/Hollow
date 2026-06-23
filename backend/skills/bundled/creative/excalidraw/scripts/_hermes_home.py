@@ -1,2 +1,2 @@
-"""Deprecated — use _enough_home."""
-from _enough_home import *  # noqa: F403
+"""Deprecated — use _hollow_home."""
+from _hollow_home import *  # noqa: F403

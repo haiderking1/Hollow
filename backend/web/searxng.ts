@@ -1,4 +1,4 @@
-// PORT: mirrors backend/web/searxng.go
+// PORT: backend/web/searxng.go
 
 import { Effect } from "effect";
 import {

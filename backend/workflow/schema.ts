@@ -1,4 +1,4 @@
-// PORT: mirrors backend/workflow/schema.go
+// PORT: backend/workflow/schema.go
 
 import { Effect } from "effect";
 import Ajv from "ajv";

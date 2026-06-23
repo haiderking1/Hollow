@@ -1,4 +1,4 @@
-// PORT: mirrors backend/skills/hub.go
+// PORT: backend/skills/hub.go
 
 import fs from "node:fs";
 import path from "node:path";
@@ -342,7 +342,7 @@ const alwaysBlockedIPv4Set = new Set([
 ]);
 
 function getAllowPrivate(): boolean {
-  let envVal = (process.env.ENOUGH_ALLOW_PRIVATE_URLS || "").trim().toLowerCase();
+  let envVal = (process.env.HOLLOW_ALLOW_PRIVATE_URLS || "").trim().toLowerCase();
   if (envVal === "") {
     envVal = (process.env.HERMES_ALLOW_PRIVATE_URLS || "").trim().toLowerCase();
   }
@@ -503,7 +503,7 @@ export function guardedHttpGet(
     let redirects = 0;
     const resolvedHeaders = { ...headers };
     if (!resolvedHeaders["User-Agent"]) {
-      resolvedHeaders["User-Agent"] = "Enough/1.0 (+https://github.com/enough/enough)";
+      resolvedHeaders["User-Agent"] = "Hollow/1.0 (+https://github.com/haiderking1/Hollow)";
     }
 
     while (true) {

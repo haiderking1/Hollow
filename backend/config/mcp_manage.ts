@@ -1,4 +1,4 @@
-// PORT: mirrors backend/config/mcp_manage.go
+// PORT: backend/config/mcp_manage.go
 
 import { config_error, type config_error as config_error_type } from "./error";
 import type { config, mcp_server_config } from "./config";

@@ -1,9 +1,9 @@
-// PORT: mirrors backend/plugins/registry.go
+// PORT: backend/plugins/registry.go
 
 import fs from "node:fs";
 import path from "node:path";
 import { Effect } from "effect";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import type { runtime } from "../config/config";
 
 const ns_regex = /^[a-zA-Z0-9_-]+$/;
@@ -117,5 +117,5 @@ todos:
   - decide whether list_plugin_skills should remain Effect<never> or plain string[]
 notes:
   - FindPluginSkill returns (string, error), modeled as Effect.Effect<string, plugins_error>.
-  - Reuses config runtime type and enoughhome home_dir port.
+  - Reuses config runtime type and hollowhome home_dir port.
 */

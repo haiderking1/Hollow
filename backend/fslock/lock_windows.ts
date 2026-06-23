@@ -1,5 +1,5 @@
-// PORT: mirrors backend/fslock/lock_windows.go
-// Ported from backend/fslock/lock_windows.go
+// PORT: backend/fslock/lock_windows.go
+// backend/fslock/lock_windows.go
 //go:build windows placeholder
 
 import { Effect } from "effect";

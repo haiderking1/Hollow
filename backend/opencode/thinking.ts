@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/thinking.go
+// PORT: backend/opencode/thinking.go
 
 import { get_reasoning, type chat_request, type message } from "./types";
 import { lookup_catalog_model } from "./providers";

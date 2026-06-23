@@ -25,7 +25,7 @@ metadata:
 ## Architecture
 
 ```
-Enough -> MCP (Streamable HTTP) -> twozero.tox (port 40404) -> TD Python
+Hollow -> MCP (Streamable HTTP) -> twozero.tox (port 40404) -> TD Python
 ```
 
 36 native tools. Free plugin (no payment/license — confirmed April 2026).
@@ -37,13 +37,13 @@ Hub health check: `GET http://localhost:40404/mcp` returns JSON with instance PI
 Run the setup script to handle everything:
 
 ```bash
-bash "${ENOUGH_HOME:-$HOME/.enough}/skills/creative/touchdesigner-mcp/scripts/setup.sh"
+bash "${HOLLOW_HOME:-$HOME/.hollow}/skills/creative/touchdesigner-mcp/scripts/setup.sh"
 ```
 
 The script will:
 1. Check if TD is running
 2. Download twozero.tox if not already cached
-3. Add `twozero_td` MCP server to Enough `config.json` (if missing)
+3. Add `twozero_td` MCP server to Hollow `config.json` (if missing)
 4. Test the MCP connection on port 40404
 5. Report what manual steps remain (drag .tox into TD, enable MCP toggle)
 
@@ -51,7 +51,7 @@ The script will:
 
 1. **Drag `~/Downloads/twozero.tox` into the TD network editor** → click Install
 2. **Enable MCP:** click twozero icon → Settings → mcp → "auto start MCP" → Yes
-3. **Restart Enough session** to pick up the new MCP server
+3. **Restart Hollow session** to pick up the new MCP server
 
 After setup, verify:
 ```bash

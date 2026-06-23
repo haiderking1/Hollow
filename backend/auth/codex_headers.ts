@@ -1,9 +1,9 @@
-// PORT: mirrors backend/auth/codex_headers.go
+// PORT: backend/auth/codex_headers.go
 
 // CodexCloudflareHeaders returns headers required for chatgpt.com/backend-api/codex.
 export const codex_cloudflare_headers = (access_token: string): Record<string, string> => {
   const headers: Record<string, string> = {
-    "User-Agent": "codex_cli_rs/0.0.0 (Enough)",
+    "User-Agent": "codex_cli_rs/0.0.0 (Hollow)",
     originator: "codex_cli_rs",
   };
 

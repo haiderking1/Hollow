@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/browser.go
+// PORT: backend/agent/browser.go
 
 import { Effect } from "effect";
 import { type tool } from "../opencode/types";
@@ -69,12 +69,12 @@ export function browserTool(): tool {
     function: {
       name: "browser",
       description: "Control a Chrome/Edge browser over CDP (remote debugging port). " +
-        "Auto-launches Chrome/Edge on first use if nothing is listening (disable with ENOUGH_BROWSER_AUTO_LAUNCH=0). " +
+        "Auto-launches Chrome/Edge on first use if nothing is listening (disable with HOLLOW_BROWSER_AUTO_LAUNCH=0). " +
         "Tab list/open/close/activate are instant HTTP calls with no polling. " +
         "Use eval with selector/index for clicks (CDP mouse events + download detection), cdp for raw protocol calls. " +
         "Scrape format=elements lists clickable targets or all selector matches before clicking. " +
-        "Requires Chrome/Edge. Default CDP URL http://127.0.0.1:9222 (ENOUGH_BROWSER_CDP_URL). " +
-        "Override browser binary with ENOUGH_BROWSER_EXECUTABLE if auto-detection fails.",
+        "Requires Chrome/Edge. Default CDP URL http://127.0.0.1:9222 (HOLLOW_BROWSER_CDP_URL). " +
+        "Override browser binary with HOLLOW_BROWSER_EXECUTABLE if auto-detection fails.",
       parameters: new TextEncoder().encode(JSON.stringify(schema)),
     }
   };

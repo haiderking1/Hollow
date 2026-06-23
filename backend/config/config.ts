@@ -1,10 +1,10 @@
-// PORT: mirrors backend/config/config.go
+// PORT: backend/config/config.go
 
 import path from "node:path";
 import fs from "node:fs";
 import { Effect } from "effect";
 import { config_error, type config_error as config_error_type } from "./error";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import {
   get_api_key,
   has_api_key as secrets_has_api_key,
@@ -303,7 +303,7 @@ export const load = (): Effect.Effect<config, config_error_type> =>
         return yield* Effect.fail(read_result.left);
       }
       // No config yet — start fresh with defaults. Hollow is independent from
-      // Enough, so we deliberately do not import ~/.config/enough/config.json.
+      // Hollow, so we deliberately do not import ~/.config/enough/config.json.
       return cfg;
     }
 
@@ -550,5 +550,5 @@ todos:
   - tighten Effect.mapError wrappers to preserve original error context
 notes:
   - Load/Save/LoadRuntime/Connected use Effect.Effect with config_error.
-  - Imports existing auth, secrets, and enoughhome ports.
+  - Imports existing auth, secrets, and hollowhome ports.
 */

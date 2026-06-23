@@ -1,9 +1,9 @@
-// PORT: mirrors backend/skills/sync.go
+// PORT: backend/skills/sync.go
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { Effect } from "effect";
-import { home_dir } from "../enoughhome/home";
+import { home_dir } from "../hollowhome/home";
 import { SkillsDir } from "./paths";
 import { ParseFrontmatter } from "./frontmatter";
 import { computeSkillCategory } from "./frontmatter";
@@ -281,7 +281,7 @@ export function SyncSkills(quiet: boolean): Effect.Effect<SyncResult, Error> {
             } else {
               skipped++;
               if (!quiet) {
-                console.warn(`  ⚠ ${bSkill.Name}: bundled version shipped but you already have a local skill by this name — yours was kept. Run \`enough skills reset ${bSkill.Name}\` to replace it with the bundled version.`);
+                console.warn(`  ⚠ ${bSkill.Name}: bundled version shipped but you already have a local skill by this name — yours was kept. Run \`hollow skills reset ${bSkill.Name}\` to replace it with the bundled version.`);
               }
             }
           } else {

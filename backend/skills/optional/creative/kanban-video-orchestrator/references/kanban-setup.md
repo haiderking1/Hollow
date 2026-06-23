@@ -60,13 +60,13 @@ Example: `q3-product-teaser`, `ascii-mood-loop`, `interview-cut-2026-q1`.
 The setup script does six things in order:
 
 1. **Create workspace tree** — all directories above
-2. **Create profiles** — `enough profile create <name> --clone`
+2. **Create profiles** — `hollow profile create <name> --clone`
 3. **Configure profiles** — patch each profile's
-   `~/.enough/profiles/<name>/config.json` to set toolsets, always_load skills,
+   `~/.hollow/profiles/<name>/config.json` to set toolsets, always_load skills,
    and `cwd`
 4. **Write SOUL.md per profile** — the personality + role definition
 5. **Copy any provided assets + write `brief.md`, `TEAM.md`, and `taste/`**
-6. **Fire the initial kanban task** — `enough kanban create` assigned to the director
+6. **Fire the initial kanban task** — `hollow kanban create` assigned to the director
 
 See `assets/setup.sh.tmpl` for the skeleton.
 
@@ -82,7 +82,7 @@ the profile already exists.
 
 ### Profile config patching
 
-Each profile has a YAML config at `~/.enough/profiles/<name>/config.json`. The
+Each profile has a YAML config at `~/.hollow/profiles/<name>/config.json`. The
 setup script edits exactly two keys:
 
 1. `toolsets:` — replace the default with the role's required toolsets
@@ -105,7 +105,7 @@ configure_profile() {
     python3 - "$profile" "$toolsets_json" "$skills_json" <<'PY'
 import json, os, sys, yaml
 profile, ts_json, sk_json = sys.argv[1:4]
-p = os.path.expanduser(f"~/.enough/profiles/{profile}/config.json")
+p = os.path.expanduser(f"~/.hollow/profiles/{profile}/config.json")
 with open(p) as f:
     cfg = yaml.safe_load(f) or {}
 cfg["toolsets"] = json.loads(ts_json)
@@ -124,7 +124,7 @@ and comparing — see `assets/setup.sh.tmpl` for the validation pattern.
 
 ### SOUL.md per profile
 
-Each profile gets a `SOUL.md` at `~/.enough/profiles/<name>/SOUL.md` that
+Each profile gets a `SOUL.md` at `~/.hollow/profiles/<name>/SOUL.md` that
 defines its role, voice, and rules. See `assets/soul.md.tmpl` for the
 template. Customize per role and per project.
 
@@ -218,7 +218,7 @@ The director turns this into actual `kanban_create` calls.
 ## API-key prerequisites check
 
 Before firing the kanban, verify required keys are available. Check both
-the Enough `.env` (`${ENOUGH_HOME:-$HOME/.enough}/.env`) and macOS Keychain
+the Hollow `.env` (`${HOLLOW_HOME:-$HOME/.hollow}/.env`) and macOS Keychain
 (if on macOS):
 
 ```bash
@@ -226,7 +226,7 @@ check_key() {
     local var="$1"
     local kc_account="$2"
     local kc_service="$3"
-    local _enough_env="${ENOUGH_HOME:-$HOME/.enough}/.env"
+    local _enough_env="${HOLLOW_HOME:-$HOME/.hollow}/.env"
     if grep -q "^${var}=" "$_enough_env" 2>/dev/null && \
        [ -n "$(grep "^${var}=" "$_enough_env" | cut -d= -f2-)" ]; then
         return 0

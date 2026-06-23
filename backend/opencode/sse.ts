@@ -1,4 +1,4 @@
-// PORT: mirrors backend/opencode/sse.go
+// PORT: backend/opencode/sse.go
 
 import { Effect } from "effect";
 

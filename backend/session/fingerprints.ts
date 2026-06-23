@@ -1,4 +1,4 @@
-// PORT: mirrors backend/session/fingerprints.go
+// PORT: backend/session/fingerprints.go
 
 import fs from "node:fs";
 

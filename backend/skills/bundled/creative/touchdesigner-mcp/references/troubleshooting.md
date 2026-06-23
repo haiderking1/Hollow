@@ -133,11 +133,11 @@ n.cook(force=True)
 actual = str(n.width) + 'x' + str(n.height)
 ```
 
-## 5. Enough Configuration
+## 5. Hollow Configuration
 
 ### Config location
 
-`$ENOUGH_HOME/config.json` (defaults to `~/.enough/config.json` when `ENOUGH_HOME` is unset)
+`$HOLLOW_HOME/config.json` (defaults to `~/.hollow/config.json` when `HOLLOW_HOME` is unset)
 
 ### MCP entry format
 
@@ -150,7 +150,7 @@ mcpServers:
 
 ### After config changes
 
-Restart the Enough session for changes to take effect. The MCP connection is
+Restart the Hollow session for changes to take effect. The MCP connection is
 established at session startup.
 
 ### Verifying MCP tools are available

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/browser/launch.go
+// PORT: backend/browser/launch.go
 
 import { Effect } from "effect";
 import { spawn } from "node:child_process";
@@ -19,11 +19,11 @@ export function reset_browser_launch_state_for_tests(): void {
 }
 
 export function should_auto_launch_browser(): boolean {
-  return process.env.ENOUGH_BROWSER_AUTO_LAUNCH !== "0";
+  return process.env.HOLLOW_BROWSER_AUTO_LAUNCH !== "0";
 }
 
 export function get_browser_profile_dir(): Effect.Effect<string, Error> {
-  const override = (process.env.ENOUGH_BROWSER_PROFILE_DIR || "").trim();
+  const override = (process.env.HOLLOW_BROWSER_PROFILE_DIR || "").trim();
   if (override !== "") {
     return Effect.tryPromise({
       try: async () => {
@@ -85,13 +85,13 @@ async function command_exists(cmd: string): Promise<boolean> {
 export function resolve_browser_executable(): Effect.Effect<string, Error> {
   return Effect.tryPromise({
     try: async () => {
-      const override = (process.env.ENOUGH_BROWSER_EXECUTABLE || "").trim();
+      const override = (process.env.HOLLOW_BROWSER_EXECUTABLE || "").trim();
       if (override !== "") {
         try {
           await fs.stat(override);
           return override;
         } catch {
-          throw new Error(`ENOUGH_BROWSER_EXECUTABLE not found: ${override}`);
+          throw new Error(`HOLLOW_BROWSER_EXECUTABLE not found: ${override}`);
         }
       }
 
@@ -140,7 +140,7 @@ export function resolve_browser_executable(): Effect.Effect<string, Error> {
       }
 
       throw new Error(
-        "No Chrome or Edge executable found. Install Chrome/Edge or set ENOUGH_BROWSER_EXECUTABLE to the browser binary path."
+        "No Chrome or Edge executable found. Install Chrome/Edge or set HOLLOW_BROWSER_EXECUTABLE to the browser binary path."
       );
     },
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
@@ -183,7 +183,7 @@ export function format_cdp_connection_error(
       if (should_auto_launch_browser()) {
         return `Could not connect to browser CDP at ${baseUrl} (${detail}). Auto-launch was attempted but failed. ${manual}`;
       }
-      return `Could not connect to browser CDP at ${baseUrl} (${detail}). Set ENOUGH_BROWSER_AUTO_LAUNCH=1 (default) or ${manual}`;
+      return `Could not connect to browser CDP at ${baseUrl} (${detail}). Set HOLLOW_BROWSER_AUTO_LAUNCH=1 (default) or ${manual}`;
     })
   );
 }

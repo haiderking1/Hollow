@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/read_file.go
+// PORT: backend/agent/read_file.go
 
 import { Effect } from "effect";
 import fs from "node:fs/promises";

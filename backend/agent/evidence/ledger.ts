@@ -1,5 +1,5 @@
-// PORT: mirrors backend/agent/evidence/ledger.go
-// Ported from backend/agent/evidence/ledger.go
+// PORT: backend/agent/evidence/ledger.go
+// backend/agent/evidence/ledger.go
 
 import { Effect } from "effect";
 

@@ -1,4 +1,4 @@
-// PORT: mirrors backend/agent/coding_context.go
+// PORT: backend/agent/coding_context.go
 
 import fs from "node:fs";
 import os from "node:os";
@@ -91,9 +91,9 @@ function findMarkerRoot(cwd: string): string {
 }
 
 function resolvePlatform(): string {
-  if (process.env.ENOUGH_PLATFORM) return process.env.ENOUGH_PLATFORM;
+  if (process.env.HOLLOW_PLATFORM) return process.env.HOLLOW_PLATFORM;
   if (process.env.HERMES_PLATFORM) return process.env.HERMES_PLATFORM;
-  if (process.env.ENOUGH_SESSION_PLATFORM) return process.env.ENOUGH_SESSION_PLATFORM;
+  if (process.env.HOLLOW_SESSION_PLATFORM) return process.env.HOLLOW_SESSION_PLATFORM;
   if (process.env.HERMES_SESSION_PLATFORM) return process.env.HERMES_SESSION_PLATFORM;
   return "cli";
 }

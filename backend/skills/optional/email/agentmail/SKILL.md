@@ -1,6 +1,6 @@
 ---
 name: agentmail
-description: Give the agent its own dedicated email inbox via AgentMail. Send, receive, and manage email autonomously using agent-owned email addresses (e.g. enough-agent@agentmail.to).
+description: Give the agent its own dedicated email inbox via AgentMail. Send, receive, and manage email autonomously using agent-owned email addresses (e.g. hollow-agent@agentmail.to).
 version: 1.0.0
 platforms: [linux, macos, windows]
 metadata:
@@ -35,7 +35,7 @@ AgentMail gives the agent its own identity and inbox.
 - Create an account and generate an API key (starts with `am_`)
 
 ### 2. Configure MCP Server
-Add to `~/.enough/config.json` (paste your actual key — MCP env vars are not expanded from .env):
+Add to `~/.hollow/config.json` (paste your actual key — MCP env vars are not expanded from .env):
 ```yaml
 mcp_servers:
   agentmail:
@@ -45,7 +45,7 @@ mcp_servers:
       AGENTMAIL_API_KEY: "am_your_key_here"
 ```
 
-### 3. Restart Enough
+### 3. Restart Hollow
 ```bash
 enough
 ```
@@ -71,8 +71,8 @@ All 11 AgentMail tools are now available automatically.
 
 ### Create an inbox and send an email
 1. Create a dedicated inbox:
-   - Use `create_inbox` with a username (e.g. `enough-agent`)
-   - The agent gets address: `enough-agent@agentmail.to`
+   - Use `create_inbox` with a username (e.g. `hollow-agent`)
+   - The agent gets address: `hollow-agent@agentmail.to`
 2. Send an email:
    - Use `send_message` with `inbox_id`, `to`, `subject`, `text`
 3. Check for replies:
@@ -100,7 +100,7 @@ All 11 AgentMail tools are now available automatically.
 
 **Agent-to-human outreach:**
 ```
-1. create_inbox (username: "enough-outreach")
+1. create_inbox (username: "hollow-outreach")
 2. send_message (to: user@example.com, subject: "Hello", text: "...")
 3. list_threads to check for replies
 ```

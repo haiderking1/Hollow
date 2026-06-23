@@ -1,4 +1,4 @@
-// PORT: mirrors backend/shell/command.go
+// PORT: backend/shell/command.go
 
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
