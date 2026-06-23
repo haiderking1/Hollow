@@ -348,9 +348,18 @@ class HollowClient {
         this.emit({ type: "response", command: "new_session", success: true, data: { cancelled: false } })
         break
       }
-      case "delete_session":
-        this.dispatch({ type: "deleteSession", id: commandText(command, "sessionId") })
+      case "delete_session": {
+        const id = commandText(command, "sessionId")
+        const resolved = this.resolveSessionId(id)
+        if (this.currentSessionId === id || this.currentSessionId === resolved) {
+          this.currentSessionId = null
+        }
+        this.histories.delete(id)
+        this.histories.delete(resolved)
+        this.sessions = this.sessions.filter((s) => s.id !== id && s.path !== id && s.id !== resolved)
+        this.dispatch({ type: "deleteSession", id })
         break
+      }
       case "prompt":
         this.streaming = true
         this.streamBlocks = []

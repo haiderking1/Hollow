@@ -71,6 +71,21 @@ function mergeSessionList(
   return optimistic ? [optimistic, ...incoming] : incoming
 }
 
+function pickNextSession(
+  sessions: AgentSessionInfo[],
+  opts?: { excludeId?: string; preferCwd?: string | null },
+): AgentSessionInfo | null {
+  const filtered = sessions.filter((s) => s.id !== opts?.excludeId)
+  if (filtered.length === 0) return null
+  const byModified = (a: AgentSessionInfo, b: AgentSessionInfo) =>
+    new Date(b.modified).getTime() - new Date(a.modified).getTime()
+  if (opts?.preferCwd) {
+    const sameProject = filtered.filter((s) => s.cwd === opts.preferCwd).sort(byModified)
+    if (sameProject.length > 0) return sameProject[0]
+  }
+  return [...filtered].sort(byModified)[0]
+}
+
 export default function App() {
   const [collapsed, setCollapsed] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -536,22 +551,32 @@ export default function App() {
       setSessionList((prev) => prev.filter((s) => s.cwd !== cwd))
 
       if (wasActive) {
-        const nextCwd =
-          addedProjectsRef.current.find((p) => p !== cwd) ??
-          sessionListRef.current.find((s) => s.cwd !== cwd)?.cwd ??
-          undefined
+        const next = pickNextSession(sessionListRef.current.filter((s) => s.cwd !== cwd))
         streamingIdRef.current = null
-        setCurrentSessionId(null)
         setMessages([])
-        setLoadingThread(true)
         setSyncingThread(false)
-        setProjectCwd(nextCwd ?? null)
-        send({ type: "new_session", ...(nextCwd ? { cwd: nextCwd } : {}) })
+        if (next) {
+          setCurrentSessionId(next.id)
+          setProjectCwd(next.cwd)
+          const cached = messagesCacheRef.current.get(next.id)
+          if (cached) {
+            setMessages(cached)
+            setLoadingThread(false)
+            setSyncingThread(true)
+          } else {
+            setLoadingThread(true)
+          }
+          send({ type: "switch_session", sessionPath: next.id })
+        } else {
+          setCurrentSessionId(null)
+          setLoadingThread(false)
+        }
       }
 
       send({ type: "delete_project_sessions", cwd })
+      refreshSessionList()
     },
-    [currentSessionId],
+    [currentSessionId, refreshSessionList],
   )
 
   const handleRenameThread = useCallback((id: string, name: string) => {
@@ -578,17 +603,35 @@ export default function App() {
       setSessionList((prev) => prev.filter((s) => s.id !== id))
 
       if (wasActive) {
+        const next = pickNextSession(sessionListRef.current, {
+          excludeId: id,
+          preferCwd: projectCwd,
+        })
         streamingIdRef.current = null
-        setCurrentSessionId(null)
         setMessages([])
-        setLoadingThread(true)
         setSyncingThread(false)
-        send({ type: "new_session", cwd: projectCwd ?? undefined })
+        if (next) {
+          setCurrentSessionId(next.id)
+          setProjectCwd(next.cwd)
+          const cached = messagesCacheRef.current.get(next.id)
+          if (cached) {
+            setMessages(cached)
+            setLoadingThread(false)
+            setSyncingThread(true)
+          } else {
+            setLoadingThread(true)
+          }
+          send({ type: "switch_session", sessionPath: next.id })
+        } else {
+          setCurrentSessionId(null)
+          setLoadingThread(false)
+        }
       }
 
       send({ type: "delete_session", sessionId: id })
+      refreshSessionList()
     },
-    [currentSessionId, projectCwd],
+    [currentSessionId, projectCwd, refreshSessionList],
   )
 
   const handleAddProject = useCallback(() => setPickerOpen(true), [])

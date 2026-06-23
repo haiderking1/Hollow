@@ -217,7 +217,9 @@ export class AgentRuntimeImpl {
         targetPath = id;
       }
       if (self.agent?.session && self.agent.session.session_file() === targetPath) {
-        return yield* Effect.fail(new Error("cannot delete the active session"));
+        if (self.available) {
+          self.agent.LoadSession(null);
+        }
       }
       yield* delete_session(targetPath);
     });
