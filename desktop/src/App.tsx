@@ -574,9 +574,8 @@ export default function App() {
       }
 
       send({ type: "delete_project_sessions", cwd })
-      refreshSessionList()
     },
-    [currentSessionId, refreshSessionList],
+    [currentSessionId],
   )
 
   const handleRenameThread = useCallback((id: string, name: string) => {
@@ -629,9 +628,8 @@ export default function App() {
       }
 
       send({ type: "delete_session", sessionId: id })
-      refreshSessionList()
     },
-    [currentSessionId, projectCwd, refreshSessionList],
+    [currentSessionId, projectCwd],
   )
 
   const handleAddProject = useCallback(() => setPickerOpen(true), [])

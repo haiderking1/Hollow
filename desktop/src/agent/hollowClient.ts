@@ -293,6 +293,8 @@ class HollowClient {
   private catalog: ModelCatalog = emptyCatalog()
   private connections: ConnectionInfo[] = []
   private awaitingNewSession = false
+  /** After deleting the active thread, don't resurrect it from a stale listSessions. */
+  private skipAutoOpenUntilEmpty = false
 
   onEvent(listener: Listener) {
     this.listeners.add(listener)
@@ -351,13 +353,35 @@ class HollowClient {
       case "delete_session": {
         const id = commandText(command, "sessionId")
         const resolved = this.resolveSessionId(id)
+        const match = this.sessions.find((s) => s.id === id || s.path === id || s.id === resolved)
+        const deleteTarget = match?.path || match?.id || id
         if (this.currentSessionId === id || this.currentSessionId === resolved) {
           this.currentSessionId = null
+          this.skipAutoOpenUntilEmpty = true
         }
         this.histories.delete(id)
         this.histories.delete(resolved)
         this.sessions = this.sessions.filter((s) => s.id !== id && s.path !== id && s.id !== resolved)
-        this.dispatch({ type: "deleteSession", id })
+        if (!window.hollowDesktop) {
+          this.emit({ type: "bridge_error", error: "Desktop IPC unavailable — run via electron:dev" })
+          break
+        }
+        void window.hollowDesktop
+          .dispatch({ type: "deleteSession", id: deleteTarget })
+          .then((result) => {
+            if (!result.ok) {
+              this.skipAutoOpenUntilEmpty = false
+              this.emit({ type: "bridge_error", error: result.error ?? "Failed to delete session" })
+              this.dispatch({ type: "listSessions" })
+              return
+            }
+            this.dispatch({ type: "listSessions" })
+          })
+          .catch((err) => {
+            this.skipAutoOpenUntilEmpty = false
+            this.emit({ type: "bridge_error", error: String(err?.message || err) })
+            this.dispatch({ type: "listSessions" })
+          })
         break
       }
       case "prompt":
@@ -569,9 +593,17 @@ class HollowClient {
       case "session.list": {
         this.sessions = (message.sessions ?? []).map(mapSession)
         const first = this.sessions[0]
-        if (!this.currentSessionId && first && !this.awaitingNewSession) {
+        if (
+          !this.currentSessionId &&
+          first &&
+          !this.awaitingNewSession &&
+          !this.skipAutoOpenUntilEmpty
+        ) {
           this.currentSessionId = first.id
           this.dispatch({ type: "openSession", id: first.id })
+        }
+        if (this.skipAutoOpenUntilEmpty && this.sessions.length === 0) {
+          this.skipAutoOpenUntilEmpty = false
         }
         this.emit({ type: "response", command: "list_sessions", success: true, data: { sessions: this.sessions } })
         this.emit({ type: "response", command: "get_state", success: true, data: this.state() })

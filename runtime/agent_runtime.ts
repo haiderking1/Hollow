@@ -3,6 +3,7 @@
 // confidence: high
 // status: phase_b_compile
 
+import path from "node:path";
 import { Effect, Context, PubSub } from "effect";
 // Single registration barrel — attaches all Agent prototype methods and
 // re-exports { Agent, New } so this is the only agent import needed.
@@ -216,12 +217,14 @@ export class AgentRuntimeImpl {
       if (targetPath === "") {
         targetPath = id;
       }
-      if (self.agent?.session && self.agent.session.session_file() === targetPath) {
-        if (self.available) {
+      const resolvedTarget = path.resolve(targetPath);
+      if (self.agent?.session) {
+        const activePath = path.resolve(self.agent.session.session_file());
+        if (activePath === resolvedTarget) {
           self.agent.LoadSession(null);
         }
       }
-      yield* delete_session(targetPath);
+      yield* delete_session(resolvedTarget);
     });
   }
 
