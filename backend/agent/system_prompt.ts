@@ -12,7 +12,7 @@ import { BuildIndexPrompt } from "../skills/prompt_index";
 import { DiscoverAllSkills } from "../skills/discovery";
 import { FormatSkillsForPrompt } from "../skills/format";
 import { Effect } from "effect";
-import { disclosurePolicy, enoughHelpGuidance, soulCustomization, agentRules, systemPrompt, hasSkillManage, hasSkillTools } from "./prompt";
+import { disclosurePolicy, disclosurePolicyWithSoul, enoughHelpGuidance, soulCustomization, agentRules, systemPrompt, hasSkillManage, hasSkillTools } from "./prompt";
 
 export const MemoryGuidance =
   "You have persistent memory across sessions. Save durable facts using the memory tool: user preferences, environment details, tool quirks, and stable conventions. " +
@@ -75,7 +75,7 @@ function buildStableTier(inVal: SystemPromptInputs): string {
 
   const soul = LoadSoul();
   if (soul !== "") {
-    parts.push(soul, disclosurePolicy, enoughHelpGuidance, soulCustomization, agentRules);
+    parts.push(soul, disclosurePolicyWithSoul, enoughHelpGuidance, agentRules);
   } else {
     parts.push(systemPrompt);
   }

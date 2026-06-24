@@ -20,6 +20,15 @@ export function SoulPath(): string {
   return path.join(home_dir(), "SOUL.md");
 }
 
+/** mtime of SOUL.md, or 0 when missing/unreadable. Used to invalidate cached prompts. */
+export function soul_mtime_ms(): number {
+  try {
+    return fs.statSync(SoulPath()).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
 // EnsureSoul creates an empty SOUL.md if missing. Best-effort.
 export function EnsureSoul(): void {
   const p = SoulPath();
@@ -69,7 +78,44 @@ export function LoadSoul(): string {
     return `[BLOCKED: SOUL.md contained threat pattern(s): ${ids.join(", ")}. Its content was removed from the system prompt. Inspect and fix ~/.hollow/SOUL.md, then start a new session.]`;
   }
 
-  return truncateMiddle(content, "SOUL.md", soulMaxChars);
+  return formatSoulBlock(truncateMiddle(content, "persona", soulMaxChars));
+}
+
+/** Marker baked into soul-injected prompts so the agent cache can detect a stale persona. */
+export const SOUL_PROMPT_MARKER = "<!-- hollow-soul-persona -->";
+
+/** Turn informal SOUL lines (e.g. "you r shadow") into direct persona instructions. */
+export function normalizeSoulPersona(content: string): string {
+  const trimmed = content.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  if (/^#\s/m.test(trimmed) || /^You are /im.test(trimmed)) {
+    return trimmed;
+  }
+  const informal = trimmed.match(/^you\s+(?:are|r)\s+(.+)$/i);
+  if (informal) {
+    const raw = informal[1].trim();
+    const name = raw.length > 0 ? raw.charAt(0).toUpperCase() + raw.slice(1) : raw;
+    return `You are ${name}.`;
+  }
+  if (!/^you\b/i.test(trimmed)) {
+    return `You are:\n${trimmed}`;
+  }
+  return trimmed;
+}
+
+/** Wrap persona text as binding identity — never framed as a file or external document. */
+export function formatSoulBlock(content: string): string {
+  const persona = normalizeSoulPersona(content);
+  return (
+    SOUL_PROMPT_MARKER +
+    "\n" +
+    persona +
+    "\n\n" +
+    "The lines above are you — your name, voice, morals, and behavior. Live them in every reply. " +
+    "When asked who you are, answer in first person, naturally, as yourself."
+  );
 }
 
 // truncateMiddle keeps the head and tail of oversized content with a marker

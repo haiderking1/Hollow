@@ -10,6 +10,7 @@ import { type manager } from "../session/manager";
 import { type file_entry } from "../session/types";
 import { Store } from "../memory/store";
 import { BuildSessionSystemPrompt } from "./system_prompt";
+import { LoadSoul, soul_mtime_ms, SOUL_PROMPT_MARKER } from "../memory/soul";
 import { ledger } from "./evidence/ledger";
 import { registry as obligationsRegistry } from "./obligations/registry";
 import { new_client_for_runtime } from "../opencode/runtime_client";
@@ -113,6 +114,8 @@ export class Agent {
   overflowRecoveryAttempted = false;
   memStore: Store | null = null;
   cachedSystemPrompt = "";
+  /** Tracks SOUL.md mtime baked into cachedSystemPrompt; rebuild when the file changes. */
+  soulPromptMtime = -1;
   emit: ((event: any) => void) | null = null;
   notify: ((msg: string) => void) | null = null;
   approvalPrompt: ((subsystem: string, pendingId: string) => void) | null = null;
@@ -317,12 +320,6 @@ export class Agent {
       this.userTurnCount = 0;
       this.turnsSinceMemory = 0;
       this.itersSinceSkill = 0;
-      if (sm !== null) {
-        const stored = sm.stored_system_prompt();
-        if (stored !== "" && stored.includes("Working directory:")) {
-          this.cachedSystemPrompt = stored;
-        }
-      }
     }
     this.messages = [
       { role: "system", content: string_content(this.systemPrompt()) }
@@ -554,8 +551,19 @@ export class Agent {
   }
 
   systemPrompt(): string {
-    if (this.cachedSystemPrompt === "") {
+    const soulMtime = soul_mtime_ms();
+    const soul = LoadSoul();
+    const soulMarker = SOUL_PROMPT_MARKER;
+    const soulMissing =
+      soul !== "" &&
+      (this.cachedSystemPrompt === "" || !this.cachedSystemPrompt.includes(soulMarker));
+    if (
+      this.cachedSystemPrompt === "" ||
+      soulMtime !== this.soulPromptMtime ||
+      soulMissing
+    ) {
       this.cachedSystemPrompt = this.buildSessionPrompt();
+      this.soulPromptMtime = soulMtime;
       this.persistSystemPrompt();
     }
     return this.cachedSystemPrompt;
@@ -587,6 +595,7 @@ export class Agent {
 
   invalidateSystemPrompt(): void {
     this.cachedSystemPrompt = "";
+    this.soulPromptMtime = -1;
     if (this.memStore !== null) {
       this.memStore.loadFromDisk();
     }
@@ -921,13 +930,6 @@ export function New(cfg: runtime, workDir: string, sm: manager | null): Agent {
         )
       ).catch(() => {});
     } catch {}
-  }
-
-  if (sm !== null) {
-    const stored = sm.stored_system_prompt();
-    if (stored !== "") {
-      a.cachedSystemPrompt = stored;
-    }
   }
 
   a.messages = [
