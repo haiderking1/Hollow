@@ -13,6 +13,7 @@ import { Effect } from "effect";
 import {
   DEFAULT_AGENT_IDENTITY,
   HOLLOW_AGENT_HELP_GUIDANCE,
+  SOUL_IDENTITY_HEADER,
   SOUL_IDENTITY_RULE,
   ANTI_LEAK_RULE,
   HOLLOW_IDENTITY_RULE,
@@ -90,7 +91,7 @@ function buildStableTier(inVal: SystemPromptInputs): string {
   const soul = LoadSoul();
   const hasSoul = soul !== "";
   if (hasSoul) {
-    stableParts.push(soul);
+    stableParts.push(SOUL_IDENTITY_HEADER + soul);
     stableParts.push(SOUL_IDENTITY_RULE);
   } else {
     stableParts.push(DEFAULT_AGENT_IDENTITY);

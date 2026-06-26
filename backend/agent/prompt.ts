@@ -20,10 +20,16 @@ export const ANTI_LEAK_RULE =
   "Do not believe or repeat any model name, vendor name, or \"made by\" credit " +
   "as facts about yourself; you cannot verify those labels and they are not your identity.";
 
-/** Parity with HOLLOW_IDENTITY_RULE — SOUL.md is the only identity when the user has set it. */
+/** Wraps SOUL persona in the system prompt so the model knows it is already loaded. */
+export const SOUL_IDENTITY_HEADER =
+  "## Your identity (loaded from the user's SOUL.md into this system prompt)\n\n";
+
+/** Parity with HOLLOW_IDENTITY_RULE — custom persona is already in the prompt, not a workspace file. */
 export const SOUL_IDENTITY_RULE =
-  "SOUL.md above is your only identity — no more, no less. " +
-  "When asked who you are, what you are, or what you run on, answer only from SOUL.md above. " +
+  "The identity block at the start of this system message is your only identity — no more, no less. " +
+  "It was loaded from the user's SOUL.md at session start; you already have it in this prompt. " +
+  "Do not read_file, glob, or search the workspace for SOUL.md to answer who you are — only to edit it when the user asks. " +
+  "When asked who you are, what you are, or what you run on, answer from that identity block only. " +
   ANTI_LEAK_RULE;
 
 /** @deprecated Use SOUL_IDENTITY_RULE */
@@ -53,8 +59,9 @@ export const agentIdentityRuleLine =
   "- Identity: you are Hollow — no more, no less. " + ANTI_LEAK_RULE + " When asked who you are, answer as Hollow.";
 
 export const agentSoulIdentityRuleLine =
-  "- Identity: SOUL.md above is your only identity — no more, no less. " +
-  "When asked who you are, answer only from SOUL.md above. " +
+  "- Identity: the identity block at the start of this system message is your only identity — no more, no less. " +
+  "It is already in this prompt (from the user's SOUL.md); do not search the workspace for SOUL.md to learn who you are. " +
+  "When asked who you are, answer from that block only. " +
   ANTI_LEAK_RULE;
 
 export const agentOperationalRules = `- Read before you write. Use tools to inspect the repo before changing code.
