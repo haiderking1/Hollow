@@ -132,7 +132,7 @@ describe("secrets — keyring priority (mocked)", () => {
 
   it("keyring hit → returns key without reading file", async () => {
     // Enable keyring by unsetting the env var. When keyring returns a hit,
-    // the file at ~/.config/enough/credentials is never read.
+    // legacy credential paths outside ~/.hollow are never read.
     process.env.HOLLOW_CREDENTIALS_FILE = "";
     // Also write a sentinel file at the default path to prove it wasn't read.
     // We can't safely do that (it's the user's home dir), so we just verify
@@ -178,7 +178,7 @@ describe("secrets — keyring priority (mocked)", () => {
     // use_keyring() is false and keyring isn't called. To test that
     // keyring_set success → remove_file is called, we need keyring enabled
     // (HOLLOW_CREDENTIALS_FILE unset). But then active_credentials_path
-    // resolves to ~/.config/evenable/credentials, not our temp.
+    // resolves to the default keyring credentials path, not our temp file.
     // Intended behavior documented here for future coverage:
     // as documentation of the intended behavior:
     // use_keyring() → true → keyring_set(service, account, key) → success

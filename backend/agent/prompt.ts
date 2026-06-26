@@ -23,9 +23,6 @@ export const HOLLOW_AGENT_HELP_GUIDANCE =
   "your own features, tools, or capabilities, load the `hollow-agent` skill with " +
   "skill_view(name='hollow-agent') and follow its instructions. Do not guess paths or invent CLI flags.";
 
-/** @deprecated Use HOLLOW_AGENT_HELP_GUIDANCE */
-export const enoughHelpGuidance = HOLLOW_AGENT_HELP_GUIDANCE;
-
 export const soulEditingGuide = `SOUL.md editing (only when the user asks to change identity):
 - ~/.hollow/SOUL.md (or $HOLLOW_HOME/SOUL.md) is user-editable. Load skill_view(name="hollow-agent") first, then read_file the absolute path and edit_file.
 - Resolve $HOME before tools; never pass a literal "~".`;

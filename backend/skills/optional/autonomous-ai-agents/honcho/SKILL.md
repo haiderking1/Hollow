@@ -316,7 +316,7 @@ Bad conclusions: "User said something about Rust" (too vague), "User seems techn
 ```
 honcho_search query="<topic>"       → fast, no LLM, good for specific facts
 honcho_context                       → full snapshot with summary + messages
-honcho_reasoning query="<question>"  → synthesized answer, use when search isn't enough
+honcho_reasoning query="<question>"  → synthesized answer, use when search isn't hollow
 ```
 
 ### When to use `peer: "ai"`

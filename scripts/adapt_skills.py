@@ -94,9 +94,9 @@ REPLACEMENTS: list[tuple[str, str]] = [
     (r"Use Hermes tools", "Use Hollow's tools"),
     (r"Hermes file tools", "file tools (read_file, write_file, bash, grep)"),
     (r"Hermes tool subprocesses", "Hollow bash subprocesses"),
-    (r"Hermes-run ", "Enough-run "),
+    (r"Hermes-run ", "Hollow-run "),
     (r"Hermes adaptation:", "Hollow adaptation:"),
-    (r"Hermes-facing", "Enough-facing"),
+    (r"Hermes-facing", "Hollow-facing"),
     (r"Hermes config paths", "Hollow config paths"),
     (r"from Hermes config", "from Hollow config"),
     (r"Hermes config\.json", "Hollow config.json"),
@@ -104,17 +104,17 @@ REPLACEMENTS: list[tuple[str, str]] = [
     (r"Read current model and provider from Hermes", "Read current model from Hollow"),
     (r"Restart Hermes", "Restart Hollow"),
     (r"integrated into hermes-agent", "integrated into Hollow"),
-    (r"hermes-agent skill", "enough skill"),
+    (r"hermes-agent skill", "hollow-agent skill"),
     (r"hermes-agent-skill-authoring", "hollow-skill-authoring"),
-    (r"debugging-hermes-tui-commands", "enough"),
-    (r"openclaw_to_hermes", "openclaw_to_enough"),
+    (r"debugging-hermes-tui-commands", "hollow-agent"),
+    (r"openclaw_to_hermes", "openclaw_to_hollow"),
     (r"OpenClaw to Hermes", "OpenClaw to Hollow"),
     (r"migrate.*Hermes Agent", "migrate to Hollow"),
     (r"`hermes teams-pipeline", "(teams-pipeline not in Hollow — Hermes-only)"),
     (r"`hermes skills", "`hollow skills"),
     (r"`hermes chat -q", "`hollow -q"),
-    (r"`hermes chat", "`enough"),
-    (r"`hermes --tui", "`enough"),
+    (r"`hermes chat", "`hollow"),
+    (r"`hermes --tui", "`hollow"),
     (r"`hermes setup", "`/connect` or `~/.hollow/config.json`"),
     (r"`hermes model", "`/model` in the TUI"),
     (r"`hermes config set", "edit `~/.hollow/config.json`"),
@@ -125,7 +125,7 @@ REPLACEMENTS: list[tuple[str, str]] = [
     (r"`hermes gateway", "(gateway not in Hollow)"),
     (r"`hermes tools", "Hollow agent tools"),
     (r"`hermes ", "`hollow "),
-    (r"\bhermes skills\b", "enough skills"),
+    (r"\bhermes skills\b", "hollow skills"),
     (r"\bhermes gateway\b", "Hollow UI"),
     (r"\btui_gateway\b", "Hollow UI"),
     (r"\bhermes update\b", "reinstall Hollow"),
@@ -139,8 +139,8 @@ REPLACEMENTS: list[tuple[str, str]] = [
     (r"display_hermes_home\(\)", "display_hollow_home()"),
     (r"from _hermes_home import", "from _hollow_home import"),
     (r"import _hermes_home", "import _hollow_home"),
-    (r"_hermes_env=", "_enough_env="),
-    (r"\b_hermes_env\b", "_enough_env"),
+    (r"_hermes_env=", "_hollow_env="),
+    (r"\b_hermes_env\b", "_hollow_env"),
     (r"running Hermes", "running Hollow"),
     (r"the Hermes Docker", "a Docker"),
     (r"official Hermes Docker", "containerized"),
@@ -156,8 +156,8 @@ REPLACEMENTS: list[tuple[str, str]] = [
     (r"Hermes test runner", "go test"),
     (r"the Hermes Kanban", "Kanban (Hermes-only — not in Hollow)"),
     (r"Hermes Kanban", "Kanban (Hermes-only)"),
-    (r"commands: \[hermes\]", "commands: [enough]"),
-    (r"prerequisites:\s*\n\s*commands: \[enough\]", "prerequisites:\n  commands: [bash]"),
+    (r"commands: \[hermes\]", "commands: [bash]"),
+    (r"prerequisites:\s*\n\s*commands: \[hollow\]", "prerequisites:\n  commands: [bash]"),
     (r"docker, ssh, modal, and daytona backends", "the local workspace"),
     (r"local, docker, ssh, modal, and daytona", "local"),
     (r"Path\.home\(\) / \"\.hermes\"", 'Path.home() / ".hollow"'),
@@ -165,7 +165,7 @@ REPLACEMENTS: list[tuple[str, str]] = [
     (r"str\(Path\.home\(\) / \"\.hermes\"\)", 'str(Path.home() / ".hollow")'),
     (r"User-Agent\": \"hermes-agent/", 'User-Agent": "hollow-agent/'),
     (r"User-Agent\": \"Hermes-Watcher/", 'User-Agent": "Hollow-Watcher/'),
-    (r"\"source\": \"hermes-agent\"", '"source": "enough"'),
+    (r"\"source\": \"hermes-agent\"", '"source": "hollow"'),
     (r"ported into hermes-agent", "ported into Hollow"),
     (r"hermes-agent repository", "Hollow repository"),
     (r"hermes-agent repo", "Hollow repo"),
@@ -189,12 +189,12 @@ REPLACEMENTS: list[tuple[str, str]] = [
     (r"~/.cache/hermes-osint/", "~/.cache/hollow-osint/"),
     (r"running as Hermes inside", "running as Hollow inside"),
     (r"help=\"Hermes home directory\"", 'help="Hollow home directory (~/.hollow)"'),
-    (r"hermes_home = os.environ", "enough_home = os.environ"),
+    (r"hermes_home = os.environ", "hollow_home = os.environ"),
     (r"_HERMES_HOME = Path", "_HOLLOW_HOME = Path"),
     (r"name: hermes-s6-container-supervision", "name: hollow-s6-container-supervision"),
     (r"# Hermes s6-overlay", "# s6-overlay (Hermes Docker image — not in Hollow)"),
-    (r"related_skills: \[enough, hollow-dev\]", "related_skills: [enough]"),
-    (r"hermes --toolsets mcp", "enough --skills agentmail -q"),
+    (r"related_skills: \[hollow-agent, hollow-dev\]", "related_skills: [hollow-agent]"),
+    (r"hermes --toolsets mcp", "hollow --skills agentmail -q"),
     (r"```yaml\nmcp_servers:", "```json\n\"mcp_servers\":"),
     (r"hermes whatsapp", "(whatsapp gateway — Hermes-only)"),
     (r"hermes mcp list", "hollow skills list (MCP via config.json)"),
@@ -262,10 +262,10 @@ SECOND_PASS: list[tuple[str, str]] = [
     (r"Hermes' existing", "Hollow's existing"),
     (r"So Hermes can", "So Hollow can"),
     (r"exists so Hermes can", "exists so Hollow can"),
-    (r"`hermes --tui", "`enough"),
-    (r"\bhermes --tui\b", "enough"),
+    (r"`hermes --tui", "`hollow"),
+    (r"\bhermes --tui\b", "hollow"),
     (r"github\.com/NousResearch/hermes-agent", "github.com/haiderking1/Hollow"),
-    (r"```bash\nhermes\n```", "```bash\nenough\n```"),
+    (r"```bash\nhermes\n```", "```bash\nhollow\n```"),
     (r"\bI want Hermes to own\b", "I want Hollow to own"),
     (r"\bpairs well with Hermes `text_to_speech`", "pairs well with TTS via bash"),
     (r"\bHermes's configured TTS\b", "configured TTS"),
@@ -325,7 +325,7 @@ display_hermes_home = display_hollow_home
 
 HERMES_AGENT_STUB = """---
 name: hermes-agent
-description: "Deprecated alias — load the enough skill instead."
+description: "Deprecated alias — load the hollow-agent skill instead."
 version: 2.1.0
 author: Hollow
 license: MIT
@@ -333,8 +333,8 @@ platforms: [linux, darwin, windows]
 disable-model-invocation: true
 metadata:
   hermes:
-    tags: [enough, deprecated]
-    related_skills: [enough]
+    tags: [hollow-agent, deprecated]
+    related_skills: [hollow-agent]
 ---
 
 # hermes-agent (deprecated)
@@ -351,7 +351,7 @@ HERMES_ONLY_SKILLS = {
     "kanban-worker",
     "kanban-orchestrator",
     "kanban-video-orchestrator",
-    "enough-s6-container-supervision",
+    "hollow-s6-container-supervision",
     "honcho",
 }
 
@@ -368,7 +368,7 @@ def adapt_line(line: str) -> str:
 def adapt_text(text: str) -> str:
     lines = [adapt_line(ln) for ln in text.splitlines(keepends=True)]
     text = "".join(lines)
-    text = RELATED_SKILL_RE.sub(r"\1enough\2", text)
+    text = RELATED_SKILL_RE.sub(r"\1hollow-agent\2", text)
     return text
 
 
@@ -452,17 +452,17 @@ def post_process() -> None:
     # Rename migration script if present
     mig = REPO / "backend/skills/optional/migration/openclaw-migration/scripts"
     old = mig / "openclaw_to_hermes.py"
-    new = mig / "openclaw_to_enough.py"
+    new = mig / "openclaw_to_hollow.py"
     if old.exists() and not new.exists():
         shutil.move(str(old), str(new))
 
     # Rename s6 skill folder reference in name only via SKILL frontmatter handled by adapt
 
-    # Sync enough embed copies
-    enough_bundled = REPO / "backend/skills/bundled/enough/SKILL.md"
-    enough_embed = REPO / "backend/skills/hollow_skill/SKILL.md"
-    if enough_bundled.exists():
-        shutil.copy2(enough_bundled, enough_embed)
+    # Sync hollow-agent embed copy
+    hollow_bundled = REPO / "backend/skills/bundled/autonomous-ai-agents/hollow-agent/SKILL.md"
+    hollow_embed = REPO / "backend/skills/hollow_skill/SKILL.md"
+    if hollow_bundled.exists():
+        shutil.copy2(hollow_bundled, hollow_embed)
 
 
 def main() -> None:

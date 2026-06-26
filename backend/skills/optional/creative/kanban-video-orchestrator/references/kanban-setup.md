@@ -226,16 +226,16 @@ check_key() {
     local var="$1"
     local kc_account="$2"
     local kc_service="$3"
-    local _enough_env="${HOLLOW_HOME:-$HOME/.hollow}/.env"
-    if grep -q "^${var}=" "$_enough_env" 2>/dev/null && \
-       [ -n "$(grep "^${var}=" "$_enough_env" | cut -d= -f2-)" ]; then
+    local _hollow_env="${HOLLOW_HOME:-$HOME/.hollow}/.env"
+    if grep -q "^${var}=" "$_hollow_env" 2>/dev/null && \
+       [ -n "$(grep "^${var}=" "$_hollow_env" | cut -d= -f2-)" ]; then
         return 0
     fi
     if command -v security >/dev/null 2>&1 && \
        security find-generic-password -a "${kc_account}" -s "${kc_service}" -w >/dev/null 2>&1; then
         return 0
     fi
-    echo "ERROR: ${var} not set in ${_enough_env} or Keychain (${kc_account}/${kc_service})"
+    echo "ERROR: ${var} not set in ${_hollow_env} or Keychain (${kc_account}/${kc_service})"
     return 1
 }
 

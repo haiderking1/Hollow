@@ -196,7 +196,7 @@ dspy.settings.configure(lm=finetuned_lm)
 - You have 100+ examples
 - Latency is critical (fine-tuned models faster)
 - Task is narrow and well-defined
-- Prompt optimization isn't enough
+- Prompt optimization isn't hollow
 
 ### COPRO (Coordinate Prompt Optimization)
 

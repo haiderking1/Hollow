@@ -140,8 +140,8 @@ If `SCRIPT` is empty, the skill is not installed yet.
 This is an official optional skill, so install it from the Skills Hub:
 
 ```bash
-enough skills search telephony
-enough skills install official/productivity/telephony
+hollow skills search telephony
+hollow skills install official/productivity/telephony
 ```
 
 ## Provider setup

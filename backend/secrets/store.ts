@@ -4,8 +4,7 @@ import { Effect } from "effect";
 import { verify_owner } from "./owner_unix";
 import { keyring_get, keyring_set, keyring_delete } from "./keyring";
 
-// Hollow keeps its own OS keyring entries (service "hollow"), separate from
-// Hollow's "enough" service — so the two apps don't share API keys.
+// Hollow keeps its own OS keyring entries (service "hollow").
 export const keyring_service = "hollow";
 export const keyring_account = "opencode-api-key";
 

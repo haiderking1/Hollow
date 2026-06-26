@@ -75,18 +75,18 @@ Apologizing without `memory` leaves the bad entry on disk for the next session.
 ## CLI
 
 ```bash
-enough                              # Interactive TUI (default)
-enough -q "summarize this repo"     # Single query
-enough --skills hollow-agent -q "…" # Preload this skill for one shot
+hollow                              # Interactive TUI (default)
+hollow -q "summarize this repo"     # Single query
+hollow --skills hollow-agent -q "…" # Preload this skill for one shot
 hollow skills sync                  # Seed/update bundled skills from embed
 hollow skills list                  # Installed skills
-enough skills search "review"       # Hub search
-enough skills install ID -y         # Hub install
-enough skills configure             # Enable/disable skills
-enough curator status               # Curator scheduler + agent-created skill stats
-enough curator run [dry-run]        # Run curator now
-enough curator pin|unpin <skill>
-enough curator restore <skill>      # From ~/.hollow/skills/.archive/
+hollow skills search "review"       # Hub search
+hollow skills install ID -y         # Hub install
+hollow skills configure             # Enable/disable skills
+hollow curator status               # Curator scheduler + agent-created skill stats
+hollow curator run [dry-run]        # Run curator now
+hollow curator pin|unpin <skill>
+hollow curator restore <skill>      # From ~/.hollow/skills/.archive/
 ```
 
 Agent tools (not shell): `skills_list`, `skill_view`, `skill_manage`, `memory`, file tools, `bash`, `web_search`, `agent_swarm`.
@@ -148,4 +148,4 @@ Quiet sync on launch (`EnsureBootstrapped`). Opt out: `~/.hollow/.no-bundled-ski
 
 ## Not in Hollow (do not invent)
 
-Telegram/Discord/Slack gateways, `hermes` CLI, profiles, Honcho/mem0, kanban dispatcher, Docker/Modal/SSH sandbox backends. Skills tagged `environments: [kanban]` are hidden unless that env exists.
+Telegram/Discord/Slack gateways, `hermes` / legacy `enough` CLIs, profiles, Honcho/mem0, kanban dispatcher, Docker/Modal/SSH sandbox backends. Skills tagged `environments: [kanban]` are hidden unless that env exists.

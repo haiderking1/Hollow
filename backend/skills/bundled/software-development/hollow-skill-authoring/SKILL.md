@@ -49,7 +49,7 @@ Supporting files: `references/`, `templates/`, `scripts/`, `assets/` only.
 
 ## Python helper scripts
 
-Scripts in `scripts/` run via **`bash`**, not a Go↔Python linker. Use `~/.hollow/` paths and `HOLLOW_HOME`. Import `backend/skills/bundled/.../scripts/_hollow_home.py` pattern for home resolution.
+Scripts in `scripts/` run via **`bash`**. Use `~/.hollow/` paths and `HOLLOW_HOME`. Import `backend/skills/bundled/.../scripts/_hollow_home.py` for home resolution.
 
 ## Workflow
 

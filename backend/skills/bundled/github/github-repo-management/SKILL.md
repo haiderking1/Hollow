@@ -27,8 +27,8 @@ if command -v gh &>/dev/null && gh auth status &>/dev/null; then
 else
   AUTH="git"
   if [ -z "$GITHUB_TOKEN" ]; then
-    if _enough_env="${HOLLOW_HOME:-$HOME/.hollow}/.env"; [ -f "$_enough_env" ] && grep -q "^GITHUB_TOKEN=" "$_enough_env"; then
-      GITHUB_TOKEN=$(grep "^GITHUB_TOKEN=" "$_enough_env" | head -1 | cut -d= -f2 | tr -d '\n\r')
+    if _hollow_env="${HOLLOW_HOME:-$HOME/.hollow}/.env"; [ -f "$_hollow_env" ] && grep -q "^GITHUB_TOKEN=" "$_hollow_env"; then
+      GITHUB_TOKEN=$(grep "^GITHUB_TOKEN=" "$_hollow_env" | head -1 | cut -d= -f2 | tr -d '\n\r')
     elif grep -q "github.com" ~/.git-credentials 2>/dev/null; then
       GITHUB_TOKEN=$(grep "github.com" ~/.git-credentials 2>/dev/null | head -1 | sed 's|https://[^:]*:\([^@]*\)@.*|\1|')
     fi

@@ -304,7 +304,7 @@ export const load = (): Effect.Effect<config, config_error_type> =>
         return yield* Effect.fail(read_result.left);
       }
       // No config yet — start fresh with defaults. Hollow is independent from
-      // Hollow, so we deliberately do not import ~/.config/enough/config.json.
+      // Hollow uses ~/.hollow/config.json only (not legacy third-party config paths).
       return cfg;
     }
 

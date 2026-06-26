@@ -125,7 +125,7 @@ Three things you must define:
 
 2. **`Evaluator`** — `.evaluate(organism) -> EvaluationResult(score=..., trainable_failure_cases=[...], holdout_failure_cases=[...], is_viable=True)`.
    - **`score`** is in `[0, 1]`. Higher is better.
-   - **`trainable_failure_cases`** — what the mutator sees. Include enough
+   - **`trainable_failure_cases`** — what the mutator sees. Include hollow
      context (input, expected, actual) for the LLM to diagnose.
    - **`holdout_failure_cases`** — kept out of the mutator's view. Use these
      to detect overfitting.

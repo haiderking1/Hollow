@@ -33,7 +33,7 @@ def _state_dir() -> Path:
     if override:
         return Path(override)
     # Default: $HOLLOW_HOME/watcher-state/, falling back to ~/.hollow/watcher-state/.
-    enough_home = os.environ.get("HOLLOW_HOME") or str(Path.home() / ".hollow")
+    hollow_home = os.environ.get("HOLLOW_HOME") or str(Path.home() / ".hollow")
     return Path(hermes_home) / "watcher-state"
 
 

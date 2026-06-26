@@ -6,7 +6,7 @@ author: Hollow + Teknium
 license: MIT
 prerequisites:
   env_vars: [MSGRAPH_TENANT_ID, MSGRAPH_CLIENT_ID, MSGRAPH_CLIENT_SECRET]
-  commands: [enough]
+  commands: [bash]
 metadata:
   hermes:
     tags: [Teams, Microsoft Graph, Meetings, Productivity, Operations]

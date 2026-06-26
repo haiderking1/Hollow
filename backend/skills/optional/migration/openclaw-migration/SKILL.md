@@ -20,8 +20,8 @@ Use this skill when a user wants to move their OpenClaw setup into Hollow with m
 Hollow does not ship a `claw migrate` subcommand. Run the bundled helper directly:
 
 ```bash
-python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py --dry-run
-python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py --execute --preset user-data
+python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py --dry-run
+python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py --execute --preset user-data
 ```
 
 Common flags: `--dry-run`, `--execute`, `--preset user-data|full`, `--overwrite`, `--source /custom/path/.openclaw`, `--skill-conflict skip|rename|overwrite`.
@@ -32,7 +32,7 @@ Use this skill (via the agent) when you want an interactive, guided migration wi
 
 ## What this skill does
 
-It uses `scripts/openclaw_to_enough.py` to:
+It uses `scripts/openclaw_to_hollow.py` to:
 
 - import `SOUL.md` into the Hollow home directory as `SOUL.md`
 - transform OpenClaw `MEMORY.md` and `USER.md` into Hollow memory (MEMORY.md) entries
@@ -48,11 +48,11 @@ It uses `scripts/openclaw_to_enough.py` to:
 
 The helper script lives in this skill directory at:
 
-- `scripts/openclaw_to_enough.py`
+- `scripts/openclaw_to_hollow.py`
 
 When this skill is installed from the Skills Hub, the normal location is:
 
-- `~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py`
+- `~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py`
 
 Do not guess a shorter path like `~/.hollow/skills/openclaw-migration/...`.
 
@@ -228,37 +228,37 @@ The helper script still supports category-level `--include` / `--exclude`, but t
 Dry run with full discovery:
 
 ```bash
-python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py
+python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py
 ```
 
 When using the terminal tool, prefer an absolute invocation pattern such as:
 
 ```json
-{"command":"python3 /home/USER/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py","workdir":"/home/USER"}
+{"command":"python3 /home/USER/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py","workdir":"/home/USER"}
 ```
 
 Dry run with the user-data preset:
 
 ```bash
-python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py --preset user-data
+python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py --preset user-data
 ```
 
 Execute a user-data migration:
 
 ```bash
-python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py --execute --preset user-data --skill-conflict skip
+python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py --execute --preset user-data --skill-conflict skip
 ```
 
 Execute a full compatible migration:
 
 ```bash
-python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py --execute --preset full --migrate-secrets --skill-conflict skip
+python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py --execute --preset full --migrate-secrets --skill-conflict skip
 ```
 
 Execute with workspace instructions included:
 
 ```bash
-python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_enough.py --execute --preset user-data --skill-conflict rename --workspace-target "/absolute/workspace/path"
+python3 ~/.hollow/skills/migration/openclaw-migration/scripts/openclaw_to_hollow.py --execute --preset user-data --skill-conflict rename --workspace-target "/absolute/workspace/path"
 ```
 
 Do not use `$PWD` or the home directory as the workspace target by default. Ask for an explicit workspace path first.

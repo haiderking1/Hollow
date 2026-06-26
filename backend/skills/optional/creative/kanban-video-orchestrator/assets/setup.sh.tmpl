@@ -23,9 +23,9 @@ check_key() {
     local var="$1"
     local kc_account="${2:-hermes}"
     local kc_service="${3:-$1}"
-    local _enough_env="${ENOUGH_HOME:-$HOME/.enough}/.env"
-    if grep -q "^${var}=" "$_enough_env" 2>/dev/null && \
-       [ -n "$(grep "^${var}=" "$_enough_env" | cut -d= -f2-)" ]; then
+    local _hollow_env="${HOLLOW_HOME:-$HOME/.hollow}/.env"
+    if grep -q "^${var}=" "$_hollow_env" 2>/dev/null && \
+       [ -n "$(grep "^${var}=" "$_hollow_env" | cut -d= -f2-)" ]; then
         echo "  ✓ ${var} (env)"
         return 0
     fi
@@ -34,7 +34,7 @@ check_key() {
         echo "  ✓ ${var} (Keychain ${kc_account}/${kc_service})"
         return 0
     fi
-    echo "  ✗ ${var} not set in ${_enough_env} or Keychain (${kc_account}/${kc_service})"
+    echo "  ✗ ${var} not set in ${_hollow_env} or Keychain (${kc_account}/${kc_service})"
     return 1
 }
 
@@ -83,7 +83,7 @@ profile, toolsets_json, skills_json, workspace = sys.argv[1:5]
 toolsets = json.loads(toolsets_json)
 skills = json.loads(skills_json)
 
-p = os.path.expanduser(f"~/.enough/profiles/{profile}/config.json")
+p = os.path.expanduser(f"~/.hollow/profiles/{profile}/config.json")
 if not os.path.exists(p):
     print(f"  ✗ profile config not found: {p}", file=sys.stderr)
     sys.exit(1)
