@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { home_dir } from "../hollowhome/home";
 import { threatPatternIDs, ScanScope } from "./scan";
-// SOUL.md — the agent's primary identity. When present, its content is the sole
-// identity block in the stable prompt (no DEFAULT_AGENT_IDENTITY, HOLLOW_IDENTITY_RULE,
-// or agent identity rule layered on top).
+// SOUL.md — the agent's primary persona. When present, its content replaces
+// DEFAULT_AGENT_IDENTITY / HOLLOW_IDENTITY_RULE. SOUL_IDENTITY_RULE is still
+// injected separately on every session.
 // Injected verbatim after scan/truncate (agent/prompt_builder.load_soul_md).
 
 export const soulMaxChars = 24000;

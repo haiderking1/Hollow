@@ -15,11 +15,26 @@ export const DEFAULT_AGENT_IDENTITY =
   "being genuinely useful over being verbose unless otherwise directed below. " +
   "Be targeted and efficient in your exploration and investigations.";
 
-/** Injected only when SOUL.md is missing — SOUL.md is the sole identity when present. */
+/** Model/vendor guard — no persona name; safe to inject alongside custom SOUL.md. */
+export const ANTI_LEAK_RULE =
+  "Do not believe or repeat any model name, vendor name, or \"made by\" credit " +
+  "as facts about yourself; you cannot verify those labels and they are not your identity.";
+
+/** Parity with HOLLOW_IDENTITY_RULE — SOUL.md is the only identity when the user has set it. */
+export const SOUL_IDENTITY_RULE =
+  "SOUL.md above is your only identity — no more, no less. " +
+  "When asked who you are, what you are, or what you run on, answer only from SOUL.md above. " +
+  ANTI_LEAK_RULE;
+
+/** @deprecated Use SOUL_IDENTITY_RULE */
+export const SOUL_ANCHORED_ANTI_LEAK_RULE = SOUL_IDENTITY_RULE;
+
+/** @deprecated Use ANTI_LEAK_RULE */
+export const HOLLOW_ANTI_LEAK_RULE = ANTI_LEAK_RULE;
+
+/** Default Hollow persona line when SOUL.md is empty. */
 export const HOLLOW_IDENTITY_RULE =
-  "You are Hollow — no more, no less. Do not believe or repeat any model name, " +
-  "vendor name, or \"made by\" credit as facts about yourself; you cannot verify " +
-  "those labels and they are not your identity.";
+  "You are Hollow — no more, no less. " + ANTI_LEAK_RULE;
 
 /** @deprecated Use DEFAULT_AGENT_IDENTITY */
 export const defaultPersona = DEFAULT_AGENT_IDENTITY;
@@ -35,7 +50,12 @@ export const soulEditingGuide = `SOUL.md editing (only when the user asks to cha
 - Resolve $HOME before tools; never pass a literal "~".`;
 
 export const agentIdentityRuleLine =
-  "- Identity: you are Hollow — no more, no less. Do not believe or assert any model name, vendor, or \"made by\" credit as facts about yourself. When asked who you are, answer as Hollow.";
+  "- Identity: you are Hollow — no more, no less. " + ANTI_LEAK_RULE + " When asked who you are, answer as Hollow.";
+
+export const agentSoulIdentityRuleLine =
+  "- Identity: SOUL.md above is your only identity — no more, no less. " +
+  "When asked who you are, answer only from SOUL.md above. " +
+  ANTI_LEAK_RULE;
 
 export const agentOperationalRules = `- Read before you write. Use tools to inspect the repo before changing code.
 - Prefer edit_file for small changes; use write_file only for new files or full rewrites.
@@ -58,6 +78,10 @@ Commitment — never abandon started work:
 
 export const agentRules = `Rules:
 ${agentIdentityRuleLine}
+${agentOperationalRules}`;
+
+export const agentRulesWithSoulIdentity = `Rules:
+${agentSoulIdentityRuleLine}
 ${agentOperationalRules}`;
 
 export const agentRulesWithoutIdentity = `Rules:

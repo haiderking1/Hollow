@@ -13,9 +13,11 @@ import { Effect } from "effect";
 import {
   DEFAULT_AGENT_IDENTITY,
   HOLLOW_AGENT_HELP_GUIDANCE,
+  SOUL_IDENTITY_RULE,
+  ANTI_LEAK_RULE,
   HOLLOW_IDENTITY_RULE,
   agentRules,
-  agentRulesWithoutIdentity,
+  agentRulesWithSoulIdentity,
   hasSkillManage,
   hasSkillTools,
 } from "./prompt";
@@ -84,11 +86,12 @@ export function BuildSessionSystemPrompt(inVal: SystemPromptInputs): string {
 function buildStableTier(inVal: SystemPromptInputs): string {
   const stableParts: string[] = [];
 
-  // Slot #1: SOUL.md is authoritative identity — no built-in identity layered on top.
+  // Slot #1: SOUL.md persona + same identity/leak guard as the default Hollow path.
   const soul = LoadSoul();
   const hasSoul = soul !== "";
   if (hasSoul) {
     stableParts.push(soul);
+    stableParts.push(SOUL_IDENTITY_RULE);
   } else {
     stableParts.push(DEFAULT_AGENT_IDENTITY);
     stableParts.push(HOLLOW_IDENTITY_RULE);
@@ -131,7 +134,7 @@ function buildStableTier(inVal: SystemPromptInputs): string {
     stableParts.push(inVal.PreloadedSkillsPrompt);
   }
 
-  stableParts.push(hasSoul ? agentRulesWithoutIdentity : agentRules);
+  stableParts.push(hasSoul ? agentRulesWithSoulIdentity : agentRules);
   stableParts.push(mcpFilterGuidance);
 
   return stableParts.filter((p) => p.trim() !== "").join("\n\n");
