@@ -13,6 +13,11 @@ import {
   has_codex_auth as auth_has_codex_auth,
   codex_default_base_url_fn,
 } from "../auth/codex_oauth";
+import {
+  default_thinking_level,
+  normalize_thinking_level,
+  supports_thinking,
+} from "../opencode/thinking";
 
 export const default_endpoint = "https://opencode.ai/zen/go/v1";
 export const default_zen_endpoint = "https://opencode.ai/zen/v1";
@@ -505,12 +510,19 @@ export const load_runtime = (
     const wf: workflow_settings = cfg.workflows ?? { ultracode: false, alt_screen: false, always_approve: [] as string[] };
     const mcp_servers = cfg.mcp_servers ?? {};
 
+    let thinking_level = cfg.thinking_level ?? "";
+    if (thinking_level === "" && supports_thinking(cfg.model)) {
+      thinking_level = default_thinking_level(cfg.model);
+    } else if (thinking_level !== "") {
+      thinking_level = normalize_thinking_level(thinking_level, cfg.model);
+    }
+
     return {
       provider,
       endpoint: cfg.endpoint,
       model: cfg.model,
       api_key: key,
-      thinking_level: cfg.thinking_level ?? "",
+      thinking_level,
       hide_thinking: cfg.hide_thinking ?? false,
       compaction: comp,
       evidence: ev,

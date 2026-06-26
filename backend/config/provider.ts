@@ -22,6 +22,12 @@ import {
 import { save_api_key as auth_save_api_key } from "../auth/connect";
 import { has_api_key as secrets_has_api_key, err_not_connected } from "../secrets/store";
 import { has_codex_auth as auth_has_codex_auth, codex_default_base_url_fn } from "../auth/codex_oauth";
+import {
+  default_thinking_level,
+  normalize_thinking_level,
+  parse_thinking_level,
+  supported_thinking_levels,
+} from "../opencode/thinking";
 
 // EnableOpenCodeProvider stores an API key and switches the active provider to OpenCode Go.
 export const enable_opencode_provider = (
@@ -72,6 +78,17 @@ const enable_opencode_provider_impl = (
         default:
           cfg.model = default_model;
       }
+    }
+    const model = cfg.model;
+    const levels = supported_thinking_levels(model);
+    const current = parse_thinking_level(cfg.thinking_level || "");
+    if (
+      levels.length > 0 &&
+      (cfg.thinking_level === undefined ||
+        cfg.thinking_level === "" ||
+        !levels.includes(current))
+    ) {
+      cfg.thinking_level = default_thinking_level(model);
     }
     yield* save(cfg);
   });
@@ -174,7 +191,13 @@ export const apply_provider_model = (
     const cfg = yield* load();
     cfg.provider = provider;
     cfg.model = model;
-    cfg.thinking_level = thinking_level;
+    const levels = supported_thinking_levels(model);
+    const parsed = parse_thinking_level(thinking_level);
+    if (thinking_level === "" || (levels.length > 0 && !levels.includes(parsed))) {
+      cfg.thinking_level = default_thinking_level(model);
+    } else {
+      cfg.thinking_level = normalize_thinking_level(thinking_level, model);
+    }
 
     switch (provider) {
       case provider_codex:

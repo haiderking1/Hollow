@@ -171,15 +171,17 @@ export const default_thinking_level = (model: string): thinking_level_val => {
 const apply_minimax_thinking = (req: chat_request, level: thinking_level_val, model: string): void => {
   const normalized = normalize_thinking_level(level, model);
   if (is_minimax_m3(model)) {
-    if (normalized === "off" || normalized === "") {
+    if (normalized === "off") {
       req.thinking = { type: "disabled" };
     } else {
+      // Empty level means "use API default" (adaptive on); do not send disabled.
       req.thinking = { type: "adaptive" };
     }
   } else {
     req.thinking = { type: "adaptive" };
   }
-  delete req.reasoning_split;
+  // MiniMax only streams reasoning_content / reasoning_details when this is set.
+  req.reasoning_split = true;
   delete req.reasoning_effort;
 };
 
@@ -239,6 +241,9 @@ export const supports_reasoning = (model: string): boolean => {
     return true;
   }
   if (model_lower.includes("gpt-")) {
+    return true;
+  }
+  if (is_minimax_model(model)) {
     return true;
   }
   return false;

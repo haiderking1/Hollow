@@ -65,8 +65,30 @@ const reasoning_text_from_delta = (value: unknown): string => {
   return "";
 };
 
-const reasoning_delta = (d: stream_delta): string => {
-  for (const value of [d.reasoning_content, d.reasoning_details, d.reasoning, d.reasoning_text]) {
+/** MiniMax with reasoning_split sends cumulative text in reasoning_details — slice to incremental. */
+const reasoning_increment = (
+  d: stream_delta,
+  cumulative: { details: string; content: string },
+): string => {
+  const details_text = reasoning_text_from_delta(d.reasoning_details);
+  if (details_text !== "") {
+    const inc = details_text.startsWith(cumulative.details)
+      ? details_text.slice(cumulative.details.length)
+      : details_text;
+    cumulative.details = details_text;
+    if (inc !== "") return inc;
+  }
+
+  const content_text = reasoning_text_from_delta(d.reasoning_content);
+  if (content_text !== "") {
+    const inc = content_text.startsWith(cumulative.content)
+      ? content_text.slice(cumulative.content.length)
+      : content_text;
+    cumulative.content = content_text;
+    if (inc !== "") return inc;
+  }
+
+  for (const value of [d.reasoning, d.reasoning_text]) {
     const text = reasoning_text_from_delta(value);
     if (text !== "") return text;
   }
@@ -206,6 +228,7 @@ export const chat_stream_once = (
       let content = "";
       let reasoning = "";
       const think_split = new think_stream_splitter();
+      const reasoning_cumulative = { details: "", content: "" };
       let last_usage: usage | undefined = undefined;
       const tool_parts: Record<number, tool_call> = {};
       let saw_data = false;
@@ -267,7 +290,7 @@ export const chat_stream_once = (
           think_split.feed(delta.content, emit_text, emit_think);
         }
 
-        const r = reasoning_delta(delta);
+        const r = reasoning_increment(delta, reasoning_cumulative);
         if (r !== "") {
           emit_think(r);
         }
