@@ -13,7 +13,9 @@ import { Effect } from "effect";
 import {
   DEFAULT_AGENT_IDENTITY,
   HOLLOW_AGENT_HELP_GUIDANCE,
+  HOLLOW_IDENTITY_RULE,
   agentRules,
+  agentRulesWithoutIdentity,
   hasSkillManage,
   hasSkillTools,
 } from "./prompt";
@@ -82,15 +84,16 @@ export function BuildSessionSystemPrompt(inVal: SystemPromptInputs): string {
 function buildStableTier(inVal: SystemPromptInputs): string {
   const stableParts: string[] = [];
 
-  // Slot #1: SOUL.md replaces DEFAULT_AGENT_IDENTITY when present (load_soul_md parity).
+  // Slot #1: SOUL.md is authoritative identity — no built-in identity layered on top.
   const soul = LoadSoul();
-  if (soul !== "") {
+  const hasSoul = soul !== "";
+  if (hasSoul) {
     stableParts.push(soul);
   } else {
     stableParts.push(DEFAULT_AGENT_IDENTITY);
+    stableParts.push(HOLLOW_IDENTITY_RULE);
   }
 
-  // Always follows identity (HERMES_AGENT_HELP_GUIDANCE parity).
   stableParts.push(HOLLOW_AGENT_HELP_GUIDANCE);
 
   // Tool-aware behavioral guidance — only when tools are loaded.
@@ -128,7 +131,7 @@ function buildStableTier(inVal: SystemPromptInputs): string {
     stableParts.push(inVal.PreloadedSkillsPrompt);
   }
 
-  stableParts.push(agentRules);
+  stableParts.push(hasSoul ? agentRulesWithoutIdentity : agentRules);
   stableParts.push(mcpFilterGuidance);
 
   return stableParts.filter((p) => p.trim() !== "").join("\n\n");
@@ -187,12 +190,6 @@ function buildVolatileTier(inVal: SystemPromptInputs): string {
   let timestampLine = "Conversation started: " + formatter.format(now);
   if (inVal.SessionID !== "") {
     timestampLine += "\nSession ID: " + inVal.SessionID;
-  }
-  if (inVal.Cfg.model) {
-    timestampLine += "\nModel: " + inVal.Cfg.model;
-  }
-  if (inVal.Cfg.provider) {
-    timestampLine += "\nProvider: " + inVal.Cfg.provider;
   }
   volatileParts.push(timestampLine);
 

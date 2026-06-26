@@ -7,7 +7,7 @@ import { type runtime, continuity_enabled, goal_lock_enabled } from "../config/c
 import { type manager } from "../session/manager";
 import { type file_entry } from "../session/types";
 import { Store } from "../memory/store";
-import { BuildSessionSystemPrompt } from "./system_prompt";
+import { BuildSessionSystemPromptParts, type SystemPromptParts } from "./system_prompt";
 import { LoadSoul, soul_mtime_ms } from "../memory/soul";
 import { ledger } from "./evidence/ledger";
 import { registry as obligationsRegistry } from "./obligations/registry";
@@ -112,7 +112,9 @@ export class Agent {
   overflowRecoveryAttempted = false;
   memStore: Store | null = null;
   cachedSystemPrompt = "";
-  /** Tracks SOUL.md mtime baked into cachedSystemPrompt; rebuild when the file changes. */
+  /** Stable+context tiers cached for prefix stability; volatile tier rebuilt every turn. */
+  cachedStableContextPrompt = "";
+  /** Tracks SOUL.md mtime baked into cachedStableContextPrompt; rebuild when the file changes. */
   soulPromptMtime = -1;
   emit: ((event: any) => void) | null = null;
   notify: ((msg: string) => void) | null = null;
@@ -313,8 +315,8 @@ export class Agent {
       cwdChanged = true;
     }
     this.session = sm;
+    this.invalidateSystemPrompt();
     if (sessionChanged || cwdChanged) {
-      this.invalidateSystemPrompt();
       this.userTurnCount = 0;
       this.turnsSinceMemory = 0;
       this.itersSinceSkill = 0;
@@ -414,8 +416,12 @@ export class Agent {
     if (JSON.stringify(this.cfg) === JSON.stringify(cfg)) {
       return;
     }
-    const promptAffecting = JSON.stringify(this.cfg?.memory) !== JSON.stringify(cfg.memory) ||
-      JSON.stringify(this.cfg?.skills) !== JSON.stringify(cfg.skills);
+    const promptAffecting =
+      JSON.stringify(this.cfg?.memory) !== JSON.stringify(cfg.memory) ||
+      JSON.stringify(this.cfg?.skills) !== JSON.stringify(cfg.skills) ||
+      this.cfg?.model !== cfg.model ||
+      this.cfg?.provider !== cfg.provider ||
+      this.cfg?.thinking_level !== cfg.thinking_level;
     const mcpChanged = JSON.stringify(this.cfg?.mcp_servers) !== JSON.stringify(cfg.mcp_servers);
     this.cfg = cfg;
     this.client = new_client_for_runtime(cfg);
@@ -550,19 +556,25 @@ export class Agent {
 
   systemPrompt(): string {
     const soulMtime = soul_mtime_ms();
-    if (this.cachedSystemPrompt === "" || soulMtime !== this.soulPromptMtime) {
-      this.cachedSystemPrompt = this.buildSessionPrompt();
+    const parts = this.buildSessionPromptParts();
+    const stableContext = [parts.stable, parts.context].filter((p) => p.trim() !== "").join("\n\n");
+    if (this.cachedStableContextPrompt === "" || soulMtime !== this.soulPromptMtime) {
+      this.cachedStableContextPrompt = stableContext;
       this.soulPromptMtime = soulMtime;
+    }
+    const full = [this.cachedStableContextPrompt, parts.volatile].filter((p) => p.trim() !== "").join("\n\n");
+    if (full !== this.cachedSystemPrompt) {
+      this.cachedSystemPrompt = full;
       this.persistSystemPrompt();
     }
-    return this.cachedSystemPrompt;
+    return full;
   }
 
-  buildSessionPrompt(): string {
+  buildSessionPromptParts(): SystemPromptParts {
     const tools = this.toolMenu();
     const toolNames = tools.map((t) => t.function.name);
     const sessionID = this.session ? this.session.session_id() : "";
-    return BuildSessionSystemPrompt({
+    return BuildSessionSystemPromptParts({
       WorkDir: this.workDir,
       Cfg: this.cfg,
       ToolNames: toolNames,
@@ -570,6 +582,11 @@ export class Agent {
       SessionID: sessionID,
       PreloadedSkillsPrompt: this.cfg.preloaded_skills_prompt,
     });
+  }
+
+  buildSessionPrompt(): string {
+    const parts = this.buildSessionPromptParts();
+    return [parts.stable, parts.context, parts.volatile].filter((p) => p.trim() !== "").join("\n\n");
   }
 
   persistSystemPrompt(): void {
@@ -584,9 +601,14 @@ export class Agent {
 
   invalidateSystemPrompt(): void {
     this.cachedSystemPrompt = "";
+    this.cachedStableContextPrompt = "";
     this.soulPromptMtime = -1;
     if (this.memStore !== null) {
       this.memStore.loadFromDisk();
+    }
+    if (this.messages.length > 0 && this.messages[0].role === "system") {
+      const prompt = this.systemPrompt();
+      this.messages[0].content = string_content(prompt);
     }
   }
 

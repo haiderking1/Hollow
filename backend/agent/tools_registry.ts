@@ -233,7 +233,7 @@ export function agentSwarmTool(): tool {
     type: "function",
     function: {
       name: "agent_swarm",
-      description: "Run many sub-agents in parallel. Pass \"tasks\" (one self-contained prompt each) or a single \"goal\" to have a planner split it into parallel subtasks. Each agent gets a fresh, isolated context with the standard coding tools scoped to the current directory. Up to 16 agents per call; max_concurrency (default 16) run at once. All agents run on your model. Agents run with no turn limit by default (like you). Do not set max_turns_per_agent unless the user explicitly requests a cap. Agents can nest agent_swarm up to 3 nested swarm calls; from a top-level call this supports a four-worker chain (level1 -> level2 -> level3 -> level4). Keep tasks disjoint to avoid conflicting edits.",
+      description: "Run many sub-agents in parallel. Pass \"tasks\" (one self-contained prompt each) or a single \"goal\" to have a planner split it into parallel subtasks. Each agent gets a fresh, isolated context with the standard coding tools scoped to the current directory. Up to 16 agents per call; max_concurrency (default 16) run at once. Sub-agents use the same Hollow agent capabilities. Agents run with no turn limit by default (like you). Do not set max_turns_per_agent unless the user explicitly requests a cap. Agents can nest agent_swarm up to 3 nested swarm calls; from a top-level call this supports a four-worker chain (level1 -> level2 -> level3 -> level4). Keep tasks disjoint to avoid conflicting edits.",
       parameters: new TextEncoder().encode(JSON.stringify(schema)),
     }
   };

@@ -2,10 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { home_dir } from "../hollowhome/home";
 import { threatPatternIDs, ScanScope } from "./scan";
-import { DEFAULT_SOUL_MD } from "./default_soul";
-
-// SOUL.md — the agent's primary identity. When present, its content becomes
-// the first stable block of the system prompt, replacing DEFAULT_AGENT_IDENTITY.
+// SOUL.md — the agent's primary identity. When present, its content is the sole
+// identity block in the stable prompt (no DEFAULT_AGENT_IDENTITY, HOLLOW_IDENTITY_RULE,
+// or agent identity rule layered on top).
 // Injected verbatim after scan/truncate (agent/prompt_builder.load_soul_md).
 
 export const soulMaxChars = 24000;
@@ -26,7 +25,7 @@ export function soul_mtime_ms(): number {
   }
 }
 
-/** Seed default SOUL.md when missing — never overwrite an existing file (Hermes parity). */
+/** Ensure HOLLOW_HOME exists and SOUL.md is present (empty on first install). */
 export function EnsureSoul(): void {
   const p = SoulPath();
   try {
@@ -44,7 +43,7 @@ export function EnsureSoul(): void {
   }
 
   try {
-    fs.writeFileSync(p, DEFAULT_SOUL_MD, { mode: 0o600, encoding: "utf8" });
+    fs.writeFileSync(p, "", { mode: 0o600, encoding: "utf8" });
   } catch {
     // ignore
   }

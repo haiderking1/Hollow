@@ -53,7 +53,7 @@ Agent.prototype.toolReadFile = function (
           if (res._tag === "Left") {
             let textNote = `Read image file [${mimeType}]\n[Image omitted: could not be resized below the inline image size limit.]`;
             if (!supportsVision) {
-              textNote += "\n[Current model does not support images. The image will be omitted from this request.]";
+              textNote += "\n[This session does not support images. The image will be omitted from this request.]";
             }
             return {
               output: textNote,
@@ -70,7 +70,7 @@ Agent.prototype.toolReadFile = function (
             textNote += `\n[Image: original ${r.original_width}x${r.original_height}, displayed at ${r.width}x${r.height}. Multiply coordinates by ${scale.toFixed(2)} to map to original image.]`;
           }
           if (!supportsVision) {
-            textNote += "\n[Current model does not support images. The image will be omitted from this request.]";
+            textNote += "\n[This session does not support images. The image will be omitted from this request.]";
           }
 
           const contentBlocks = [

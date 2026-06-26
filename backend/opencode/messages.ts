@@ -64,7 +64,7 @@ const strip_images_if_needed = (msgs: message[], model: string): message[] => {
       else filtered.push(b);
     }
     if (image_count === 0) return msg;
-    const note = `[${image_count} image(s) omitted — current model does not support images.]`;
+    const note = `[${image_count} image(s) omitted — this session does not support images.]`;
     if (filtered.length > 0 && filtered[0].type === "text") filtered[0].text = `${filtered[0].text ?? ""}\n${note}`;
     else filtered.unshift({ type: "text", text: note });
     const out = { ...msg };
