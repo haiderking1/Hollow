@@ -1,5 +1,7 @@
 const ZOOM_MIN = 0.5
-const ZOOM_MAX = 2.5
+// Keep zoom-in useful while capping the largest scale before the floating collapse
+// control can reach chat content.
+const ZOOM_MAX = 1.75
 export const ZOOM_STEP = 0.05
 
 let currentZoom = 1.0
@@ -24,7 +26,7 @@ export function initZoom() {
 
 export function applyZoom(level: number) {
   try {
-    window.hollowDesktop?.setZoom(level)
+    window.hollowDesktop?.setZoom(clampZoom(level))
   } catch (err) {
     console.error("Failed to set zoom:", err)
   }
