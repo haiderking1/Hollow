@@ -906,7 +906,7 @@ export default function App() {
           <TrafficLights />
           <button
             onClick={() => setCollapsed(false)}
-            className="app-no-drag ml-1 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+            className="app-no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             aria-label="Expand sidebar"
           >
             <PanelLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />

@@ -1,7 +1,7 @@
 const ZOOM_MIN = 0.5
 // Keep zoom-in useful while capping the largest scale before the floating collapse
 // control can reach chat content.
-const ZOOM_MAX = 1.75
+const ZOOM_MAX = 1.95
 export const ZOOM_STEP = 0.05
 
 let currentZoom = 1.0
