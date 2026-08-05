@@ -17,6 +17,7 @@ import {
   type compaction_preparation,
   type compaction_result
 } from "../session/compaction";
+import { estimate_context_tokens } from "../session/compaction_utils";
 import {
   collect_entries_for_branch_summary,
   generate_branch_summary,
@@ -45,6 +46,8 @@ Agent.prototype.ReloadMessagesFromSession = ReloadMessagesFromSession;
 
 export function emitCompactionEnd(
   this: Agent,
+  requestId: string,
+  operationId: string,
   reason: string,
   result: any,
   aborted: boolean,
@@ -55,6 +58,9 @@ export function emitCompactionEnd(
     this.emit({
       kind: event_compaction_end,
       data: {
+        request_id: requestId,
+        operation_id: operationId,
+        session_id: this.session?.session_id() ?? "",
         reason: reason,
         result: result,
         aborted: aborted,
@@ -65,31 +71,103 @@ export function emitCompactionEnd(
   }
 }
 
+const operationId = (): string =>
+  `compact_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+
+const compactionError = (cause: unknown): Error => {
+  if (cause instanceof Error) return cause;
+  if (cause && typeof cause === "object") {
+    const value = cause as { reason?: unknown; message?: unknown; cause?: unknown };
+    const message = String(value.reason ?? value.message ?? "").trim();
+    if (message !== "") return new Error(message, { cause: value.cause });
+  }
+  return new Error(String(cause || "Compaction failed"));
+};
+
+const awaitWithAbort = <T>(promise: Promise<T>, signal: AbortSignal): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason ?? new DOMException("Compaction cancelled", "AbortError"));
+      return;
+    }
+    const onAbort = () => reject(signal.reason ?? new DOMException("Compaction cancelled", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (cause) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(cause);
+      },
+    );
+  });
+
+const runEffect = async <A>(effect: Effect.Effect<A, Error>): Promise<A> => {
+  const result = await Effect.runPromise(Effect.either(effect));
+  if (result._tag === "Left") throw result.left;
+  return result.right;
+};
+
+const validateResult = (result: {
+  summary: unknown;
+  firstKeptEntryId: unknown;
+  tokensBefore: unknown;
+}, entries: file_entry[]): void => {
+  if (typeof result.summary !== "string" || result.summary.trim() === "") {
+    throw new Error("Compaction produced an empty summary");
+  }
+  if (typeof result.firstKeptEntryId !== "string" ||
+      !entries.some((entry) => entry.id === result.firstKeptEntryId)) {
+    throw new Error("Compaction produced an invalid retained-history boundary");
+  }
+  if (!Number.isFinite(result.tokensBefore) || Number(result.tokensBefore) < 0) {
+    throw new Error("Compaction produced an invalid token count");
+  }
+};
+
 // Compact manually runs compaction on the agent's session.
-export async function Compact(this: Agent, ctx: AbortSignal, customInstructions: string): Promise<any> {
-  // TS Abort
-  if (typeof (this as any).Abort === "function") {
-    (this as any).Abort();
+export async function Compact(
+  this: Agent,
+  ctx: AbortSignal,
+  customInstructions: string,
+  requestId = operationId(),
+): Promise<any> {
+  if (this.compactionOperationId !== null) {
+    throw new Error("Compaction is already in progress");
   }
-
-  if (this.emit !== null) {
-    this.emit({
-      kind: event_compaction_start,
-      data: { reason: "manual" },
-    });
-  }
-
-  // Create cancel wrapper
+  const opId = requestId;
+  this.compactionOperationId = opId;
+  this.compactionReason = "manual";
   const controller = new AbortController();
-  const onAbort = () => controller.abort();
-  ctx.addEventListener("abort", onAbort);
-  this.compactionCancel = () => controller.abort();
+  let timedOut = false;
+  let ended = false;
+  const onAbort = () => controller.abort(ctx.reason);
+  if (ctx.aborted) onAbort();
+  else ctx.addEventListener("abort", onAbort, { once: true });
+  const timeoutMs = this.client.timeout_ms > 0 ? this.client.timeout_ms : 5 * 60 * 1000;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort(new Error(`Compaction timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+  this.compactionCancel = () => controller.abort(new DOMException("Compaction cancelled", "AbortError"));
+
+  this.emit?.({
+    kind: event_compaction_start,
+    data: {
+      request_id: requestId,
+      operation_id: opId,
+      session_id: this.session?.session_id() ?? "",
+      reason: "manual",
+    },
+  });
 
   try {
+    await this.AbortAndWait(controller.signal, false);
+    if (controller.signal.aborted) throw controller.signal.reason;
     if (this.session === null) {
-      const err = new Error("no session manager available");
-      emitCompactionEnd.call(this, "manual", null, false, false, err.message);
-      throw err;
+      throw new Error("No session manager available");
     }
 
     const pathEntries = this.session.get_branch(this.session.leaf_id());
@@ -101,22 +179,23 @@ export async function Compact(this: Agent, ctx: AbortSignal, customInstructions:
     }
 
     if (messageCount < 2) {
-      const err = new Error("Nothing to compact (no messages yet)");
-      emitCompactionEnd.call(this, "manual", null, false, false, err.message);
-      throw err;
+      throw new Error("Nothing to compact (no messages yet)");
     }
 
-    const settings = this.cfg.compaction;
+    const settings = {
+      ...this.cfg.compaction,
+      context_window: ModelContextWindow(
+        this.cfg.provider,
+        this.cfg.model,
+        this.cfg.compaction.context_window || 0,
+      ),
+    };
     const prep = prepare_manual_compaction(pathEntries, settings);
     if (prep === null) {
       if (pathEntries.length > 0 && pathEntries[pathEntries.length - 1].type === type_compaction) {
-        const err = new Error("Already compacted");
-        emitCompactionEnd.call(this, "manual", null, false, false, err.message);
-        throw err;
+        throw new Error("Already compacted");
       }
-      const err = new Error("Nothing to compact (session too small)");
-      emitCompactionEnd.call(this, "manual", null, false, false, err.message);
-      throw err;
+      throw new Error("Nothing to compact (session too small)");
     }
 
     // Support compaction hooks
@@ -124,19 +203,18 @@ export async function Compact(this: Agent, ctx: AbortSignal, customInstructions:
     let fromExt = false;
     for (const hook of extension_hooks) {
       if (hook.before_compact) {
-        const res = await Effect.runPromise(
-          hook.before_compact({
+        const res = await awaitWithAbort(
+          runEffect(hook.before_compact({
             preparation: prep,
             branchEntries: pathEntries,
             customInstructions: customInstructions,
             context: controller.signal,
-          })
+          })),
+          controller.signal,
         );
         if (res) {
           if (res.cancel) {
-            const err = new Error("Compaction cancelled");
-            emitCompactionEnd.call(this, "manual", null, true, false, err.message);
-            throw err;
+            throw new DOMException("Compaction cancelled", "AbortError");
           }
           if (res.compaction) {
             extCompaction = res.compaction;
@@ -158,7 +236,7 @@ export async function Compact(this: Agent, ctx: AbortSignal, customInstructions:
       tokensBefore = extCompaction.tokensBefore;
       details = extCompaction.details;
     } else {
-      const res = await Effect.runPromise(
+      const res = await runEffect(
         compact(controller.signal, this.client, prep, customInstructions)
       );
       summary = res.summary;
@@ -168,18 +246,21 @@ export async function Compact(this: Agent, ctx: AbortSignal, customInstructions:
     }
 
     if (controller.signal.aborted) {
-      const err = new Error("Compaction cancelled");
-      emitCompactionEnd.call(this, "manual", null, true, false, err.message);
-      throw err;
+      throw controller.signal.reason;
     }
 
+    validateResult({ summary, firstKeptEntryId: firstKeptEntryID, tokensBefore }, pathEntries);
+
     summary = appendMemoryAuthorityNote.call(this, summary);
-    await Effect.runPromise(
+    await runEffect(
       this.session.append_compaction(summary, firstKeptEntryID, tokensBefore, details, fromExt)
     );
 
     this.invalidateSystemPrompt();
     this.ReloadMessagesFromSession();
+    const estimatedTokensAfter = estimate_context_tokens(
+      this.session.build_session_context().messages ?? [],
+    ).tokens;
 
     // Call OnCompact hooks
     const newEntries = this.session.parsed_entries();
@@ -194,11 +275,12 @@ export async function Compact(this: Agent, ctx: AbortSignal, customInstructions:
       for (const hook of extension_hooks) {
         if (hook.on_compact) {
           try {
-            await Effect.runPromise(
-              hook.on_compact({
+            await awaitWithAbort(
+              runEffect(hook.on_compact({
                 compactionEntry: savedEntry,
                 fromExtension: fromExt,
-              })
+              })),
+              controller.signal,
             );
           } catch {}
         }
@@ -209,12 +291,35 @@ export async function Compact(this: Agent, ctx: AbortSignal, customInstructions:
       summary: summary,
       firstKeptEntryId: firstKeptEntryID,
       tokensBefore: tokensBefore,
+      estimatedTokensAfter,
     };
-    emitCompactionEnd.call(this, "manual", compactionResult, false, false, "");
+    emitCompactionEnd.call(this, requestId, opId, "manual", compactionResult, false, false, "");
+    ended = true;
     return compactionResult;
+  } catch (cause) {
+    const err = compactionError(cause);
+    const aborted = !timedOut && (
+      ctx.aborted ||
+      controller.signal.aborted ||
+      err.name === "AbortError" ||
+      err.message.toLowerCase().includes("cancelled")
+    );
+    const message = timedOut
+      ? `Compaction timed out after ${timeoutMs}ms`
+      : aborted ? "Compaction cancelled" : err.message;
+    if (!ended) {
+      emitCompactionEnd.call(this, requestId, opId, "manual", null, aborted, false, message);
+      ended = true;
+    }
+    throw new Error(message, { cause: err });
   } finally {
+    clearTimeout(timeout);
     ctx.removeEventListener("abort", onAbort);
-    this.compactionCancel = null;
+    if (this.compactionOperationId === opId) {
+      this.compactionOperationId = null;
+      this.compactionReason = null;
+      this.compactionCancel = null;
+    }
   }
 }
 
@@ -237,29 +342,58 @@ export function appendMemoryAuthorityNote(this: Agent, summary: string): string 
 }
 
 export async function RunAutoCompaction(this: Agent, ctx: AbortSignal, reason: string, willRetry: boolean): Promise<boolean> {
-  if (this.emit !== null) {
-    this.emit({
-      kind: event_compaction_start,
-      data: { reason: reason },
-    });
+  if (this.compactionOperationId !== null) {
+    return false;
   }
 
-  // Create cancel wrapper
+  const requestId = this.activeRequestId || operationId();
+  const opId = operationId();
+  this.compactionOperationId = opId;
+  this.compactionReason = reason;
   const controller = new AbortController();
-  const onAbort = () => controller.abort();
-  ctx.addEventListener("abort", onAbort);
-  this.compactionCancel = () => controller.abort();
+  let timedOut = false;
+  let ended = false;
+  const onAbort = () => controller.abort(ctx.reason);
+  if (ctx.aborted) onAbort();
+  else ctx.addEventListener("abort", onAbort, { once: true });
+  const timeoutMs = this.client.timeout_ms > 0 ? this.client.timeout_ms : 5 * 60 * 1000;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort(new Error(`Compaction timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+  this.compactionCancel = () => controller.abort(new DOMException("Compaction cancelled", "AbortError"));
+
+  this.emit?.({
+    kind: event_compaction_start,
+    data: {
+      request_id: requestId,
+      operation_id: opId,
+      session_id: this.session?.session_id() ?? "",
+      reason,
+    },
+  });
 
   try {
+    if (controller.signal.aborted) throw controller.signal.reason;
     if (this.session === null) {
+      emitCompactionEnd.call(this, requestId, opId, reason, null, false, false, "No session manager available");
+      ended = true;
       return false;
     }
 
     const pathEntries = this.session.get_branch(this.session.leaf_id());
-    const settings = this.cfg.compaction;
+    const settings = {
+      ...this.cfg.compaction,
+      context_window: ModelContextWindow(
+        this.cfg.provider,
+        this.cfg.model,
+        this.cfg.compaction.context_window || 0,
+      ),
+    };
     const prep = prepare_compaction(pathEntries, settings);
     if (prep === null) {
-      emitCompactionEnd.call(this, reason, null, false, false, "");
+      emitCompactionEnd.call(this, requestId, opId, reason, null, false, false, "Nothing to compact");
+      ended = true;
       return false;
     }
 
@@ -268,18 +402,18 @@ export async function RunAutoCompaction(this: Agent, ctx: AbortSignal, reason: s
     let fromExt = false;
     for (const hook of extension_hooks) {
       if (hook.before_compact) {
-        const res = await Effect.runPromise(
-          hook.before_compact({
+        const res = await awaitWithAbort(
+          runEffect(hook.before_compact({
             preparation: prep,
             branchEntries: pathEntries,
             customInstructions: "",
             context: controller.signal,
-          })
+          })),
+          controller.signal,
         );
         if (res) {
           if (res.cancel) {
-            emitCompactionEnd.call(this, reason, null, true, false, "Compaction cancelled");
-            return false;
+            throw new DOMException("Compaction cancelled", "AbortError");
           }
           if (res.compaction) {
             extCompaction = res.compaction;
@@ -301,7 +435,7 @@ export async function RunAutoCompaction(this: Agent, ctx: AbortSignal, reason: s
       tokensBefore = extCompaction.tokensBefore;
       details = extCompaction.details;
     } else {
-      const res = await Effect.runPromise(
+      const res = await runEffect(
         compact(controller.signal, this.client, prep, "")
       );
       summary = res.summary;
@@ -311,17 +445,21 @@ export async function RunAutoCompaction(this: Agent, ctx: AbortSignal, reason: s
     }
 
     if (controller.signal.aborted) {
-      emitCompactionEnd.call(this, reason, null, true, false, "Compaction cancelled");
-      return false;
+      throw controller.signal.reason;
     }
 
+    validateResult({ summary, firstKeptEntryId: firstKeptEntryID, tokensBefore }, pathEntries);
+
     summary = appendMemoryAuthorityNote.call(this, summary);
-    await Effect.runPromise(
+    await runEffect(
       this.session.append_compaction(summary, firstKeptEntryID, tokensBefore, details, fromExt)
     );
 
     this.invalidateSystemPrompt();
     this.ReloadMessagesFromSession();
+    const estimatedTokensAfter = estimate_context_tokens(
+      this.session.build_session_context().messages ?? [],
+    ).tokens;
 
     // Call OnCompact hooks
     const newEntries = this.session.parsed_entries();
@@ -336,11 +474,12 @@ export async function RunAutoCompaction(this: Agent, ctx: AbortSignal, reason: s
       for (const hook of extension_hooks) {
         if (hook.on_compact) {
           try {
-            await Effect.runPromise(
-              hook.on_compact({
+            await awaitWithAbort(
+              runEffect(hook.on_compact({
                 compactionEntry: savedEntry,
                 fromExtension: fromExt,
-              })
+              })),
+              controller.signal,
             );
           } catch {}
         }
@@ -351,20 +490,35 @@ export async function RunAutoCompaction(this: Agent, ctx: AbortSignal, reason: s
       summary: summary,
       firstKeptEntryId: firstKeptEntryID,
       tokensBefore: tokensBefore,
+      estimatedTokensAfter,
     };
-    emitCompactionEnd.call(this, reason, compactionResult, false, willRetry, "");
+    emitCompactionEnd.call(this, requestId, opId, reason, compactionResult, false, willRetry, "");
+    ended = true;
     return true;
-  } catch (err: any) {
-    const aborted = controller.signal.aborted;
-    let errMsg = "";
-    if (!aborted) {
-      errMsg = `Auto-compaction failed: ${err.message || String(err)}`;
+  } catch (cause) {
+    const err = compactionError(cause);
+    const aborted = !timedOut && (
+      ctx.aborted ||
+      controller.signal.aborted ||
+      err.name === "AbortError" ||
+      err.message.toLowerCase().includes("cancelled")
+    );
+    const errMsg = timedOut
+      ? `Auto-compaction timed out after ${timeoutMs}ms`
+      : aborted ? "Compaction cancelled" : `Auto-compaction failed: ${err.message}`;
+    if (!ended) {
+      emitCompactionEnd.call(this, requestId, opId, reason, null, aborted, false, errMsg);
+      ended = true;
     }
-    emitCompactionEnd.call(this, reason, null, aborted, false, errMsg);
-    throw err;
+    return false;
   } finally {
+    clearTimeout(timeout);
     ctx.removeEventListener("abort", onAbort);
-    this.compactionCancel = null;
+    if (this.compactionOperationId === opId) {
+      this.compactionOperationId = null;
+      this.compactionReason = null;
+      this.compactionCancel = null;
+    }
   }
 }
 
@@ -610,4 +764,3 @@ export async function NavigateToEntry(
 }
 
 Agent.prototype.NavigateToEntry = NavigateToEntry;
-

@@ -12,6 +12,11 @@ import {
   DesktopEvent,
   type ConnectionInfo,
 } from "./schemas";
+import {
+  event_compaction_start,
+  event_compaction_end,
+  event_request_end,
+} from "../backend/core/events";
 import { manager } from "../backend/session/manager";
 import { info } from "../backend/session/types";
 import { format_relative } from "../backend/session/list";
@@ -94,6 +99,7 @@ export type WsHistoryMessage = {
   content: string;
   thinking?: string;
   timestamp: string;
+  tokensBefore?: number;
   tools?: WsHistoryTool[];
 };
 
@@ -137,7 +143,7 @@ export type DesktopResponse =
   | { type: "session.history"; sessionId: string; cwd: string; messages: WsHistoryMessage[] }
   | { type: "deleteSession.success" }
   | { type: "deleteProjectSessions.success"; deleted: number }
-  | { type: "prompt.success" }
+  | { type: "prompt.success"; requestId: string }
   | { type: "interrupt.success" }
   | { type: "setModel.success" }
   | { type: "connections.list"; connections: ConnectionInfo[]; catalog: WsModelsCatalog }
@@ -257,6 +263,14 @@ const buildHistory = (sm: manager): WsHistoryMessage[] => {
         role: "assistant",
         content: line.text,
         thinking: line.thinking,
+        timestamp: "Just now",
+      });
+    } else if (line.role === "compactionSummary") {
+      history.push({
+        id: `msg-${history.length}`,
+        role: "compactionSummary",
+        content: line.text,
+        tokensBefore: line.tokens_before,
         timestamp: "Just now",
       });
     } else if (line.role === "tool") {
@@ -642,8 +656,14 @@ export class DesktopBridge {
           };
         }
         case "prompt": {
-          yield* runtime.prompt(command.text, command.attachments || undefined);
-          return { type: "prompt.success" as const };
+          yield* runtime.prompt(command.text, command.attachments || undefined, command.requestId);
+          if (!/^\/compact(?:\s|$)/.test(command.text.trim())) {
+            runtime.agent.emit?.({
+              kind: event_request_end,
+              data: { request_id: command.requestId },
+            });
+          }
+          return { type: "prompt.success" as const, requestId: command.requestId };
         }
         case "interrupt": {
           yield* runtime.interrupt();

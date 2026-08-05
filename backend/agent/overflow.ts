@@ -28,7 +28,27 @@ export function IsContextOverflowError(err: Error | null | undefined): boolean {
   if (!err) {
     return false;
   }
-  const msg = err.message;
+  const messages: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = err;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (current instanceof Error) {
+      messages.push(current.message);
+      current = current.cause;
+      continue;
+    }
+    if (typeof current === "object") {
+      const value = current as { reason?: unknown; message?: unknown; cause?: unknown };
+      if (typeof value.reason === "string") messages.push(value.reason);
+      if (typeof value.message === "string") messages.push(value.message);
+      current = value.cause;
+      continue;
+    }
+    messages.push(String(current));
+    break;
+  }
+  const msg = messages.join(" ");
   for (const p of overflowPatterns) {
     if (p.test(msg)) {
       return true;

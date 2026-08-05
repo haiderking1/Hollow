@@ -46,11 +46,12 @@ interface BackendHistoryTool {
 }
 
 interface BackendHistoryMessage {
-  id: string
-  role: "user" | "assistant" | "system"
+  id?: string
+  role: "user" | "assistant" | "system" | "compactionSummary"
   content: string
   thinking?: string
-  timestamp: string
+  timestamp?: string
+  tokensBefore?: number
   tools?: BackendHistoryTool[]
 }
 
@@ -82,7 +83,24 @@ type BackendMessage =
       result?: string
       details?: string
     }
-  | { type: "done" }
+  | { type: "done"; requestId?: string }
+  | { type: "compaction.start"; requestId: string; operationId: string; sessionId?: string; reason: string }
+  | {
+      type: "compaction.end"
+      requestId: string
+      operationId: string
+      sessionId?: string
+      reason: string
+      result?: {
+        summary: string
+        firstKeptEntryId: string
+        tokensBefore: number
+        estimatedTokensAfter?: number
+      }
+      aborted: boolean
+      willRetry: boolean
+      errorMessage?: string
+    }
   | { type: "error"; message: string }
   | { type: "loop.status"; active: boolean; iteration: number; maxIterations: number; task: string }
 
@@ -100,6 +118,9 @@ const emptyCatalog = (): ModelCatalog => ({
 })
 
 const nowIso = () => new Date().toISOString()
+
+const newRequestId = () =>
+  globalThis.crypto?.randomUUID?.() ?? `request-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
 function commandText(command: Record<string, unknown>, key: string) {
   const value = command[key]
@@ -254,6 +275,13 @@ function mapTool(tool: BackendHistoryTool | (BackendMessage & { type: "tool" }))
 
 function mapHistory(messages: BackendHistoryMessage[] | null | undefined): RawMessage[] {
   return (messages ?? []).flatMap((message): RawMessage[] => {
+    if (message.role === "compactionSummary") {
+      return [{
+        role: "compactionSummary",
+        content: [{ type: "text", text: message.content }],
+        tokensBefore: message.tokensBefore,
+      }]
+    }
     if (message.role === "system") {
       return [{ role: "assistant", content: [{ type: "text", text: message.content }] }]
     }
@@ -281,7 +309,7 @@ function mapSession(session: BackendSession): AgentSessionInfo {
   }
 }
 
-class HollowClient {
+export class HollowClient {
   private listeners = new Set<Listener>()
   private connectStarted = false
   private ipcUnsubscribe: (() => void) | null = null
@@ -296,6 +324,15 @@ class HollowClient {
   private awaitingNewSession = false
   /** After deleting the active thread, don't resurrect it from a stale listSessions. */
   private skipAutoOpenUntilEmpty = false
+  private activeRequest: {
+    id: string
+    compaction: boolean
+    reason: string
+    cancellationPending: boolean
+    compactionOperations: Set<string>
+    /** Compaction.end already processed for this operation; duplicate deliveries are dropped. */
+    endedCompactionOperations: Set<string>
+  } | null = null
 
   onEvent(listener: Listener) {
     this.listeners.add(listener)
@@ -434,21 +471,33 @@ class HollowClient {
           })
         break
       }
-      case "prompt":
+      case "prompt": {
+        const text = commandText(command, "message")
+        const requestId = newRequestId()
+        const compaction = /^\/compact(?:\s|$)/.test(text)
         this.streaming = true
         this.streamBlocks = []
         this.toolMetaMap.clear()
-        this.dispatch({
+        this.activeRequest = {
+          id: requestId,
+          compaction,
+          reason: compaction ? "manual" : "",
+          cancellationPending: false,
+          compactionOperations: new Set(),
+          endedCompactionOperations: new Set(),
+        }
+        this.dispatchPrompt({
           type: "prompt",
-          text: commandText(command, "message"),
+          text,
+          requestId,
           ...(commandText(command, "cwd") ? { cwd: commandText(command, "cwd") } : {}),
-        })
+        }, requestId)
         this.emit({ type: "response", command: "get_state", success: true, data: this.state() })
         break
+      }
       case "abort":
-        this.dispatch({ type: "interrupt" })
-        this.streaming = false
-        this.emit({ type: "agent_end" })
+        if (this.activeRequest) this.activeRequest.cancellationPending = true
+        this.dispatchInterrupt()
         break
       case "set_model":
         this.dispatch({
@@ -546,6 +595,98 @@ class HollowClient {
       .catch((err) => {
         this.emit({ type: "bridge_error", error: String(err?.message || err) })
       })
+  }
+
+  private dispatchPrompt(message: Record<string, unknown>, requestId: string) {
+    if (!window.hollowDesktop) {
+      this.failPromptDispatch(requestId, "Desktop IPC unavailable — run via electron:dev")
+      return
+    }
+    void window.hollowDesktop
+      .dispatch(message)
+      .then((result) => {
+        if (!result.ok) {
+          this.failPromptDispatch(requestId, result.error ?? "dispatch failed")
+          return
+        }
+        // prompt.success is only an acknowledgement. The event stream owns the
+        // request's terminal done/compaction.end lifecycle.
+        if (result.data !== undefined) this.handleDispatchResponse(result.data)
+      })
+      .catch((err) => this.failPromptDispatch(requestId, String(err?.message || err)))
+  }
+
+  private dispatchInterrupt() {
+    if (!window.hollowDesktop) return
+    void window.hollowDesktop
+      .dispatch({ type: "interrupt" })
+      .then((result) => {
+        if (result.ok && result.data !== undefined) this.handleDispatchResponse(result.data)
+      })
+      .catch(() => {
+        // The prompt remains active until its own terminal event, even if the
+        // best-effort cancellation IPC call fails.
+      })
+  }
+
+  private failPromptDispatch(requestId: string, error: string) {
+    const active = this.activeRequest
+    if (!active || active.id !== requestId) return
+    if (active.compaction) {
+      this.finishCompaction({
+        type: "compaction.end",
+        requestId,
+        operationId: requestId,
+        reason: active.reason,
+        aborted: false,
+        willRetry: false,
+        errorMessage: error,
+      })
+      return
+    }
+    const prefix = this.streamBlocks.length ? "\n\n" : ""
+    this.streamBlocks = appendText(this.streamBlocks, `${prefix}Agent error: ${error}`)
+    this.finishNormalRequest(requestId)
+  }
+
+  private finishNormalRequest(requestId?: string) {
+    const active = this.activeRequest
+    if (!active || (requestId && active.id !== requestId) || active.compaction) return
+    if (active.cancellationPending && this.streamBlocks.length === 0) {
+      this.streamBlocks = appendText(this.streamBlocks, "Generation cancelled.")
+    }
+    if (this.streamBlocks.length > 0) this.emitAssistantUpdate()
+    this.streaming = false
+    this.activeRequest = null
+    this.toolMetaMap.clear()
+    this.emit({ type: "agent_end", requestId: active.id })
+    this.dispatch({ type: "listSessions" })
+  }
+
+  private finishCompaction(message: Extract<BackendMessage, { type: "compaction.end" }>) {
+    const active = this.activeRequest
+    if (!active || active.id !== message.requestId) return
+    if (active.endedCompactionOperations.has(message.operationId)) return
+    active.endedCompactionOperations.add(message.operationId)
+    active.compactionOperations.delete(message.operationId)
+    this.emit({
+      type: "compaction_end",
+      requestId: message.requestId,
+      operationId: message.operationId,
+      sessionId: message.sessionId,
+      reason: message.reason,
+      result: message.result,
+      aborted: message.aborted,
+      willRetry: message.willRetry,
+      errorMessage: message.errorMessage,
+    })
+    if (message.reason === "manual") {
+      this.streaming = false
+      this.activeRequest = null
+      this.streamBlocks = []
+      this.toolMetaMap.clear()
+    }
+    this.dispatch({ type: "listSessions" })
   }
 
   // Like dispatch(), but failures surface as a settings_error event (which the
@@ -708,21 +849,55 @@ class HollowClient {
         this.emitAssistantUpdate()
         break
       }
-      case "done":
-        if (this.streamBlocks.length > 0) {
-          this.emitAssistantUpdate()
+      case "compaction.start": {
+        const active = this.activeRequest
+        if (
+          !active ||
+          active.id !== message.requestId ||
+          active.compactionOperations.has(message.operationId) ||
+          active.endedCompactionOperations.has(message.operationId)
+        )
+          break
+        active.compactionOperations.add(message.operationId)
+        if (message.reason === "manual") {
+          active.compaction = true
         }
-        this.streaming = false
-        this.toolMetaMap.clear()
-        this.emit({ type: "agent_end" })
-        this.dispatch({ type: "listSessions" })
+        active.reason = message.reason
+        this.emit({
+          type: "compaction_start",
+          requestId: message.requestId,
+          operationId: message.operationId,
+          sessionId: message.sessionId,
+          reason: message.reason,
+        })
+        break
+      }
+      case "compaction.end":
+        this.finishCompaction(message)
+        break
+      case "done":
+        this.finishNormalRequest(message.requestId)
         break
       case "error":
         this.awaitingNewSession = false
-        this.streaming = false
-        this.toolMetaMap.clear()
-        this.emit({ type: "bridge_error", error: message.message })
-        this.emit({ type: "agent_end" })
+        if (this.activeRequest?.compaction) {
+          this.finishCompaction({
+            type: "compaction.end",
+            requestId: this.activeRequest.id,
+            operationId: this.activeRequest.id,
+            reason: this.activeRequest.reason,
+            aborted: this.activeRequest.cancellationPending,
+            willRetry: false,
+            errorMessage: message.message,
+          })
+        } else if (this.activeRequest) {
+          const requestId = this.activeRequest.id
+          const prefix = this.streamBlocks.length ? "\n\n" : ""
+          this.streamBlocks = appendText(this.streamBlocks, `${prefix}Agent error: ${message.message}`)
+          this.finishNormalRequest(requestId)
+        } else {
+          this.emit({ type: "bridge_error", error: message.message })
+        }
         break
       case "loop.status":
         this.emit({

@@ -4,6 +4,11 @@
 //   token / thinking / tool / done / error / session.* / models.catalog / ready
 
 import type { DesktopResponse } from "../desktop_bridge";
+import {
+  event_compaction_start,
+  event_compaction_end,
+  event_request_end,
+} from "../../backend/core/events";
 
 // Renderer BackendMessage contract — mirrors hollowClient.ts BackendMessage.
 export type BackendMessage =
@@ -27,7 +32,20 @@ export type BackendMessage =
       result?: string;
       details?: string;
     }
-  | { type: "done" }
+  | { type: "prompt.success"; requestId: string }
+  | { type: "done"; requestId?: string }
+  | { type: "compaction.start"; requestId: string; operationId: string; sessionId?: string; reason: string }
+  | {
+      type: "compaction.end";
+      requestId: string;
+      operationId: string;
+      sessionId?: string;
+      reason: string;
+      result?: { summary: string; firstKeptEntryId: string; tokensBefore: number; estimatedTokensAfter?: number };
+      aborted: boolean;
+      willRetry: boolean;
+      errorMessage?: string;
+    }
   | { type: "error"; message: string }
   | { type: "loop.status"; active: boolean; iteration: number; maxIterations: number; task: string };
 
@@ -36,7 +54,6 @@ type CoreEvent = { kind: string; data: unknown };
 const event_assistant_start = "assistant_start";
 const event_assistant_delta = "assistant_delta";
 const event_assistant_thinking_delta = "assistant_thinking_delta";
-const event_assistant_message = "assistant_message";
 const event_tool_start = "tool_start";
 const event_tool_delta = "tool_delta";
 const event_tool_result = "tool_result";
@@ -72,9 +89,8 @@ export const mapAgentEvent = (event: unknown): BackendMessage | null => {
       return text === "" ? null : { type: "thinking", text };
     }
 
-    case event_assistant_message:
-      // A full assistant message + turn completion.
-      return { type: "done" };
+    case event_request_end:
+      return { type: "done", requestId: string_field(as_record(data), "request_id") || undefined };
 
     case event_tool_start: {
       const d = as_record(data);
@@ -143,6 +159,50 @@ export const mapAgentEvent = (event: unknown): BackendMessage | null => {
         iteration: Number(d.iteration) || 0,
         maxIterations: Number(d.maxIterations) || 0,
         task: as_string(d.task)
+      };
+    }
+
+    case event_compaction_start: {
+      const d = as_record(data);
+      const requestId = string_field(d, "request_id");
+      const operationId = string_field(d, "operation_id") || requestId;
+      if (requestId === "" || operationId === "") return null;
+      return {
+        type: "compaction.start",
+        requestId,
+        operationId,
+        sessionId: string_field(d, "session_id") || undefined,
+        reason: string_field(d, "reason") || "manual",
+      };
+    }
+
+    case event_compaction_end: {
+      const d = as_record(data);
+      const requestId = string_field(d, "request_id");
+      const operationId = string_field(d, "operation_id") || requestId;
+      if (requestId === "" || operationId === "") return null;
+      const result = as_record(d.result);
+      const summary = string_field(result, "summary");
+      const firstKeptEntryId = string_field(result, "firstKeptEntryId");
+      const tokensBefore = Number(result.tokensBefore);
+      const estimatedTokensAfter = Number(result.estimatedTokensAfter);
+      return {
+        type: "compaction.end",
+        requestId,
+        operationId,
+        sessionId: string_field(d, "session_id") || undefined,
+        reason: string_field(d, "reason") || "manual",
+        result: summary !== "" && Number.isFinite(tokensBefore)
+          ? {
+              summary,
+              firstKeptEntryId,
+              tokensBefore,
+              ...(Number.isFinite(estimatedTokensAfter) ? { estimatedTokensAfter } : {}),
+            }
+          : undefined,
+        aborted: d.aborted === true,
+        willRetry: d.will_retry === true,
+        errorMessage: string_field(d, "error_message") || undefined,
       };
     }
 
@@ -215,8 +275,7 @@ export const mapDispatchResponse = (
       return { type: "ready" };
 
     case "prompt.success":
-      // Always send "done" after Prompt returns.
-      return { type: "done" };
+      return { type: "ready" };
 
     default:
       return { type: "ready" };

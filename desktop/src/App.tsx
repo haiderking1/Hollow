@@ -7,8 +7,9 @@ import TerminalPanel from "./components/TerminalPanel"
 import SettingsPage from "./components/settings"
 import { SearchModal } from "./components/SearchModal"
 import { DirectoryPicker } from "./components/DirectoryPicker"
-import type { Message, Block, RepoStatus } from "./types"
+import type { Message, Block, CompactionMessage, RepoStatus } from "./types"
 import { hollowAgent } from "./agent/hollowClient"
+import { detachesAssistantStream } from "./agent/compaction-lifecycle"
 import {
   type AgentEvent,
   type AgentModel,
@@ -84,6 +85,30 @@ function pickNextSession(
     if (sameProject.length > 0) return sameProject[0]
   }
   return [...filtered].sort(byModified)[0]
+}
+
+function upsertCompactionMessage(
+  messages: Message[],
+  operationId: string,
+  update: (current?: CompactionMessage) => CompactionMessage,
+) {
+  const index = messages.findIndex(
+    (message) => message.role === "compaction" && message.operationId === operationId,
+  )
+  if (index === -1) {
+    const streamingIndex = messages.findIndex(
+      (message) => message.role === "assistant" && message.streaming,
+    )
+    if (streamingIndex === -1) return [...messages, update()]
+    const next = [...messages]
+    next.splice(streamingIndex, 0, update())
+    return next
+  }
+  const current = messages[index]
+  if (current.role !== "compaction") return messages
+  const next = [...messages]
+  next[index] = update(current)
+  return next
 }
 
 export default function App() {
@@ -314,6 +339,67 @@ export default function App() {
           }
           break
         }
+        case "compaction_start": {
+          if (event.sessionId && currentSessionIdRef.current && event.sessionId !== currentSessionIdRef.current) break
+          if (detachesAssistantStream(event.reason)) {
+            streamingIdRef.current = null
+            lastBlocksRef.current = []
+          }
+          setMessages((prev) =>
+            upsertCompactionMessage(prev, event.operationId, (current) => {
+              if (current && current.status !== "running") return current
+              return {
+                id: current?.id ?? `compaction-${event.operationId}`,
+                role: "compaction",
+                requestId: event.requestId,
+                operationId: event.operationId,
+                sessionId: event.sessionId,
+                status: "running",
+                reason: event.reason,
+                cancellationPending: current?.cancellationPending,
+              }
+            }),
+          )
+          setIsStreaming(true)
+          break
+        }
+        case "compaction_end": {
+          if (event.sessionId && currentSessionIdRef.current && event.sessionId !== currentSessionIdRef.current) break
+          const status = event.aborted
+            ? "cancelled"
+            : event.errorMessage
+              ? "error"
+              : "success"
+          setMessages((prev) => {
+            const finalized = prev.map((message) =>
+              detachesAssistantStream(event.reason) && message.role === "assistant" && message.streaming
+                ? { ...message, streaming: false }
+                : message,
+            )
+            return upsertCompactionMessage(finalized, event.operationId, (current) => ({
+              id: current?.id ?? `compaction-${event.operationId}`,
+              role: "compaction",
+              requestId: event.requestId,
+              operationId: event.operationId,
+              sessionId: event.sessionId,
+              status,
+              reason: event.reason,
+              summary: event.result?.summary,
+              tokensBefore: event.result?.tokensBefore,
+              estimatedTokensAfter: event.result?.estimatedTokensAfter,
+              errorMessage: event.errorMessage,
+              willRetry: event.willRetry,
+            }))
+          })
+          if (detachesAssistantStream(event.reason)) {
+            streamingIdRef.current = null
+            lastBlocksRef.current = []
+            setIsStreaming(false)
+          }
+          const cwd = projectCwdRef.current
+          if (cwd && cwd !== "~") refreshRepoStatusRef.current(cwd)
+          break
+        }
         case "session_info_changed": {
           refreshSessionList()
           break
@@ -458,6 +544,20 @@ export default function App() {
   }, [applyAssistantContent, refreshSessionList])
 
   const handleSend = useCallback((content: string) => {
+    const compaction = /^\/compact(?:\s|$)/.test(content)
+    if (compaction) {
+      streamingIdRef.current = null
+      lastBlocksRef.current = []
+      setIsStreaming(true)
+      const sessionCwd = sessionListRef.current.find((s) => s.id === currentSessionIdRef.current)?.cwd
+      send({
+        type: "prompt",
+        message: content,
+        cwd: sessionCwd ?? projectCwdRef.current ?? undefined,
+      })
+      return
+    }
+
     const now = Date.now()
     const assistantId = `msg-${now + 1}`
     streamingIdRef.current = assistantId
@@ -478,9 +578,12 @@ export default function App() {
 
   const handleAbort = useCallback(() => {
     send({ type: "abort" })
-    setIsStreaming(false)
     setMessages((prev) =>
-      prev.map((m) => (m.role === "assistant" && m.streaming ? { ...m, streaming: false } : m)),
+      prev.map((message) =>
+        message.role === "compaction" && message.status === "running"
+          ? { ...message, cancellationPending: true }
+          : message,
+      ),
     )
   }, [])
 

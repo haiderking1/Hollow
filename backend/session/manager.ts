@@ -392,7 +392,15 @@ export class manager {
       const raw = JSON.stringify(entry);
       this._entries.push(raw);
       this._leaf_id = id;
-      return this.persist_entry(raw, true);
+      return this.persist_entry(raw, true).pipe(
+        Effect.tapError(() =>
+          Effect.sync(() => {
+            const index = this._entries.lastIndexOf(raw);
+            if (index >= 0) this._entries.splice(index, 1);
+            if (this._leaf_id === id) this._leaf_id = parent;
+          }),
+        ),
+      );
     } catch (err) {
       return Effect.fail(err instanceof Error ? err : new Error(String(err)));
     }
@@ -771,4 +779,3 @@ export const start_new = (cwd: string): Effect.Effect<manager, Error> => {
     catch: (cause) => cause instanceof Error ? cause : new Error(String(cause)),
   });
 };
-

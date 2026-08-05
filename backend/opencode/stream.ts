@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { client, client_error, stream_status_error } from "./client";
+import { client, client_error, provider_error, stream_status_error, with_request_abort_context } from "./client";
 import { prepare_request_messages } from "./messages";
 import { chat_responses_stream_once } from "./codex_stream";
 import { drain_sse_buffer, consume_sse_block, err_sse_done, type sse_block } from "./sse";
@@ -116,11 +116,23 @@ export const is_retriable_stream_error = (err: unknown): boolean => {
     return false;
   }
   if (err instanceof stream_status_error) {
-    return err.status === 429 || err.status === 502 || err.status === 503;
+    return err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504;
   }
+  if (typeof err === "object" && err !== null && (err as { _tag?: unknown })._tag === "ClientError") {
+    const wrapped = err as client_error;
+    if (wrapped.aborted) return false;
+    if (wrapped.timeout) return true;
+    if (wrapped.status !== undefined) {
+      return wrapped.status === 429 || wrapped.status === 502 || wrapped.status === 503 || wrapped.status === 504;
+    }
+    return is_retriable_stream_error(wrapped.cause);
+  }
+  if (err instanceof provider_error && err.timeout) return true;
   if (err instanceof Error) {
     const text = err.message.toLowerCase();
     return (
+      text.includes("fetch failed") ||
+      text.includes("network error") ||
       text.includes("connection reset") ||
       text.includes("unexpected eof") ||
       text.includes("empty sse") ||
@@ -145,7 +157,6 @@ export const chat_stream_retry_impl = (
   req: chat_request,
   cb: stream_callbacks
 ): Effect.Effect<message, client_error> => {
-  const worker_client = c.without_timeout();
   return Effect.tryPromise({
     try: async () => {
       let last_err: unknown = null;
@@ -154,8 +165,9 @@ export const chat_stream_retry_impl = (
           if (ctx.aborted) {
             throw ctx.reason || new Error("aborted");
           }
-          const msg = await Effect.runPromise(chat_stream_once(worker_client, ctx, req, cb));
-          return msg;
+          const result = await Effect.runPromise(Effect.either(chat_stream_once(c, ctx, req, cb)));
+          if (result._tag === "Left") throw result.left;
+          return result.right;
         } catch (err) {
           last_err = err;
           if (ctx.aborted || !is_retriable_stream_error(err) || attempt === 3) {
@@ -171,7 +183,7 @@ export const chat_stream_retry_impl = (
       }
       throw last_err;
     },
-    catch: (cause) => client_error("chat_stream_retry", cause),
+    catch: (cause) => client_error("chat_stream_retry", cause, ctx),
   });
 };
 
@@ -195,9 +207,10 @@ export const chat_stream_once = (
 
       const body = marshal_chat_request(req);
       const url = `${c.base_url}/chat/completions`;
+      return with_request_abort_context(ctx, c.timeout_ms, async (signal) => {
       const resp = await fetch(url, {
         method: "POST",
-        signal: ctx,
+        signal,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${c.api_key}`,
@@ -208,17 +221,16 @@ export const chat_stream_once = (
 
       if (resp.status >= 400) {
         const raw = await resp.text();
-        let api_err: { error?: { message?: string } } | null = null;
+        let api_err: { error?: { message?: string; code?: string; type?: string } } | undefined;
         try {
-          api_err = JSON.parse(raw) as { error?: { message?: string } };
+          api_err = JSON.parse(raw) as { error?: { message?: string; code?: string; type?: string } };
         } catch {}
-        let msg = "";
-        if (api_err?.error?.message !== undefined && api_err.error.message !== "") {
-          msg = `opencode ${resp.status}: ${api_err.error.message}`;
-        } else {
-          msg = `opencode ${resp.status}: ${raw.trim()}`;
-        }
-        throw new stream_status_error(resp.status, msg);
+        const message = api_err?.error?.message?.trim() || raw.trim() || resp.statusText;
+        throw new stream_status_error(
+          resp.status,
+          `opencode ${resp.status}: ${message}`,
+          api_err?.error?.code ?? api_err?.error?.type,
+        );
       }
 
       if (!resp.body) {
@@ -249,8 +261,8 @@ export const chat_stream_once = (
       };
 
       const process_block = (block: sse_block): void | Error => {
-        if (ctx.aborted) {
-          return ctx.reason || new Error("aborted");
+        if (signal.aborted) {
+          return signal.reason || new Error("aborted");
         }
         if (block.done) {
           done_flag = true;
@@ -379,8 +391,8 @@ export const chat_stream_once = (
 
       sanitize_embedded_thinking(msg);
       return msg;
+      });
     },
-    catch: (cause) => client_error("chat_stream", cause),
+    catch: (cause) => client_error("chat_stream", cause, ctx),
   });
 };
-

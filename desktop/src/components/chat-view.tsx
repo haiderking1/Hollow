@@ -6,6 +6,7 @@ import { ToolBlock } from "./tool-block"
 import { SwarmAgentBlock } from "./swarm-block"
 import { ThinkingBlock } from "./thinking-block"
 import { TodoBlock } from "./todo-block"
+import { CompactionSummary } from "./compaction-summary"
 
 const BOTTOM_THRESHOLD_PX = 80
 
@@ -96,6 +97,10 @@ const MessageRow = memo(function MessageRow({ message }: { message: Message }) {
         </div>
       </div>
     )
+  }
+
+  if (message.role === "compaction") {
+    return <CompactionSummary message={message} />
   }
 
   const blocks = message.blocks

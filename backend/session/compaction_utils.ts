@@ -319,6 +319,11 @@ export type context_usage_estimate = {
 };
 
 const ESTIMATED_IMAGE_CHARS = 4800;
+const utf8_encoder = new TextEncoder();
+
+/** Conservative prompt estimate used only for compaction preflight. */
+export const estimate_serialized_tokens = (text: string): number =>
+  Math.ceil(utf8_encoder.encode(text).length / 3);
 
 export const estimate_text_and_image_content_chars = (msg: message): number => {
   const blocks = content_blocks(msg);
@@ -558,4 +563,3 @@ export const get_latest_compaction_entry = (branch: file_entry[]): file_entry | 
   }
   return null;
 };
-

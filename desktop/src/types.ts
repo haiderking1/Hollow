@@ -57,7 +57,25 @@ export interface AssistantMessage {
   tokens?: string
 }
 
-export type Message = UserMessage | AssistantMessage
+export type CompactionStatus = "running" | "success" | "error" | "cancelled"
+
+export interface CompactionMessage {
+  id: string
+  role: "compaction"
+  requestId: string
+  operationId: string
+  sessionId?: string
+  status: CompactionStatus
+  reason?: string
+  summary?: string
+  tokensBefore?: number
+  estimatedTokensAfter?: number
+  errorMessage?: string
+  cancellationPending?: boolean
+  willRetry?: boolean
+}
+
+export type Message = UserMessage | AssistantMessage | CompactionMessage
 
 /** Composer status-bar snapshot: uncommitted git changes, current branch, context-window fill. */
 export interface RepoStatus {

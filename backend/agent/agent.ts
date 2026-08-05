@@ -32,9 +32,7 @@ import {
   event_tool_delta,
   event_tool_result,
   event_system,
-  event_error,
-  event_compaction_start,
-  event_compaction_end
+  event_error
 } from "../core/events";
 import { manager as McpManager } from "../mcp/manager";
 import { IsContextOverflowError } from "./overflow";
@@ -42,6 +40,32 @@ import { detect_verify_command } from "./obligations/derive";
 import { extract_task_verify_commands } from "./obligations/match";
 import { seed_continuity_reads } from "./evidence/continuity";
 import { sessionFingerprints } from "./session_fingerprints";
+
+const providerFailureError = (cause: unknown): Error => {
+  if (cause instanceof Error) return cause;
+  if (cause && typeof cause === "object") {
+    const value = cause as {
+      reason?: unknown;
+      message?: unknown;
+      cause?: unknown;
+      status?: unknown;
+      code?: unknown;
+      timeout?: unknown;
+      aborted?: unknown;
+    };
+    const error = new Error(String(value.reason ?? value.message ?? "Provider request failed"), {
+      cause: value.cause,
+    });
+    Object.assign(error, {
+      status: value.status,
+      code: value.code,
+      timeout: value.timeout,
+      aborted: value.aborted,
+    });
+    return error;
+  }
+  return new Error(String(cause || "Provider request failed"));
+};
 
 export interface toolResult {
   output: string;
@@ -109,6 +133,9 @@ export class Agent {
   };
   completionRounds = 0;
   compactionCancel: (() => void) | null = null;
+  compactionOperationId: string | null = null;
+  compactionReason: string | null = null;
+  activeRequestId = "";
   overflowRecoveryAttempted = false;
   memStore: Store | null = null;
   cachedSystemPrompt = "";
@@ -245,7 +272,7 @@ export class Agent {
   recordEvidence!: (name: string, argsJSON: string, beforeHash: string) => void;
 
   toolMenu!: () => tool[];
-  Compact!: (ctx: AbortSignal, customInstructions: string) => Promise<any>;
+  Compact!: (ctx: AbortSignal, customInstructions: string, requestId?: string) => Promise<any>;
   RunAutoCompaction!: (ctx: AbortSignal, reason: string, willRetry: boolean) => Promise<boolean>;
   NavigateToEntry!: (ctx: AbortSignal, targetID: string, opts: any) => Promise<boolean>;
   maybeSpawnBackgroundReview!: (shouldReviewMemory: boolean) => void;
@@ -385,9 +412,9 @@ export class Agent {
     }
   }
 
-  async AbortAndWait(): Promise<void> {
+  async AbortAndWait(ctx?: AbortSignal, includeCompaction = true): Promise<void> {
     const cancel = this.cancel;
-    const compactionCancel = this.compactionCancel;
+    const compactionCancel = includeCompaction ? this.compactionCancel : null;
     const userAbortCancel = this.userAbortCancel;
     this.killActiveBash();
     if (userAbortCancel !== null) {
@@ -403,6 +430,9 @@ export class Agent {
     while (true) {
       if (!this.busy) {
         break;
+      }
+      if (ctx?.aborted) {
+        throw ctx.reason ?? new DOMException("Operation cancelled", "AbortError");
       }
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
@@ -453,21 +483,6 @@ export class Agent {
 
   MemoryStore(): Store | null {
     return this.memStore;
-  }
-
-  emitCompactionEnd(reason: string, result: any, aborted: boolean, willRetry: boolean, errMsg: string): void {
-    if (this.emit !== null) {
-      this.emit({
-        kind: event_compaction_end,
-        data: {
-          reason: reason,
-          result: result,
-          aborted: aborted,
-          will_retry: willRetry,
-          error_message: errMsg,
-        },
-      });
-    }
   }
 
   hydrateNudgeCountersLocked(): void {
@@ -543,15 +558,6 @@ export class Agent {
       return true;
     }
     return false;
-  }
-
-  emitCompactionStart(reason: string): void {
-    if (this.emit !== null) {
-      this.emit({
-        kind: event_compaction_start,
-        data: { reason: reason },
-      });
-    }
   }
 
   systemPrompt(): string {
@@ -744,7 +750,7 @@ export class Agent {
 
       let msg: message;
       try {
-        msg = await Effect.runPromise(
+        const streamResult = await Effect.runPromise(Effect.either(
           this.client.chat_stream(ctx, req, {
             on_thinking: (delta: string) => {
               startStream();
@@ -756,15 +762,17 @@ export class Agent {
               this.streamDelta(delta);
               streamedTextLen += delta.length;
             },
-          })
-        );
+          }),
+        ));
+        if (streamResult._tag === "Left") throw providerFailureError(streamResult.left);
+        msg = streamResult.right;
       } catch (err: any) {
         if (ctx.aborted) {
           this.interrupted();
           return;
         }
         // Check for context overflow
-        const errObj = err instanceof Error ? err : new Error(String(err?.reason || err?.message || err));
+        let errObj = err instanceof Error ? err : new Error(String(err?.reason || err?.message || err));
         if (this.session !== null && IsContextOverflowError(errObj)) {
           if (!this.overflowRecoveryAttempted) {
             this.overflowRecoveryAttempted = true;
@@ -778,8 +786,10 @@ export class Agent {
               }
             } catch {}
           } else {
-            this.emitCompactionEnd("overflow", null, false, false,
-              "Context overflow recovery failed after one compact-and-retry attempt. Try reducing context or switching to a larger-context model.");
+            errObj = new Error(
+              "Context overflow recovery failed after one compact-and-retry attempt. Try reducing context or switching to a larger-context model.",
+              { cause: errObj },
+            );
           }
         }
         this.emitError(errObj.message);
@@ -1064,6 +1074,11 @@ Agent.prototype.prompt = async function (
     }
   }
 
+  if (controller.signal.aborted || this.userAbortFired()) {
+    this.interrupted();
+    return;
+  }
+
   const userMsg: message = {
     role: "user",
     content: string_content(userText),
@@ -1128,5 +1143,3 @@ Agent.prototype.Prompt = async function (
 ): Promise<void> {
   return this.prompt(ctx, cfg, userText, attachments, "", emit);
 };
-
-

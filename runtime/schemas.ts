@@ -43,6 +43,7 @@ export type AttachmentSchema = Schema.Schema.Type<typeof AttachmentSchema>;
 export const Prompt = Schema.Struct({
   type: Schema.Literal("prompt"),
   text: Schema.String,
+  requestId: Schema.String,
   cwd: Schema.optional(Schema.String),
   attachments: Schema.optional(Schema.Array(AttachmentSchema)),
 });
@@ -151,6 +152,16 @@ export const AssistantDeltaEvent = Schema.Struct({
   data: Schema.String,
 });
 
+export const AssistantThinkingDeltaEvent = Schema.Struct({
+  kind: Schema.Literal("assistant_thinking_delta"),
+  data: Schema.String,
+});
+
+export const RequestEndEvent = Schema.Struct({
+  kind: Schema.Literal("request_end"),
+  data: Schema.Unknown,
+});
+
 export const ToolStartEvent = Schema.Struct({
   kind: Schema.Literal("tool_start"),
   data: Schema.Unknown,
@@ -198,6 +209,8 @@ export const ConnectionChangedEvent = Schema.Struct({
 export const DesktopEvent = Schema.Union(
   AssistantStartEvent,
   AssistantDeltaEvent,
+  AssistantThinkingDeltaEvent,
+  RequestEndEvent,
   ToolStartEvent,
   ToolDeltaEvent,
   ToolResultEvent,

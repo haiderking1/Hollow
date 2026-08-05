@@ -10,6 +10,8 @@ export type chat_request = {
   reasoning_effort?: string;
   reasoning_split?: boolean;
   stream_options?: stream_options;
+  max_tokens?: number;
+  max_output_tokens?: number;
 };
 export type chat_response = { choices: choice[]; error?: api_error };
 export type api_error = { message: string; type: string };
@@ -102,9 +104,11 @@ const json_raw_for_api = (raw: json_raw_message | undefined): unknown => {
 };
 
 /** JSON body for chat/completions — avoids serializing Uint8Array content as numeric objects. */
-export const marshal_chat_request = (req: chat_request): string =>
-  JSON.stringify({
-    ...req,
+export const marshal_chat_request = (req: chat_request): string => {
+  const { max_output_tokens, ...chat_req } = req;
+  return JSON.stringify({
+    ...chat_req,
+    max_tokens: req.max_tokens ?? max_output_tokens,
     messages: req.messages.map(message_for_api),
     tools: req.tools?.map((t) => ({
       ...t,
@@ -114,6 +118,7 @@ export const marshal_chat_request = (req: chat_request): string =>
       },
     })),
   });
+};
 
 export const string_content = (s: string): json_raw_message => enc.encode(JSON.stringify(s));
 export const blocks_content = (blocks: content_block[]): json_raw_message => enc.encode(JSON.stringify(blocks));
@@ -194,4 +199,3 @@ export const content_blocks = (m: message): content_block[] | null => {
     return null;
   }
 };
-

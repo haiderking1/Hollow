@@ -45,12 +45,23 @@ const C = {
 }
 
 const COMMANDS = [
+  { name: "/compact", desc: "Manually trigger session context compaction", usage: "/compact [instructions]" },
   { name: "/loop", desc: "Run agent in a continuous outer-loop", usage: "/loop <task> [--max N]" },
   { name: "/loop-cancel", desc: "Cancel the active loop run", usage: "/loop-cancel" },
   { name: "/new", desc: "Start a fresh chat session in current directory", usage: "/new" },
   { name: "/skills", desc: "List discovered skills", usage: "/skills" },
   { name: "/workflows", desc: "List dynamic workflow runs", usage: "/workflows" },
 ]
+
+export const slashCommandKeyAction = (
+  key: string,
+  shiftKey: boolean,
+  selectedName: string,
+): { value: string; submit: boolean } | null => {
+  if (key === "Tab") return { value: `${selectedName} `, submit: false }
+  if (key === "Enter" && !shiftKey) return { value: selectedName, submit: true }
+  return null
+}
 
 export function PromptInput({
   onSend,
@@ -80,8 +91,8 @@ export function PromptInput({
     setSelectedIndex(0)
   }, [filteredCommands.length])
 
-  const submit = () => {
-    const text = value.trim()
+  const submit = (input = value) => {
+    const text = input.trim()
     if (!text || isStreaming) return
     onSend?.(text)
     setValue("")
@@ -183,10 +194,12 @@ export function PromptInput({
                   setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length)
                   return
                 }
-                if (e.key === "Enter" || e.key === "Tab") {
+                const selected = filteredCommands[selectedIndex] ?? filteredCommands[0]
+                const action = slashCommandKeyAction(e.key, e.shiftKey, selected.name)
+                if (action) {
                   e.preventDefault()
-                  const selected = filteredCommands[selectedIndex]
-                  setValue(selected.name + " ")
+                  if (action.submit) submit(action.value)
+                  else setValue(action.value)
                   return
                 }
                 if (e.key === "Escape") {
@@ -212,7 +225,7 @@ export function PromptInput({
           {/* Stop / Send / Mic — always the same light circle. */}
           <button
             type="button"
-            onClick={isStreaming ? () => onAbort?.() : submit}
+            onClick={isStreaming ? () => onAbort?.() : () => submit()}
             disabled={!isStreaming && !hasText}
             title={isStreaming ? "Stop" : hasText ? "Send" : "Voice input"}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-60"

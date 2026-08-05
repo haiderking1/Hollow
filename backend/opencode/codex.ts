@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { codex_cloudflare_headers } from "../auth/codex_headers";
-import { client, client_error } from "./client";
+import { client, client_error, provider_error, stream_status_error, with_request_abort_context } from "./client";
 import { prepare_request_messages } from "./messages";
 import {
   blocks_content,
@@ -29,6 +29,7 @@ export type responses_request = {
   store: boolean;
   stream?: boolean;
   reasoning?: responses_reasoning;
+  max_output_tokens?: number;
 };
 
 export type responses_error = {
@@ -65,6 +66,7 @@ export type responses_response = {
   output_text?: string;
   error?: responses_error;
   usage?: responses_usage;
+  incomplete_details?: { reason?: string };
 };
 
 export const codex_request_headers = (access_token: string): Record<string, string> => {
@@ -274,17 +276,22 @@ export const build_responses_request = (c: client, req: chat_request): responses
     tools,
     store: false,
     reasoning: reasoning_from_chat_request(req),
+    max_output_tokens: req.max_output_tokens ?? req.max_tokens,
   };
 };
 
 export const parse_responses_message = (resp: responses_response): message => {
   const status = (resp.status ?? "").toLowerCase().trim();
-  if (status === "failed" || status === "cancelled") {
+  if (status !== "" && status !== "completed") {
     let msg = "codex request failed";
     if (resp.error?.message !== undefined && resp.error.message !== "") {
       msg = resp.error.message;
+    } else if (status === "incomplete" && resp.incomplete_details?.reason) {
+      msg = `incomplete response: ${resp.incomplete_details.reason}`;
+    } else if (status === "incomplete") {
+      msg = "incomplete response";
     }
-    throw new Error(`codex: ${msg}`);
+    throw new provider_error(`codex: ${msg}`, { code: resp.error?.code });
   }
 
   let usage_data: usage | undefined = undefined;
@@ -397,22 +404,32 @@ export const chat_responses_once = (
         ...codex_request_headers(c.api_key),
       };
 
+      return with_request_abort_context(ctx, c.timeout_ms, async (signal) => {
       const resp = await fetch(responses_url(c), {
         method: "POST",
-        signal: ctx,
+        signal,
         headers,
         body,
       });
 
       const raw = await resp.text();
       if (resp.status >= 400) {
-        throw new Error(`codex ${resp.status}: ${raw.trim()}`);
+        let api_error: { error?: { message?: string; code?: string; type?: string } } | undefined;
+        try {
+          api_error = JSON.parse(raw) as typeof api_error;
+        } catch {}
+        const message = api_error?.error?.message?.trim() || raw.trim() || resp.statusText;
+        throw new stream_status_error(
+          resp.status,
+          `codex ${resp.status}: ${message}`,
+          api_error?.error?.code ?? api_error?.error?.type,
+        );
       }
 
       const out = JSON.parse(raw) as responses_response;
       return parse_responses_message(out);
+      });
     },
-    catch: (cause) => client_error("chat_responses_once", cause),
+    catch: (cause) => client_error("chat_responses_once", cause, ctx),
   });
 };
-

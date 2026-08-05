@@ -6,6 +6,7 @@
   "main": "runtime/electron/entry.cjs",
   "description": "Hollow — AI coding agent with TypeScript runtime and Electron desktop.",
   "scripts": {
+    "test": "bun test",
     "typecheck": "tsc --noEmit",
     "start": "bun runtime/main.ts",
     "start:prompt": "bun runtime/main.ts --prompt",

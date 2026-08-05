@@ -31,6 +31,11 @@ export const event_obligation_update = "obligation_update";
 export const event_compaction_start = "compaction_start";
 export const event_compaction_end = "compaction_end";
 
+// Terminal marker for a dispatched prompt/command. The desktop bridge emits it
+// once the runtime prompt effect settles (data.request_id = the dispatch id);
+// the renderer maps it to "done".
+export const event_request_end = "request_end";
+
 export const event_branch_summary_start = "branch_summary_start";
 export const event_branch_summary_end = "branch_summary_end";
 
@@ -86,6 +91,9 @@ export type obligation_event = {
 
 export type compaction_start_event = {
   reason: string;
+  request_id: string;
+  operation_id: string;
+  session_id: string;
 };
 
 export type compaction_end_event = {
@@ -94,6 +102,9 @@ export type compaction_end_event = {
   aborted: boolean;
   will_retry: boolean;
   error_message: string;
+  request_id: string;
+  operation_id: string;
+  session_id: string;
 };
 
 export type branch_summary_start_event = {
@@ -139,4 +150,3 @@ export type workflow_agent_event = {
   tokens: number;
   turns: number;
 };
-

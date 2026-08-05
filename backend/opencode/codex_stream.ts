@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { codex_cloudflare_headers } from "../auth/codex_headers";
-import { client, client_error, stream_status_error } from "./client";
+import { client, client_error, stream_status_error, with_request_abort_context } from "./client";
 import { prepare_request_messages } from "./messages";
 import { for_each_sse_block, err_sse_done, type sse_block, drain_sse_buffer, consume_sse_block } from "./sse";
 import {
@@ -59,18 +59,25 @@ export const chat_responses_stream_once = (
         ...codex_request_headers(c.api_key),
       };
 
+      return with_request_abort_context(ctx, c.timeout_ms, async (signal) => {
       const resp = await fetch(responses_url(c), {
         method: "POST",
-        signal: ctx,
+        signal,
         headers,
         body,
       });
 
       if (resp.status >= 400) {
         const raw = await resp.text();
+        let api_error: { error?: { message?: string; code?: string; type?: string } } | undefined;
+        try {
+          api_error = JSON.parse(raw) as typeof api_error;
+        } catch {}
+        const message = api_error?.error?.message?.trim() || raw.trim() || resp.statusText;
         throw new stream_status_error(
           resp.status,
-          `codex ${resp.status}: ${raw.trim()}`
+          `codex ${resp.status}: ${message}`,
+          api_error?.error?.code ?? api_error?.error?.type,
         );
       }
 
@@ -78,15 +85,16 @@ export const chat_responses_stream_once = (
         throw new Error("codex: empty SSE body");
       }
 
-      const state = await consume_codex_responses_sse(resp.body, ctx, cb);
+      const state = await consume_codex_responses_sse(resp.body, signal, cb);
       if (!state.saw_data) {
         throw new Error("codex: empty SSE body");
       }
 
       return message_from_codex_stream_state(state);
+      });
     },
     catch: (cause) => {
-      return client_error("chat_responses_stream_once", cause);
+      return client_error("chat_responses_stream_once", cause, ctx);
     },
   });
 };
@@ -178,8 +186,8 @@ export const consume_codex_responses_sse = async (
     throw process_err;
   }
 
-  if (!state.saw_terminal && state.collected_items.length === 0 && state.text_deltas.length === 0) {
-    throw new Error("codex: stream ended without terminal response or content");
+  if (!state.saw_terminal) {
+    throw new Error("codex: stream ended without terminal response");
   }
 
   return state;
@@ -255,26 +263,25 @@ export const apply_codex_stream_event = (
         state.terminal_usage = terminal.usage;
         state.terminal_error = terminal.error;
       }
-      switch (event_type) {
-        case "response.completed":
-          if (state.terminal_status === "") {
-            state.terminal_status = "completed";
-          }
-          break;
-        case "response.incomplete":
-          if (state.terminal_status === "") {
-            state.terminal_status = "incomplete";
-          }
-          break;
-        case "response.failed":
-          if (state.terminal_status === "") {
-            state.terminal_status = "failed";
-          }
-          break;
+      if (event_type === "response.completed") {
+        state.terminal_status = terminal_status(event, "completed");
+      } else if (event_type === "response.incomplete") {
+        state.terminal_status = terminal_status(event, "incomplete");
+      } else {
+        state.terminal_status = terminal_status(event, "failed");
       }
       break;
     }
   }
+};
+
+const terminal_status = (event: Record<string, unknown>, fallback: string): string => {
+  const response = event.response;
+  if (typeof response === "object" && response !== null) {
+    const status = (response as { status?: unknown }).status;
+    if (typeof status === "string" && status.trim() !== "") return status;
+  }
+  return fallback;
 };
 
 export const codex_event_string = (event: Record<string, unknown>, key: string): string => {
@@ -301,4 +308,3 @@ export const message_from_codex_stream_state = (state: codex_stream_state): mess
   }
   return msg;
 };
-

@@ -20,6 +20,14 @@ export interface RawMessage {
   role: string
   content?: ContentPart[]
   timestamp?: number
+  tokensBefore?: number
+}
+
+export interface CompactionResult {
+  summary: string
+  firstKeptEntryId: string
+  tokensBefore: number
+  estimatedTokensAfter?: number
 }
 
 export interface AgentProvider {
@@ -96,7 +104,19 @@ export type AgentEvent =
   // Streaming lifecycle
   | { type: "message_update"; assistantMessageEvent?: { partial?: RawMessage } }
   | { type: "turn_end"; message?: RawMessage }
-  | { type: "agent_end"; willRetry?: boolean }
+  | { type: "agent_end"; requestId: string; willRetry?: boolean }
+  | { type: "compaction_start"; requestId: string; operationId: string; sessionId?: string; reason: string }
+  | {
+      type: "compaction_end"
+      requestId: string
+      operationId: string
+      sessionId?: string
+      reason: string
+      result?: CompactionResult
+      aborted: boolean
+      willRetry: boolean
+      errorMessage?: string
+    }
   | { type: "session_info_changed"; name?: string }
   // Command responses
   | { type: "response"; command: "get_state"; success: true; data: AgentSessionState }
@@ -184,6 +204,20 @@ export function mapMessages(raw: RawMessage[]): Message[] {
       out.push({ id: `h-${i}`, role: "user", text })
     } else if (m.role === "assistant") {
       out.push({ id: `h-${i}`, role: "assistant", blocks: mapAssistantContent(m.content) })
+    } else if (m.role === "compactionSummary") {
+      const summary = (m.content ?? [])
+        .filter((c) => c.type === "text" && c.text)
+        .map((c) => c.text)
+        .join("\n")
+      out.push({
+        id: `h-compaction-${i}`,
+        role: "compaction",
+        requestId: `history-${i}`,
+        operationId: `history-${i}`,
+        status: "success",
+        summary,
+        tokensBefore: m.tokensBefore,
+      })
     }
   })
   return out

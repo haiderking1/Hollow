@@ -45,6 +45,7 @@ export class AgentRuntimeImpl {
   pubsub!: PubSub.PubSub<any>;
   /** False until a provider key is loaded and the agent is constructed. */
   available = false;
+  private activePromptController: AbortController | null = null;
   loopState: {
     active: boolean;
     task: string;
@@ -239,7 +240,11 @@ export class AgentRuntimeImpl {
     });
   }
 
-  prompt(text: string, attachments?: readonly any[]): Effect.Effect<void, Error> {
+  prompt(
+    text: string,
+    attachments?: readonly any[],
+    requestId = `request_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`,
+  ): Effect.Effect<void, Error> {
     const self = this;
     const cleanText = text.trim();
 
@@ -261,6 +266,28 @@ export class AgentRuntimeImpl {
     }
 
     if (!self.available) return Effect.fail(new Error(NOT_CONNECTED));
+    self.agent.activeRequestId = requestId;
+
+    // Check if this is a compaction command
+    if (cleanText === "/compact" || cleanText.startsWith("/compact ")) {
+      const customInstructions = cleanText === "/compact" ? "" : cleanText.slice(8).trim();
+
+      return Effect.async<void, Error>((resume) => {
+        const controller = new AbortController();
+        self.activePromptController = controller;
+
+        self.agent
+          .Compact(controller.signal, customInstructions, requestId)
+          .then(() => resume(Effect.void))
+          .catch((cause) => {
+            resume(Effect.fail(cause instanceof Error ? cause : new Error(String(cause))));
+          })
+          .finally(() => {
+            if (self.activePromptController === controller) self.activePromptController = null;
+          });
+        return Effect.sync(() => controller.abort());
+      });
+    }
 
     // Check if this is a loop start command
     if (cleanText.startsWith("/loop") && cleanText !== "/loop-cancel" && cleanText !== "/cancel-loop") {
@@ -301,6 +328,7 @@ export class AgentRuntimeImpl {
 
       return Effect.async<void, Error>((resume) => {
         const controller = new AbortController();
+        self.activePromptController = controller;
         const onAbort = () => {
           if (self.loopState) self.loopState.aborted = true;
           controller.abort();
@@ -419,22 +447,27 @@ export class AgentRuntimeImpl {
           }
         };
 
-        runIteration().catch((err) => {
-          if (self.agent.emit) {
-            self.agent.emit({
-              kind: "loop_status",
-              data: { active: false, iteration: 0, maxIterations: 0, task: "" }
-            });
-          }
-          self.loopState = null;
-          resume(Effect.fail(err instanceof Error ? err : new Error(String(err))));
-        });
+        runIteration()
+          .catch((err) => {
+            if (self.agent.emit) {
+              self.agent.emit({
+                kind: "loop_status",
+                data: { active: false, iteration: 0, maxIterations: 0, task: "" }
+              });
+            }
+            self.loopState = null;
+            resume(Effect.fail(err instanceof Error ? err : new Error(String(err))));
+          })
+          .finally(() => {
+            if (self.activePromptController === controller) self.activePromptController = null;
+          });
       });
     }
 
     // Standard non-loop prompt path
     return Effect.async<void, Error>((resume) => {
       const controller = new AbortController();
+      self.activePromptController = controller;
       const mappedAttachments = attachments?.map((att) => ({
         MIMEType: att.mime,
         Data: Buffer.from(att.data, "base64"),
@@ -445,14 +478,20 @@ export class AgentRuntimeImpl {
         .then(() => resume(Effect.void))
         .catch((cause) =>
           resume(Effect.fail(cause instanceof Error ? cause : new Error(String(cause))))
-        );
+        )
+        .finally(() => {
+          if (self.activePromptController === controller) self.activePromptController = null;
+        });
+      return Effect.sync(() => controller.abort());
     });
   }
 
   interrupt(): Effect.Effect<void, Error> {
     const self = this;
     return Effect.sync(() => {
-      self.agent.Abort();
+      self.activePromptController?.abort(new DOMException("Request cancelled", "AbortError"));
+      if (self.agent.compactionReason === "manual") self.agent.AbortCompaction();
+      else self.agent.Abort();
     });
   }
 
