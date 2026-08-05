@@ -90,7 +90,7 @@ export function dispatchTool(
     case "bash":
       return this.toolBash(ctx, id, argsJSON);
     case "web_search":
-      return this.toolWebSearch(ctx, argsJSON);
+      return this.toolWebSearch(ctx, id, argsJSON);
     case "web_fetch":
       return this.toolWebFetch(ctx, argsJSON);
     case "browser":

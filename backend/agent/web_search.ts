@@ -44,6 +44,7 @@ export function webSearchTool(): tool {
 Agent.prototype.toolWebSearch = function (
   this: Agent,
   ctx: AbortSignal,
+  id: string,
   argsJSON: string
 ): Effect.Effect<toolResult, Error> {
   return Effect.gen(this, function* () {
@@ -64,12 +65,17 @@ Agent.prototype.toolWebSearch = function (
       return { output: "query is required", isErr: true };
     }
 
-    const results = yield* search_web(ctx, args.query, {
-      maxResults: args.max_results || 8,
-      site: args.site || "",
-      excludeSites: args.exclude_sites || [],
-      engines: args.engines || "",
-    });
+    const results = yield* search_web(
+      ctx,
+      args.query,
+      {
+        maxResults: args.max_results || 8,
+        site: args.site || "",
+        excludeSites: args.exclude_sites || [],
+        engines: args.engines || "",
+      },
+      (status) => this.emitToolDelta(id, status),
+    );
 
     if (ctx.aborted) {
       return { output: "[interrupted]", isErr: true };

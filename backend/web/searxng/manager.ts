@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
 import process from "node:process";
 import { Effect } from "effect";
@@ -21,6 +21,8 @@ const default_settings = (): Uint8Array => {
 const repo_url = "https://github.com/searxng/searxng.git";
 const health_timeout_ms = 90_000;
 const health_interval_ms = 400;
+
+export type searxng_status = (message: string) => void;
 
 let manager_instance: manager | null = null;
 let manager_initialized = false;
@@ -44,7 +46,10 @@ export class manager {
   }
 
   // EnsureRunning installs (if needed), starts SearXNG, and returns its base URL.
-  ensure_running(ctx: AbortSignal): Effect.Effect<string, searxng_error_type> {
+  ensure_running(
+    ctx: AbortSignal,
+    on_status: searxng_status = () => {},
+  ): Effect.Effect<string, searxng_error_type> {
     const self = this;
     return Effect.gen(function* () {
       if (self._base_url !== "" && (yield* self.health_ok(ctx, self._base_url))) {
@@ -61,8 +66,9 @@ export class manager {
         return existing_base;
       }
 
-      yield* self.ensure_installed(ctx);
+      yield* self.ensure_installed(ctx, on_status);
 
+      on_status("Starting local SearXNG…");
       const port = yield* free_port();
       const settings_path = yield* self.write_settings(port);
       const base_url = `http://127.0.0.1:${port}`;
@@ -83,6 +89,7 @@ export class manager {
         catch: (cause) => searxng_error("start searxng", cause),
       });
 
+      on_status("Waiting for SearXNG to become ready…");
       yield* wait_healthy(ctx, base_url).pipe(
         Effect.catchAll((err) =>
           Effect.gen(function* () {
@@ -133,15 +140,20 @@ export class manager {
     }).pipe(Effect.catchAll((cause) => Effect.fail(searxng_error("stop searxng", cause))));
   }
 
-  private ensure_installed(ctx: AbortSignal): Effect.Effect<void, searxng_error_type> {
+  private ensure_installed(
+    ctx: AbortSignal,
+    on_status: searxng_status,
+  ): Effect.Effect<void, searxng_error_type> {
     const self = this;
     return Effect.gen(function* () {
       const src_dir = path.join(self._data_dir, "src");
       const webapp = path.join(src_dir, "searx", "webapp.py");
       if (fs.existsSync(webapp)) {
-        yield* self.ensure_venv(ctx);
+        yield* self.ensure_venv(ctx, on_status);
         return;
       }
+
+      on_status("Installing SearXNG (first run)…");
 
       yield* Effect.try({
         try: () => fs.mkdirSync(self._data_dir, { recursive: true, mode: 0o700 }),
@@ -155,23 +167,17 @@ export class manager {
         return yield* Effect.fail(searxng_error("searxng install requires python3", null));
       }
 
-      yield* Effect.try({
-        try: () => {
-          const result = spawnSync("git", ["clone", "--depth", "1", repo_url, src_dir], {
-            stdio: "ignore",
-          });
-          if (result.status !== 0) {
-            throw new Error(`git clone exited with status ${result.status ?? "unknown"}`);
-          }
-        },
-        catch: (cause) => searxng_error("clone searxng", cause),
-      });
+      on_status("Downloading SearXNG source…");
+      yield* run_process(ctx, "git", ["clone", "--depth", "1", repo_url, src_dir], "clone searxng");
 
-      yield* self.ensure_venv(ctx);
+      yield* self.ensure_venv(ctx, on_status);
     });
   }
 
-  private ensure_venv(_ctx: AbortSignal): Effect.Effect<void, searxng_error_type> {
+  private ensure_venv(
+    ctx: AbortSignal,
+    on_status: searxng_status,
+  ): Effect.Effect<void, searxng_error_type> {
     const self = this;
     return Effect.gen(function* () {
       const venv_python = path.join(self._data_dir, "venv", "bin", "python");
@@ -185,28 +191,18 @@ export class manager {
       }
 
       const venv_dir = path.join(self._data_dir, "venv");
-      yield* Effect.try({
-        try: () => {
-          const result = spawnSync(py3, ["-m", "venv", venv_dir], { encoding: "utf8" });
-          if (result.status !== 0) {
-            throw new Error(`create venv failed: ${result.stderr ?? ""}`);
-          }
-        },
-        catch: (cause) => searxng_error("create venv", cause),
-      });
+      on_status("Creating Python environment…");
+      yield* run_process(ctx, py3, ["-m", "venv", venv_dir], "create venv");
 
       const pip = path.join(venv_dir, "bin", "pip");
       const reqs = path.join(self._data_dir, "src", "requirements.txt");
-      yield* Effect.try({
-        try: () => {
-          const result = spawnSync(pip, ["install", "-r", reqs], { stdio: "ignore" });
-          if (result.status !== 0) {
-            throw new Error(`pip install exited with status ${result.status ?? "unknown"}`);
-          }
-        },
-        catch: (cause) =>
-          searxng_error("install searxng dependencies (this may take a minute)", cause),
-      });
+      on_status("Installing SearXNG dependencies…");
+      yield* run_process(
+        ctx,
+        pip,
+        ["install", "-r", reqs],
+        "install searxng dependencies (this may take a minute)",
+      );
     });
   }
 
@@ -247,6 +243,47 @@ export class manager {
   }
 }
 
+const run_process = (
+  ctx: AbortSignal,
+  command: string,
+  args: string[],
+  operation: string,
+): Effect.Effect<void, searxng_error_type> =>
+  Effect.tryPromise({
+    try: () =>
+      new Promise<void>((resolve, reject) => {
+        if (ctx.aborted) {
+          reject(ctx.reason ?? new DOMException("The operation was aborted", "AbortError"));
+          return;
+        }
+
+        const child = spawn(command, args, { stdio: "ignore" });
+        let settled = false;
+        const cleanup = () => {
+          ctx.removeEventListener("abort", on_abort);
+        };
+        const finish = (cause?: unknown) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          if (cause === undefined) resolve();
+          else reject(cause);
+        };
+        const on_abort = () => {
+          child.kill();
+          finish(ctx.reason ?? new DOMException("The operation was aborted", "AbortError"));
+        };
+
+        ctx.addEventListener("abort", on_abort, { once: true });
+        child.once("error", (cause) => finish(cause));
+        child.once("exit", (code, signal) => {
+          if (code === 0) finish();
+          else finish(new Error(`${command} ${operation} exited with ${signal ?? `status ${code ?? "unknown"}`}`));
+        });
+      }),
+    catch: (cause) => searxng_error(operation, cause),
+  });
+
 const compute_data_dir = (): string => {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
   if (home === "") {
@@ -268,7 +305,8 @@ export const default_manager = (): manager => {
 // EnsureRunning installs (if needed), starts SearXNG, and returns its base URL.
 export const ensure_running = (
   ctx: AbortSignal,
-): Effect.Effect<string, searxng_error_type> => default_manager().ensure_running(ctx);
+  on_status: searxng_status = () => {},
+): Effect.Effect<string, searxng_error_type> => default_manager().ensure_running(ctx, on_status);
 
 // Stop shuts down a SearXNG process started by Hollow.
 export const stop = (): Effect.Effect<void, searxng_error_type> => default_manager().stop();

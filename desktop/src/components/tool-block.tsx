@@ -53,6 +53,12 @@ export function ToolBlock({ block }: { block: ToolBlockType }) {
           </span>
         )}
 
+        {block.status === "running" && block.output && (
+          <span className="max-w-[min(100%,24rem)] truncate text-[12px] text-info/80">
+            {truncate(block.output, 56)}
+          </span>
+        )}
+
         {block.meta && (
           <span className="shrink-0 flex gap-1 font-mono text-[13px] tabular-nums">
             {block.meta.split(" ").map((part, i) => {

@@ -164,7 +164,7 @@ export class Agent {
   toolListDir!: (argsJSON: string) => Effect.Effect<toolResult, Error>;
   toolGlob!: (argsJSON: string) => Effect.Effect<toolResult, Error>;
   toolGrep!: (ctx: AbortSignal, argsJSON: string) => Effect.Effect<toolResult, Error>;
-  toolWebSearch!: (ctx: AbortSignal, argsJSON: string) => Effect.Effect<toolResult, Error>;
+  toolWebSearch!: (ctx: AbortSignal, id: string, argsJSON: string) => Effect.Effect<toolResult, Error>;
   toolWebFetch!: (ctx: AbortSignal, argsJSON: string) => Effect.Effect<toolResult, Error>;
   toolBrowser!: (ctx: AbortSignal, argsJSON: string) => Effect.Effect<toolResult, Error>;
   toolBash!: (ctx: AbortSignal, id: string, argsJSON: string) => Effect.Effect<toolResult, Error>;

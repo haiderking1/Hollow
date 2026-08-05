@@ -7,6 +7,7 @@ import {
   max_output_bytes,
 } from "./types";
 import { trim_input, new_search_provider } from "./provider";
+import type { searxng_status } from "./searxng/manager";
 import { is_http_url } from "./url_guard";
 import { fetch_urls_parallel } from "./fetch_batch";
 
@@ -14,6 +15,7 @@ export const search_web = (
   ctx: AbortSignal,
   query: string,
   opts: search_options,
+  on_status: searxng_status = () => {},
 ): Effect.Effect<search_result[], Error> => {
   const cleanQuery = trim_input(query);
   if (cleanQuery === "") {
@@ -30,7 +32,7 @@ export const search_web = (
     ]);
   }
 
-  return new_search_provider(ctx).pipe(
+  return new_search_provider(ctx, on_status).pipe(
     Effect.flatMap((prov) => prov.search(ctx, cleanQuery, opts)),
   );
 };
