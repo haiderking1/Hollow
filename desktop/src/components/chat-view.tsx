@@ -8,7 +8,35 @@ import { ThinkingBlock } from "./thinking-block"
 import { TodoBlock } from "./todo-block"
 import { CompactionSummary } from "./compaction-summary"
 
-const BOTTOM_THRESHOLD_PX = 80
+export const BOTTOM_THRESHOLD_PX = 80
+
+export function isNearBottomCalc(
+  scrollHeight: number,
+  scrollTop: number,
+  clientHeight: number,
+  threshold = BOTTOM_THRESHOLD_PX,
+): boolean {
+  const distance = scrollHeight - scrollTop - clientHeight
+  return distance <= threshold
+}
+
+export function isScrollingUp(currentScrollTop: number, lastScrollTop: number, epsilon = 1): boolean {
+  return lastScrollTop - currentScrollTop > epsilon
+}
+
+export function computeNextPinnedState(params: {
+  currentScrollTop: number
+  lastScrollTop: number
+  scrollHeight: number
+  clientHeight: number
+  wheelUp?: boolean
+  threshold?: number
+}): boolean {
+  if (params.wheelUp || isScrollingUp(params.currentScrollTop, params.lastScrollTop)) {
+    return false
+  }
+  return isNearBottomCalc(params.scrollHeight, params.currentScrollTop, params.clientHeight, params.threshold)
+}
 
 interface ChatViewProps {
   messages: Message[]
@@ -20,29 +48,39 @@ export const ChatView = memo(function ChatView({ messages, sessionId, isStreamin
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const pinnedToBottomRef = useRef(true)
-  const ignoreScrollRef = useRef(false)
+  const lastScrollTopRef = useRef(0)
 
   const isNearBottom = useCallback(() => {
     const el = scrollRef.current
     if (!el) return true
-    return el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD_PX
+    return isNearBottomCalc(el.scrollHeight, el.scrollTop, el.clientHeight, BOTTOM_THRESHOLD_PX)
   }, [])
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
-    ignoreScrollRef.current = true
     el.scrollTop = el.scrollHeight
-    requestAnimationFrame(() => {
-      ignoreScrollRef.current = false
-      pinnedToBottomRef.current = isNearBottom()
-    })
-  }, [isNearBottom])
+    lastScrollTopRef.current = el.scrollTop
+  }, [])
+
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY < 0) {
+      pinnedToBottomRef.current = false
+    }
+  }, [])
 
   const handleScroll = useCallback(() => {
-    if (ignoreScrollRef.current) return
-    pinnedToBottomRef.current = isNearBottom()
-  }, [isNearBottom])
+    const el = scrollRef.current
+    if (!el) return
+    const currentScrollTop = el.scrollTop
+    pinnedToBottomRef.current = computeNextPinnedState({
+      currentScrollTop,
+      lastScrollTop: lastScrollTopRef.current,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    })
+    lastScrollTopRef.current = currentScrollTop
+  }, [])
 
   // New session — land at latest messages.
   useLayoutEffect(() => {
@@ -76,7 +114,12 @@ export const ChatView = memo(function ChatView({ messages, sessionId, isStreamin
   }, [sessionId, scrollToBottom])
 
   return (
-    <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto">
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      onWheel={handleWheel}
+      className="h-full w-full overflow-y-auto"
+    >
       <div ref={contentRef} className="mx-auto w-full max-w-[720px] px-6 pt-6 pb-36">
         <div className="space-y-6">
           {messages.map((m) => (

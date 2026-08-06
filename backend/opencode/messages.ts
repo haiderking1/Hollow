@@ -1,7 +1,77 @@
-import { blocks_content, content_blocks, string_content, type content_block, type message, type tool_call } from "./types";
+import { blocks_content, content_blocks, string_content, content_string, type content_block, type message, type tool_call } from "./types";
 import { normalize_messages, is_minimax_model } from "./thinking";
 import { supports_images } from "./models";
 
+export const CompactionSummaryPrefix =
+  "The conversation history before this point was compacted into the following summary:\n\n<summary>\n";
+export const CompactionSummarySuffix = "\n</summary>";
+export const BranchSummaryPrefix =
+  "The following is a summary of a branch that this conversation came back from:\n\n<summary>\n";
+export const BranchSummarySuffix = "\n</summary>";
+
+export const bash_execution_to_text = (msg: any): string => {
+  let text = `Ran \`${msg.command || ""}\`\n`;
+  if (msg.output) {
+    text += `\`\`\`\n${msg.output}\n\`\`\``;
+  } else {
+    text += "(no output)";
+  }
+  if (msg.cancelled) {
+    text += "\n\n(command cancelled)";
+  } else if (msg.exitCode !== null && msg.exitCode !== undefined && msg.exitCode !== 0) {
+    text += `\n\nCommand exited with code ${msg.exitCode}`;
+  }
+  if (msg.truncated && msg.fullOutputPath) {
+    text += `\n\n[Output truncated. Full output: ${msg.fullOutputPath}]`;
+  }
+  return text;
+};
+
+export const convert_to_llm = (messages: message[]): message[] => {
+  const out: message[] = [];
+  for (const m of messages) {
+    switch (m.role) {
+      case "bashExecution": {
+        const anyMsg = m as any;
+        if (anyMsg.excludeFromContext) {
+          break;
+        }
+        out.push({
+          role: "user",
+          content: string_content(bash_execution_to_text(m)),
+        });
+        break;
+      }
+      case "custom": {
+        out.push({
+          role: "user",
+          content: m.content,
+        });
+        break;
+      }
+      case "compactionSummary": {
+        const content = CompactionSummaryPrefix + content_string(m) + CompactionSummarySuffix;
+        out.push({
+          role: "user",
+          content: string_content(content),
+        });
+        break;
+      }
+      case "branchSummary": {
+        const content = BranchSummaryPrefix + content_string(m) + BranchSummarySuffix;
+        out.push({
+          role: "user",
+          content: string_content(content),
+        });
+        break;
+      }
+      default:
+        out.push(m);
+        break;
+    }
+  }
+  return out;
+};
 
 export const tool_incomplete_msg = "Error: tool call was not completed";
 
@@ -14,7 +84,7 @@ export const prepare_request_messages = (msgs: message[], model: string): messag
   strip_images_if_needed(
     repair_tool_messages(
       sanitize_tool_call_arguments(
-        strip_minimax_reasoning_details(normalize_messages(strip_response_fields(msgs), model), model),
+        strip_minimax_reasoning_details(normalize_messages(strip_response_fields(convert_to_llm(msgs)), model), model),
       ),
     ),
     model,

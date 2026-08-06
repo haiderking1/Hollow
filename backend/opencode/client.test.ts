@@ -48,4 +48,38 @@ describe("provider request lifecycle", () => {
       expect(result.left.reason).toContain("context window exceeded")
     }
   })
+
+  it("converts compactionSummary role in session context into a provider-supported user role during serialization", async () => {
+    let capturedBody: any = null
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.body && typeof init.body === "string") {
+        capturedBody = JSON.parse(init.body)
+      }
+      return new Response(
+        JSON.stringify({ choices: [{ message: { role: "assistant", content: string_content("ok") }, finish_reason: "stop" }] }),
+        { status: 200 },
+      )
+    }) as typeof fetch
+
+    const api = new client("https://provider.invalid", "key", "model")
+    await Effect.runPromise(
+      api.chat(new AbortController().signal, {
+        model: "model",
+        messages: [
+          { role: "system", content: string_content("System prompt") },
+          { role: "compactionSummary", content: string_content("Summary of previous turns") },
+          { role: "user", content: string_content("Current question") },
+        ],
+      }),
+    )
+
+    expect(capturedBody).not.toBeNull()
+    expect(capturedBody.messages).toHaveLength(3)
+    expect(capturedBody.messages[0].role).toBe("system")
+    expect(capturedBody.messages[1].role).toBe("user")
+    expect(capturedBody.messages[1].content).toContain("The conversation history before this point was compacted into the following summary:")
+    expect(capturedBody.messages[1].content).toContain("Summary of previous turns")
+    expect(capturedBody.messages[2].role).toBe("user")
+    expect(capturedBody.messages.map((m: any) => m.role)).not.toContain("compactionSummary")
+  })
 })

@@ -9,12 +9,14 @@ import {
   type file_entry,
 } from "./types";
 
-export const CompactionSummaryPrefix =
-  "The conversation history before this point was compacted into the following summary:\n\n<summary>\n";
-export const CompactionSummarySuffix = "\n</summary>";
-export const BranchSummaryPrefix =
-  "The following is a summary of a branch that this conversation came back from:\n\n<summary>\n";
-export const BranchSummarySuffix = "\n</summary>";
+export {
+  CompactionSummaryPrefix,
+  CompactionSummarySuffix,
+  BranchSummaryPrefix,
+  BranchSummarySuffix,
+  bash_execution_to_text,
+  convert_to_llm,
+} from "../opencode/messages";
 
 export type file_operations = {
   read: Record<string, boolean>;
@@ -228,69 +230,6 @@ export const serialize_conversation = (messages: message[]): string => {
   return parts.join("\n\n");
 };
 
-export const bash_execution_to_text = (msg: any): string => {
-  let text = `Ran \`${msg.command || ""}\`\n`;
-  if (msg.output) {
-    text += `\`\`\`\n${msg.output}\n\`\`\``;
-  } else {
-    text += "(no output)";
-  }
-  if (msg.cancelled) {
-    text += "\n\n(command cancelled)";
-  } else if (msg.exitCode !== null && msg.exitCode !== undefined && msg.exitCode !== 0) {
-    text += `\n\nCommand exited with code ${msg.exitCode}`;
-  }
-  if (msg.truncated && msg.fullOutputPath) {
-    text += `\n\n[Output truncated. Full output: ${msg.fullOutputPath}]`;
-  }
-  return text;
-};
-
-export const convert_to_llm = (messages: message[]): message[] => {
-  const out: message[] = [];
-  for (const m of messages) {
-    switch (m.role) {
-      case "bashExecution": {
-        const anyMsg = m as any;
-        if (anyMsg.excludeFromContext) {
-          break;
-        }
-        out.push({
-          role: "user",
-          content: string_content(bash_execution_to_text(m)),
-        });
-        break;
-      }
-      case "custom": {
-        out.push({
-          role: "user",
-          content: m.content,
-        });
-        break;
-      }
-      case "compactionSummary": {
-        const content = CompactionSummaryPrefix + content_string(m) + CompactionSummarySuffix;
-        out.push({
-          role: "user",
-          content: string_content(content),
-        });
-        break;
-      }
-      case "branchSummary": {
-        const content = BranchSummaryPrefix + content_string(m) + BranchSummarySuffix;
-        out.push({
-          role: "user",
-          content: string_content(content),
-        });
-        break;
-      }
-      default:
-        out.push(m);
-        break;
-    }
-  }
-  return out;
-};
 
 export const calculate_context_tokens = (u: usage): number => {
   if (u.totalTokens !== undefined && u.totalTokens > 0) {
