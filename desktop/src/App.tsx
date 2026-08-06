@@ -24,6 +24,7 @@ import {
 
 import { bumpZoom, initZoom, resetZoom, ZOOM_STEP } from "./lib/zoom"
 import { pathBasename, sameProjectCwd } from "./lib/path"
+import { pickProjectSession, isProjectSelected } from "./lib/project-session-safety"
 import { applyTheme } from "./components/settings/themes"
 import { loadPrefs, savePrefs, type HollowPrefs, type PrefKey } from "./components/settings/prefs"
 import type { SectionId } from "./components/settings/nav"
@@ -250,6 +251,7 @@ export default function App() {
   const skipOptimisticMergeRef = useRef(false)
   const addedProjectsRef = useRef(addedProjects)
   addedProjectsRef.current = addedProjects
+  const pendingPromptRef = useRef<{ text: string; cwd: string } | null>(null)
 
   const stashMessagesInCache = useCallback((sessionId: string | null) => {
     if (sessionId && messagesRef.current.length > 0) {
@@ -425,6 +427,17 @@ export default function App() {
                 setSessionList((prev) =>
                   upsertActiveSession(prev, sid, projectCwdRef.current ?? "~"),
                 )
+                if (pendingPromptRef.current) {
+                  const pending = pendingPromptRef.current
+                  pendingPromptRef.current = null
+                  const sessionCwd = pending.cwd
+                  setIsStreaming(true)
+                  send({
+                    type: "prompt",
+                    message: pending.text,
+                    cwd: sessionCwd,
+                  })
+                }
               }
               break
             }
@@ -457,7 +470,12 @@ export default function App() {
             }
             case "get_messages": {
               const mapped = mapMessages(event.data.messages)
-              setMessages(mapped)
+              setMessages((prev) => {
+                if (mapped.length === 0 && (streamingIdRef.current || pendingPromptRef.current)) {
+                  return prev
+                }
+                return mapped
+              })
               const sid = currentSessionIdRef.current
               if (sid) messagesCacheRef.current.set(sid, mapped)
               setLoadingThread(false)
@@ -519,6 +537,7 @@ export default function App() {
         }
         case "bridge_error":
         case "bridge_exit": {
+          pendingPromptRef.current = null
           const msg =
             event.type === "bridge_error"
               ? `Agent error: ${event.error}`
@@ -543,8 +562,34 @@ export default function App() {
     return unsubscribe
   }, [applyAssistantContent, refreshSessionList])
 
+  const hasSelectedProject = isProjectSelected(currentSessionId, projectCwd)
+
   const handleSend = useCallback((content: string) => {
+    if (!isProjectSelected(currentSessionIdRef.current, projectCwdRef.current)) return
+
     const compaction = /^\/compact(?:\s|$)/.test(content)
+    if (compaction && !currentSessionIdRef.current) return
+
+    if (!currentSessionIdRef.current) {
+      if (pendingPromptRef.current) return
+      const targetCwd = projectCwdRef.current
+      if (!targetCwd) return
+
+      pendingPromptRef.current = { text: content, cwd: targetCwd }
+
+      const now = Date.now()
+      const assistantId = `msg-${now + 1}`
+      streamingIdRef.current = assistantId
+
+      setMessages([
+        { id: `msg-${now}`, role: "user", text: content },
+        { id: assistantId, role: "assistant", blocks: [{ type: "text", text: "" }], streaming: true },
+      ])
+      setIsStreaming(true)
+      send({ type: "new_session", cwd: targetCwd })
+      return
+    }
+
     if (compaction) {
       streamingIdRef.current = null
       lastBlocksRef.current = []
@@ -577,6 +622,7 @@ export default function App() {
   }, [])
 
   const handleAbort = useCallback(() => {
+    pendingPromptRef.current = null
     send({ type: "abort" })
     setMessages((prev) =>
       prev.map((message) =>
@@ -592,6 +638,7 @@ export default function App() {
   const handleSelectSession = useCallback(
     (info: AgentSessionInfo) => {
       if (info.id === currentSessionId) return
+      pendingPromptRef.current = null
       setLoopStatus(null)
       stashMessagesInCache(currentSessionId)
       streamingIdRef.current = null
@@ -615,6 +662,7 @@ export default function App() {
 
   // Start a fresh thread inside a given project (new_session takes the cwd).
   const handleNewThread = useCallback((cwd: string) => {
+    pendingPromptRef.current = null
     stashMessagesInCache(currentSessionId)
     setLoopStatus(null)
     streamingIdRef.current = null
@@ -760,15 +808,39 @@ export default function App() {
 
   const handleAddProject = useCallback(() => setPickerOpen(true), [])
 
-  // Register a project folder in the app (does not create anything on disk).
-  const handleProjectChosen = useCallback((dir: string) => {
-    setPickerOpen(false)
-    setAddedProjects((prev) => (prev.includes(dir) ? prev : [dir, ...prev]))
-    setProjectCwd(dir)
-    setProjectAliases((prev) =>
-      prev[dir] ? prev : { ...prev, [dir]: pathBasename(dir) },
-    )
-  }, [])
+  // Select a project: choose its most recent session or select the project folder without creating a session.
+  const handleSelectProject = useCallback(
+    (dir: string) => {
+      const choice = pickProjectSession(sessionListRef.current, dir)
+      if (choice.action === "select" && choice.session) {
+        handleSelectSession(choice.session)
+      } else {
+        pendingPromptRef.current = null
+        stashMessagesInCache(currentSessionId)
+        setLoopStatus(null)
+        streamingIdRef.current = null
+        setCurrentSessionId(null)
+        setProjectCwd(dir)
+        setMessages([])
+        setLoadingThread(false)
+        setSyncingThread(false)
+      }
+    },
+    [handleSelectSession, stashMessagesInCache, currentSessionId],
+  )
+
+  // Register a project folder in the app and select it without creating a session.
+  const handleProjectChosen = useCallback(
+    (dir: string) => {
+      setPickerOpen(false)
+      setAddedProjects((prev) => (prev.includes(dir) ? prev : [dir, ...prev]))
+      setProjectAliases((prev) =>
+        prev[dir] ? prev : { ...prev, [dir]: pathBasename(dir) },
+      )
+      handleSelectProject(dir)
+    },
+    [handleSelectProject],
+  )
 
   const handleSelectModel = useCallback((provider: string, modelId: string, thinkingLevel: string) => {
     send({ type: "set_model", provider, modelId, thinkingLevel })
@@ -890,6 +962,7 @@ export default function App() {
             projectAliases={projectAliases}
             threadAliases={threadAliases}
             onSelect={handleSelectSession}
+            onSelectProject={handleSelectProject}
             onAddProject={handleAddProject}
             onNewThread={handleNewThread}
             onRenameProject={handleRenameProject}
@@ -925,6 +998,8 @@ export default function App() {
             syncingThread={syncingThread}
             repoStatus={repoStatus}
             loopStatus={loopStatus}
+            hasSelectedProject={hasSelectedProject}
+            onAddProject={handleAddProject}
             onSend={handleSend}
             onAbort={handleAbort}
             onSelectModel={handleSelectModel}

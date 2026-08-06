@@ -16,6 +16,8 @@ interface ChatWorkspaceProps {
   syncingThread: boolean
   repoStatus: RepoStatus | null
   loopStatus: { active: boolean; iteration: number; maxIterations: number; task: string } | null
+  hasSelectedProject?: boolean
+  onAddProject?: () => void
   onSend: (text: string) => void
   onAbort: () => void
   onSelectModel: (provider: string, modelId: string, thinkingLevel: string) => void
@@ -34,6 +36,8 @@ export const ChatWorkspace = memo(function ChatWorkspace({
   syncingThread,
   repoStatus,
   loopStatus,
+  hasSelectedProject = true,
+  onAddProject,
   onSend,
   onAbort,
   onSelectModel,
@@ -52,11 +56,13 @@ export const ChatWorkspace = memo(function ChatWorkspace({
       onAbort={onAbort}
       repoStatus={repoStatus}
       loopStatus={loopStatus}
+      disabled={!hasSelectedProject}
+      disabledPlaceholder="Select a project to start"
       onOpenSettingsModels={onOpenSettingsModels}
       footer={
         <ModelPicker
           catalog={modelCatalog}
-          disabled={isStreaming}
+          disabled={isStreaming || !hasSelectedProject}
           onSelect={onSelectModel}
           onToggleEnabled={onToggleModelEnabled}
           onRefreshCatalog={onRefreshCatalog}
@@ -73,8 +79,12 @@ export const ChatWorkspace = memo(function ChatWorkspace({
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <span className="block h-5 w-5 rounded-full border-2 border-muted-foreground/30 border-t-foreground animate-spin [animation-duration:0.9s]" />
         </div>
-      ) : showEmpty ? (
-        <EmptyState composer={composer} />
+      ) : showEmpty || !hasSelectedProject ? (
+        <EmptyState
+          composer={composer}
+          hasSelectedProject={hasSelectedProject}
+          onAddProject={onAddProject}
+        />
       ) : (
         <>
           <ChatView messages={messages} sessionId={sessionId} isStreaming={streaming} />

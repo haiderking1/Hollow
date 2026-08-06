@@ -47,7 +47,8 @@ export type BackendMessage =
       errorMessage?: string;
     }
   | { type: "error"; message: string }
-  | { type: "loop.status"; active: boolean; iteration: number; maxIterations: number; task: string };
+  | { type: "loop.status"; active: boolean; iteration: number; maxIterations: number; task: string }
+  | { type: "session_info_changed"; data?: unknown };
 
 type CoreEvent = { kind: string; data: unknown };
 
@@ -203,6 +204,13 @@ export const mapAgentEvent = (event: unknown): BackendMessage | null => {
         aborted: d.aborted === true,
         willRetry: d.will_retry === true,
         errorMessage: string_field(d, "error_message") || undefined,
+      };
+    }
+
+    case "session_info_changed": {
+      return {
+        type: "session_info_changed",
+        data,
       };
     }
 

@@ -117,5 +117,5 @@ export type info = {
   created: Date;
   message_count: number;
   first_message: string;
+  title?: string;
 };
-

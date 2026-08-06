@@ -78,6 +78,8 @@ export type SessionResponse = {
   path: string;
   cwd: string;
   title: string;
+  name?: string;
+  firstMessage?: string;
   createdAt: string; // relative formatted time
   created: string; // ISO string
   modified: string; // ISO string
@@ -239,7 +241,9 @@ const mapSessionInfo = (info: info): SessionResponse => {
     id: info.id,
     path: info.path,
     cwd: info.cwd,
-    title: info.first_message,
+    title: info.title || info.first_message,
+    name: info.title,
+    firstMessage: info.first_message,
     createdAt: format_relative(info.modified),
     created: info.created.toISOString(),
     modified: info.modified.toISOString(),
@@ -621,6 +625,9 @@ export class DesktopBridge {
           };
         }
         case "newSession": {
+          if (!command.cwd && (!runtime.projectSelected || !runtime.agent?.session)) {
+            return yield* Effect.fail(new Error("Select a project to start"));
+          }
           const sm = yield* runtime.newSession(command.cwd || undefined);
           return {
             type: "session.history" as const,
@@ -656,6 +663,9 @@ export class DesktopBridge {
           };
         }
         case "prompt": {
+          if (!runtime.projectSelected || !runtime.agent?.session) {
+            return yield* Effect.fail(new Error("Select a project to start"));
+          }
           yield* runtime.prompt(command.text, command.attachments || undefined, command.requestId);
           if (!/^\/compact(?:\s|$)/.test(command.text.trim())) {
             runtime.agent.emit?.({

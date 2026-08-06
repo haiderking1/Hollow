@@ -20,6 +20,7 @@ interface SidebarProps {
   projectAliases: Record<string, string>
   threadAliases: Record<string, string>
   onSelect: (session: AgentSessionInfo) => void
+  onSelectProject: (cwd: string) => void
   onAddProject: () => void
   onNewThread: (cwd: string) => void
   onRenameProject: (cwd: string, name: string) => void
@@ -67,6 +68,7 @@ export function Sidebar({
   projectAliases,
   threadAliases,
   onSelect,
+  onSelectProject,
   onAddProject,
   onNewThread,
   onRenameProject,
@@ -180,15 +182,32 @@ export function Sidebar({
             <div key={group.cwd} className="flex flex-col">
               <div className="group flex items-center gap-1 rounded-lg px-2 py-1.5 text-[14px] font-medium text-foreground hover:bg-surface-hover/50">
                 <button
-                  onClick={() => !editingProject && setCollapsed((c) => ({ ...c, [group.cwd]: open }))}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (!editingProject) setCollapsed((c) => ({ ...c, [group.cwd]: open }))
+                  }}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/75 hover:bg-surface-hover hover:text-foreground"
+                  aria-label={open ? "Collapse project" : "Expand project"}
+                  title={open ? "Collapse" : "Expand"}
+                >
+                  {open ? (
+                    <ChevronDown className="h-4 w-4" strokeWidth={2} />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!editingProject) {
+                      setCollapsed((c) => ({ ...c, [group.cwd]: false }))
+                      onSelectProject(group.cwd)
+                    }
+                  }}
                   className="flex min-w-0 flex-1 items-center gap-2 text-left select-none"
                   title={group.cwd}
                 >
-                  {open ? (
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground/75" strokeWidth={2} />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/75" strokeWidth={2} />
-                  )}
                   <Folder
                     className="h-4 w-4 shrink-0 text-muted-foreground/75 fill-muted-foreground/5"
                     strokeWidth={2}

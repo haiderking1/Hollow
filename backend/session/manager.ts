@@ -138,6 +138,11 @@ export class manager {
                   this._label_timestamps_by_id.delete(entry.targetId || "");
                 }
               }
+              if (entry.type === type_session_info) {
+                if (entry.name) {
+                  this._labels_by_id.set(entry.id || "", entry.name);
+                }
+              }
             }
           }
         } catch {
@@ -617,6 +622,24 @@ export class manager {
     }
   }
 
+  get_title(): string {
+    if (this._session_id && this._labels_by_id.has(this._session_id)) {
+      return this._labels_by_id.get(this._session_id)!;
+    }
+    if (this._labels_by_id.has("")) {
+      return this._labels_by_id.get("")!;
+    }
+    for (const val of this._labels_by_id.values()) {
+      if (val) return val;
+    }
+    return "";
+  }
+
+  set_title(title: string): Effect.Effect<string, Error> {
+    const targetID = this._session_id || "";
+    return this.append_label_change(targetID, title);
+  }
+
   branch(branchFromId: string): void {
     this._leaf_id = branchFromId;
   }
@@ -754,6 +777,31 @@ export const continue_recent = (cwd: string): Effect.Effect<manager, Error> => {
 
       await Effect.runPromise(m.new_session());
       return m;
+    },
+    catch: (cause) => cause instanceof Error ? cause : new Error(String(cause)),
+  });
+};
+
+export const continue_recent_if_exists = (cwd: string): Effect.Effect<manager | null, Error> => {
+  return Effect.tryPromise({
+    try: async () => {
+      let cleanCwd = cwd;
+      if (cleanCwd === "") {
+        cleanCwd = process.cwd();
+      }
+      cleanCwd = path.resolve(cleanCwd);
+
+      const dir = await Effect.runPromise(session_dir(cleanCwd));
+      const recent = await find_most_recent(dir);
+      if (recent !== "") {
+        const m = new manager();
+        m.set_cwd(cleanCwd);
+        m.set_session_dir(dir);
+        await Effect.runPromise(m.open_file(recent));
+        return m;
+      }
+
+      return null;
     },
     catch: (cause) => cause instanceof Error ? cause : new Error(String(cause)),
   });

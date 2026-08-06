@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import { Effect, Context, PubSub } from "effect";
 // Single registration barrel — attaches all Agent prototype methods and
 // re-exports { Agent, New } so this is the only agent import needed.
@@ -7,7 +8,7 @@ import { type runtime, load_runtime } from "../backend/config/config";
 import { apply_provider_model } from "../backend/config/provider";
 import { EnsureBootstrapped } from "../backend/skills/bootstrap";
 import { open_session, list_for_cwd, list_all } from "../backend/session/list";
-import { continue_recent, start_new, type manager } from "../backend/session/manager";
+import { continue_recent_if_exists, start_new, type manager } from "../backend/session/manager";
 import { delete_session } from "../backend/session/delete";
 import { delete_for_cwd } from "../backend/session/delete_cwd";
 import { same_project_cwd } from "../backend/session/paths";
@@ -45,6 +46,8 @@ export class AgentRuntimeImpl {
   pubsub!: PubSub.PubSub<any>;
   /** False until a provider key is loaded and the agent is constructed. */
   available = false;
+  /** True only when a project has been explicitly selected, opened, or created by the user. */
+  projectSelected = false;
   private activePromptController: AbortController | null = null;
   loopState: {
     active: boolean;
@@ -60,6 +63,7 @@ export class AgentRuntimeImpl {
     return Effect.gen(function* () {
       self.pubsub = yield* PubSub.unbounded<any>();
       self.available = false;
+      self.projectSelected = false;
       self.workDir = workDir && workDir !== "" ? workDir : process.cwd();
 
       // load_runtime hard-fails when no provider key is configured. Treat that
@@ -84,18 +88,16 @@ export class AgentRuntimeImpl {
 
   /**
    * Shared agent-build step used by boot() and reconnect(): bootstrap skills,
-   * open the most recent session for the workdir, construct the agent, and mark
-   * the runtime available. Reuses continue_recent (which scans the dir for an
-   * existing session file) rather than the in-memory session_file() path — that
-   * path is set by new_session before the file is actually written, so reading
-   * it back on reconnect would ENOENT.
+   * open the most recent session for the workdir if one exists and a project was
+   * explicitly selected, construct the agent, and mark the runtime available.
+   * Avoids creating default sessions under process.cwd() when no session exists yet.
    */
   private buildAgent(cfg: runtime): Effect.Effect<void, Error> {
     const self = this;
     return Effect.gen(function* () {
       self.config = cfg;
       yield* EnsureBootstrapped();
-      const sm = yield* continue_recent(self.workDir);
+      const sm = self.projectSelected ? yield* continue_recent_if_exists(self.workDir) : null;
       // Tear down the previous agent (MCP manager, etc.) before replacing it.
       if (self.agent?.Close) {
         try {
@@ -149,6 +151,7 @@ export class AgentRuntimeImpl {
     return Effect.gen(function* () {
       self.pubsub = yield* PubSub.unbounded<any>();
       self.available = false;
+      self.projectSelected = false;
       self.workDir = workDir && workDir !== "" ? workDir : process.cwd();
     }).pipe(Effect.catchAll(() => Effect.void));
   }
@@ -181,6 +184,7 @@ export class AgentRuntimeImpl {
       // Keep the runtime workDir in sync with the active session so a reconnect
       // rebuilds the agent against this session's project, not the boot cwd.
       if (sm.cwd() !== "") self.workDir = sm.cwd();
+      self.projectSelected = true;
       if (self.available) self.agent.LoadSession(sm);
       return sm;
     });
@@ -189,12 +193,16 @@ export class AgentRuntimeImpl {
   newSession(cwd?: string): Effect.Effect<manager, Error> {
     const self = this;
     return Effect.gen(function* () {
-      const targetCwd = cwd || self.workDir;
+      const targetCwd = cwd || (self.projectSelected ? self.workDir : undefined);
+      if (!targetCwd || targetCwd === "" || (!cwd && !self.projectSelected)) {
+        return yield* Effect.fail(new Error("Select a project to start"));
+      }
       // Track the chosen cwd at the runtime layer too — otherwise a later
       // reconnect() rebuilds the agent from the stale boot workDir (process.cwd(),
       // i.e. the app's own dir) and `pwd` ends up pointing at ~/hollow instead
       // of the user's project.
       self.workDir = targetCwd;
+      self.projectSelected = true;
       const sm = yield* start_new(targetCwd);
       if (self.available) self.agent.LoadSession(sm);
       return sm;
@@ -218,11 +226,22 @@ export class AgentRuntimeImpl {
       const resolvedTarget = path.resolve(targetPath);
       if (self.agent?.session) {
         const activePath = path.resolve(self.agent.session.session_file());
-        if (activePath === resolvedTarget) {
+        if (activePath === resolvedTarget || self.agent.session.session_id() === id) {
           self.agent.LoadSession(null);
+          self.projectSelected = false;
         }
+      } else {
+        self.projectSelected = false;
       }
-      yield* delete_session(resolvedTarget);
+      const fileExists = yield* Effect.tryPromise(() =>
+        fs.stat(resolvedTarget).then(
+          () => true,
+          () => false,
+        ),
+      );
+      if (fileExists) {
+        yield* delete_session(resolvedTarget);
+      }
     });
   }
 
@@ -234,7 +253,10 @@ export class AgentRuntimeImpl {
         const sessionCwd = self.agent.session.cwd();
         if (sessionCwd !== "" && same_project_cwd(sessionCwd, resolvedCwd)) {
           self.agent.LoadSession(null);
+          self.projectSelected = false;
         }
+      } else if (self.workDir && same_project_cwd(self.workDir, resolvedCwd)) {
+        self.projectSelected = false;
       }
       return yield* delete_for_cwd(resolvedCwd, "", [...sessionPaths]);
     });
@@ -266,6 +288,7 @@ export class AgentRuntimeImpl {
     }
 
     if (!self.available) return Effect.fail(new Error(NOT_CONNECTED));
+    if (!self.projectSelected || !self.agent?.session) return Effect.fail(new Error("Select a project to start"));
     self.agent.activeRequestId = requestId;
 
     // Check if this is a compaction command

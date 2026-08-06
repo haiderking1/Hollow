@@ -279,4 +279,63 @@ describe("HollowClient request lifecycle", () => {
     expect(events.filter((event) => event.type === "compaction_start")).toHaveLength(1)
     expect(events.filter((event) => event.type === "compaction_end")).toHaveLength(1)
   })
+
+  it("sequences new_session acknowledgement before session.history and get_state confirmation", async () => {
+    let backendEvent: ((message: unknown) => void) | undefined
+    let dispatchedCommand: Record<string, unknown> | undefined
+    const bridge = {
+      isElectron: true,
+      onEvent: (listener: (message: unknown) => void) => {
+        backendEvent = listener
+        return () => {}
+      },
+      dispatch: (message: Record<string, unknown>) => {
+        dispatchedCommand = message
+        return Promise.resolve({ ok: true, data: undefined })
+      },
+    }
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { hollowDesktop: bridge },
+    })
+
+    const client = new HollowClient()
+    const events: AgentEvent[] = []
+    client.onEvent((event) => events.push(event))
+
+    client.send({ type: "new_session", cwd: "/tmp/test-project" })
+    await Promise.resolve()
+
+    expect(dispatchedCommand?.type).toBe("newSession")
+    expect(dispatchedCommand?.cwd).toBe("/tmp/test-project")
+
+    const newSessionAck = events.find(
+      (e) => e.type === "response" && e.command === "new_session",
+    )
+    expect(newSessionAck).toBeDefined()
+
+    const getStateEventsBefore = events.filter(
+      (e) => e.type === "response" && e.command === "get_state",
+    )
+    const latestStateBefore = getStateEventsBefore.at(-1)
+    if (latestStateBefore && latestStateBefore.type === "response" && latestStateBefore.command === "get_state") {
+      expect(latestStateBefore.data.sessionId).toBeFalsy()
+    }
+
+    backendEvent?.({
+      type: "session.history",
+      sessionId: "session-abc-123",
+      cwd: "/tmp/test-project",
+      messages: [],
+    })
+
+    const getStateEventsAfter = events.filter(
+      (e) => e.type === "response" && e.command === "get_state",
+    )
+    const latestStateAfter = getStateEventsAfter.at(-1)
+    expect(latestStateAfter?.type).toBe("response")
+    if (latestStateAfter && latestStateAfter.type === "response" && latestStateAfter.command === "get_state") {
+      expect(latestStateAfter.data.sessionId).toBe("session-abc-123")
+    }
+  })
 })

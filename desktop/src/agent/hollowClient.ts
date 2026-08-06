@@ -30,6 +30,8 @@ interface BackendSession {
   path?: string
   cwd?: string
   title: string
+  name?: string
+  firstMessage?: string
   createdAt: string
   created?: string
   modified?: string
@@ -297,15 +299,17 @@ function mapHistory(messages: BackendHistoryMessage[] | null | undefined): RawMe
 function mapSession(session: BackendSession): AgentSessionInfo {
   const modified = session.modified || nowIso()
   const created = session.created || modified
+  const name = session.name || (session.title !== session.firstMessage ? session.title : undefined)
+  const firstMsg = session.firstMessage || session.title
   return {
     path: session.path || session.id,
     id: session.id,
     cwd: session.cwd || DEFAULT_CWD,
-    name: session.title,
+    name: name,
     created,
     modified,
     messageCount: session.messageCount ?? 0,
-    firstMessage: session.title,
+    firstMessage: firstMsg,
   }
 }
 
@@ -322,8 +326,6 @@ export class HollowClient {
   private catalog: ModelCatalog = emptyCatalog()
   private connections: ConnectionInfo[] = []
   private awaitingNewSession = false
-  /** After deleting the active thread, don't resurrect it from a stale listSessions. */
-  private skipAutoOpenUntilEmpty = false
   private activeRequest: {
     id: string
     compaction: boolean
@@ -395,7 +397,6 @@ export class HollowClient {
         const deleteTarget = match?.path || match?.id || id
         if (this.currentSessionId === id || this.currentSessionId === resolved) {
           this.currentSessionId = null
-          this.skipAutoOpenUntilEmpty = true
         }
         this.histories.delete(id)
         this.histories.delete(resolved)
@@ -408,7 +409,6 @@ export class HollowClient {
           .dispatch({ type: "deleteSession", id: deleteTarget })
           .then((result) => {
             if (!result.ok) {
-              this.skipAutoOpenUntilEmpty = false
               this.emit({ type: "bridge_error", error: result.error ?? "Failed to delete session" })
               this.dispatch({ type: "listSessions" })
               return
@@ -416,7 +416,6 @@ export class HollowClient {
             this.dispatch({ type: "listSessions" })
           })
           .catch((err) => {
-            this.skipAutoOpenUntilEmpty = false
             this.emit({ type: "bridge_error", error: String(err?.message || err) })
             this.dispatch({ type: "listSessions" })
           })
@@ -434,7 +433,6 @@ export class HollowClient {
         )
         if (clearingActive) {
           this.currentSessionId = null
-          this.skipAutoOpenUntilEmpty = true
         }
         for (const session of inProject) {
           this.histories.delete(session.id)
@@ -449,7 +447,6 @@ export class HollowClient {
           .dispatch({ type: "deleteProjectSessions", cwd, sessionPaths })
           .then((result) => {
             if (!result.ok) {
-              this.skipAutoOpenUntilEmpty = false
               this.emit({ type: "bridge_error", error: result.error ?? "Failed to remove project" })
               this.dispatch({ type: "listSessions" })
               return
@@ -465,7 +462,6 @@ export class HollowClient {
             this.dispatch({ type: "listSessions" })
           })
           .catch((err) => {
-            this.skipAutoOpenUntilEmpty = false
             this.emit({ type: "bridge_error", error: String(err?.message || err) })
             this.dispatch({ type: "listSessions" })
           })
@@ -783,19 +779,6 @@ export class HollowClient {
         break
       case "session.list": {
         this.sessions = (message.sessions ?? []).map(mapSession)
-        const first = this.sessions[0]
-        if (
-          !this.currentSessionId &&
-          first &&
-          !this.awaitingNewSession &&
-          !this.skipAutoOpenUntilEmpty
-        ) {
-          this.currentSessionId = first.id
-          this.dispatch({ type: "openSession", id: first.id })
-        }
-        if (this.skipAutoOpenUntilEmpty && this.sessions.length === 0) {
-          this.skipAutoOpenUntilEmpty = false
-        }
         this.emit({ type: "response", command: "list_sessions", success: true, data: { sessions: this.sessions } })
         this.emit({ type: "response", command: "get_state", success: true, data: this.state() })
         break

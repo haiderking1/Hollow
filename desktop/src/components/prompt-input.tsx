@@ -16,6 +16,8 @@ interface PromptInputProps {
   onAbort?: () => void
   repoStatus?: RepoStatus | null
   loopStatus?: { active: boolean; iteration: number; maxIterations: number; task: string } | null
+  disabled?: boolean
+  disabledPlaceholder?: string
   /** Inline controls rendered inside the input row, left of the send/mic button. */
   footer?: ReactNode
   /** Open Settings → Models from the model picker "Add Models" row. */
@@ -69,6 +71,8 @@ export function PromptInput({
   onAbort,
   repoStatus,
   loopStatus,
+  disabled = false,
+  disabledPlaceholder = "Select a project to start",
   footer,
   onOpenSettingsModels,
 }: PromptInputProps) {
@@ -79,7 +83,7 @@ export function PromptInput({
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   // Compute if we should show the slash menu and get filtered commands list
-  const showSlashMenu = value.startsWith("/") && !value.includes(" ")
+  const showSlashMenu = !disabled && value.startsWith("/") && !value.includes(" ")
   const filteredCommands = useMemo(() => {
     if (!showSlashMenu) return []
     const query = value.toLowerCase()
@@ -92,6 +96,7 @@ export function PromptInput({
   }, [filteredCommands.length])
 
   const submit = (input = value) => {
+    if (disabled) return
     const text = input.trim()
     if (!text || isStreaming) return
     onSend?.(text)
@@ -171,7 +176,8 @@ export function PromptInput({
           {/* Plus attachment. */}
           <button
             type="button"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+            disabled={disabled}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
             style={{ color: C.toolIcon }}
             aria-label="Add attachment"
           >
@@ -180,9 +186,11 @@ export function PromptInput({
 
           <textarea
             ref={taRef}
-            value={value}
+            value={disabled ? "" : value}
+            disabled={disabled}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
+              if (disabled) return
               if (showSlashMenu && filteredCommands.length > 0) {
                 if (e.key === "ArrowDown") {
                   e.preventDefault()
@@ -215,8 +223,8 @@ export function PromptInput({
               }
             }}
             rows={1}
-            placeholder="Send follow-up"
-            className="composer-textarea min-w-0 flex-1 bg-transparent px-1 py-[3px] text-[15px] leading-[22px] outline-none"
+            placeholder={disabled ? disabledPlaceholder : "Send follow-up"}
+            className="composer-textarea min-w-0 flex-1 bg-transparent px-1 py-[3px] text-[15px] leading-[22px] outline-none disabled:cursor-not-allowed disabled:opacity-60"
             style={{ color: C.text, caretColor: C.text }}
           />
 
@@ -226,9 +234,9 @@ export function PromptInput({
           <button
             type="button"
             onClick={isStreaming ? () => onAbort?.() : () => submit()}
-            disabled={!isStreaming && !hasText}
-            title={isStreaming ? "Stop" : hasText ? "Send" : "Voice input"}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-60"
+            disabled={disabled || (!isStreaming && !hasText)}
+            title={isStreaming ? "Stop" : disabled ? disabledPlaceholder : hasText ? "Send" : "Voice input"}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: C.actionBg }}
           >
             {isStreaming ? (

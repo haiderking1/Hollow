@@ -143,6 +143,7 @@ export const scan_info = (session_path: string): Effect.Effect<info, Error> => {
       let header_ok = false;
       let message_count = 0;
       let first_message = "";
+      let title = "";
 
       for await (const line of rl) {
         const trimmed = line.trim();
@@ -170,12 +171,20 @@ export const scan_info = (session_path: string): Effect.Effect<info, Error> => {
               }
             } catch {}
           }
-        }
-
-        if (header_ok && first_message !== "") {
-          rl.close();
-          file_stream.destroy();
-          break;
+        } else if (line_type === "label") {
+          try {
+            const entry = JSON.parse(trimmed) as any;
+            if (entry.label) {
+              title = entry.label;
+            }
+          } catch {}
+        } else if (line_type === "session_info") {
+          try {
+            const entry = JSON.parse(trimmed) as any;
+            if (entry.name) {
+              title = entry.name;
+            }
+          } catch {}
         }
       }
 
@@ -203,6 +212,7 @@ export const scan_info = (session_path: string): Effect.Effect<info, Error> => {
         created: created,
         message_count: message_count,
         first_message: first_message,
+        title: title !== "" ? title : undefined,
       };
     },
     catch: (cause) => cause instanceof Error ? cause : new Error(String(cause)),
@@ -215,6 +225,12 @@ export const peek_line_type = (line: string): string => {
   }
   if (line.includes('"type":"message"') || line.includes('"type": "message"')) {
     return "message";
+  }
+  if (line.includes('"type":"label"') || line.includes('"type": "label"')) {
+    return "label";
+  }
+  if (line.includes('"type":"session_info"') || line.includes('"type": "session_info"')) {
+    return "session_info";
   }
   return "";
 };

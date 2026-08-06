@@ -40,6 +40,8 @@ import { detect_verify_command } from "./obligations/derive";
 import { extract_task_verify_commands } from "./obligations/match";
 import { seed_continuity_reads } from "./evidence/continuity";
 import { sessionFingerprints } from "./session_fingerprints";
+import { generateSessionTitle, pendingOrCompletedTitleSessions } from "../session/title";
+
 
 const providerFailureError = (cause: unknown): Error => {
   if (cause instanceof Error) return cause;
@@ -200,6 +202,8 @@ export class Agent {
   toolSkillView!: (argsJSON: string) => Effect.Effect<toolResult, Error>;
   toolSkillManage!: (argsJSON: string) => Effect.Effect<toolResult, Error>;
   toolMemory!: (argsJSON: string) => Effect.Effect<toolResult, Error>;
+  titleGenerator?: typeof generateSessionTitle;
+  maybeGenerateSessionTitleInBackground!: (firstUserText?: string) => void;
   runSwarmWorkerInDir!: (
     ctx: AbortSignal,
     task: swarmTask,
@@ -1100,6 +1104,7 @@ Agent.prototype.prompt = async function (
 
   this.messages.push(userMsg);
   this.persist(userMsg);
+  this.maybeGenerateSessionTitleInBackground(this.userTurnCount === 1 ? userText : undefined);
 
   if (cfg.evidence?.enabled && goal_lock_enabled(cfg.evidence)) {
     const lockMsg: message = {
@@ -1131,6 +1136,60 @@ Agent.prototype.prompt = async function (
     this.userAbortCtx = null;
     this.userAbortCancel = null;
   }
+};
+
+Agent.prototype.maybeGenerateSessionTitleInBackground = function (
+  this: Agent,
+  firstUserText = "",
+): void {
+  if (!this.session || !this.client) return;
+  const sessionId = this.session.session_id();
+  if (!sessionId) return;
+
+  if (this.session.get_title() !== "") return;
+  if (pendingOrCompletedTitleSessions.has(sessionId)) return;
+
+  // `persist()` is intentionally fire-and-forget. Use the prompt already in
+  // memory instead of racing the session-file write on the first turn.
+  firstUserText = firstUserText.trim();
+  if (firstUserText === "") {
+    const branchEntries = this.session.get_branch(this.session.leaf_id());
+    for (const entry of branchEntries) {
+      if (entry.type !== "message" || !entry.message || entry.message.role !== "user") continue;
+      const text = content_string(entry.message).trim();
+      if (text !== "" && !text.startsWith("Goal lock:")) {
+        firstUserText = text;
+        break;
+      }
+    }
+  }
+
+  if (firstUserText === "") return;
+
+  pendingOrCompletedTitleSessions.add(sessionId);
+
+  const activeClient = this.client;
+  const sessionMgr = this.session;
+  const emitFn = this.emit;
+  const genFn = this.titleGenerator || generateSessionTitle;
+
+  // Like T3 Code, title generation is based on the first user request only.
+  // Starting it before the main model turn gives the provider the full turn
+  // duration to finish without coupling title metadata to assistant output.
+  void Effect.runPromise(
+    genFn(activeClient, firstUserText)
+  ).then((title) => {
+    if (title && title.trim() !== "") {
+      void Effect.runPromise(sessionMgr.set_title(title)).then(() => {
+        if (emitFn) {
+          emitFn({
+            kind: "session_info_changed",
+            data: { session_id: sessionId, name: title },
+          });
+        }
+      }).catch(() => {});
+    }
+  }).catch(() => {});
 };
 
 Agent.prototype.Prompt = async function (
